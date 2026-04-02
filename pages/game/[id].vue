@@ -6,7 +6,7 @@
     </div>
 
     <!-- Main Content -->
-    <div v-else-if="data" class="max-w-7xl mx-auto p-3 sm:p-6">
+    <div v-else-if="data" class="max-w-7xl mx-auto p-2.5 sm:p-6">
       <!-- Back Button -->
       <NuxtLink to="/" class="inline-flex items-center gap-1.5 sm:gap-2 text-zinc-400 hover:text-zinc-200 mb-4 sm:mb-6 transition-colors">
         <ChevronLeft :size="18" />
@@ -20,7 +20,7 @@
       />
 
       <!-- Main Grid -->
-      <div class="mt-6">
+      <div class="mt-4 sm:mt-6">
         <!-- Tabbed Content -->
         <div class="space-y-6">
           <!-- Tab Navigation -->
@@ -31,7 +31,7 @@
                 <button
                   v-if="gameSport === 'football'"
                   @click="activeTab = 'timeline'"
-                  class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 relative"
+                  class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-sm font-medium transition-all duration-200 relative"
                   :class="activeTab === 'timeline' 
                     ? 'text-zinc-100' 
                     : 'text-zinc-500 hover:text-zinc-300'"
@@ -44,7 +44,7 @@
                 </button>
                 <button
                   @click="activeTab = 'stats'"
-                  class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 relative"
+                  class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-sm font-medium transition-all duration-200 relative"
                   :class="activeTab === 'stats' 
                     ? 'text-zinc-100' 
                     : 'text-zinc-500 hover:text-zinc-300'"
@@ -57,7 +57,7 @@
                 </button>
                 <button
                   @click="activeTab = 'players'"
-                  class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 relative"
+                  class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-sm font-medium transition-all duration-200 relative"
                   :class="activeTab === 'players' 
                     ? 'text-zinc-100' 
                     : 'text-zinc-500 hover:text-zinc-300'"
@@ -74,7 +74,7 @@
               <template v-else>
                 <button
                   @click="activeTab = 'analysis'"
-                  class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 relative"
+                  class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-sm font-medium transition-all duration-200 relative"
                   :class="activeTab === 'analysis' 
                     ? 'text-zinc-100' 
                     : 'text-zinc-500 hover:text-zinc-300'"
@@ -87,7 +87,7 @@
                 </button>
                 <button
                   @click="activeTab = 'prediction'"
-                  class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 relative"
+                  class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-sm font-medium transition-all duration-200 relative"
                   :class="activeTab === 'prediction' 
                     ? 'text-zinc-100' 
                     : 'text-zinc-500 hover:text-zinc-300'"
@@ -101,7 +101,7 @@
                 <button
                   v-if="hasFantasy"
                   @click="activeTab = 'fantasy'"
-                  class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 relative"
+                  class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-sm font-medium transition-all duration-200 relative"
                   :class="activeTab === 'fantasy' 
                     ? 'text-zinc-100' 
                     : 'text-zinc-500 hover:text-zinc-300'"
@@ -117,7 +117,7 @@
 
             <!-- Tab Content (swipeable) -->
             <div 
-              class="p-3 sm:p-6"
+              class="p-2.5 sm:p-6"
               @touchstart="onTouchStart"
               @touchend="onTouchEnd"
             >

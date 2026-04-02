@@ -1,10 +1,10 @@
 <template>
-  <div class="space-y-4">
+  <div class="space-y-3 sm:space-y-4">
     <!-- Has Prediction -->
     <template v-if="prediction">
 
       <!-- ═══ TOP VERDICT CARD ═══ -->
-      <div :class="['verdict-card rounded-xl px-5 py-5 relative overflow-hidden', verdictAccentClass]">
+      <div :class="['verdict-card rounded-xl px-3.5 sm:px-5 py-4 sm:py-5 relative overflow-hidden', verdictAccentClass]">
         <!-- Background decoration -->
         <div class="absolute inset-0 opacity-5 pointer-events-none">
           <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full" :class="verdictBgCircle"></div>
@@ -13,8 +13,8 @@
         <!-- Label -->
         <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">AI Prediction</p>
         <!-- Outcome -->
-        <div class="flex items-end gap-3">
-          <span class="text-3xl font-extrabold leading-none tracking-tight" :class="outcomeColor">{{ outcomeLabel }}</span>
+        <div class="flex items-end gap-2.5 sm:gap-3">
+          <span class="text-[2rem] sm:text-3xl font-extrabold leading-[1.05] tracking-tight break-words" :class="outcomeColor">{{ outcomeLabel }}</span>
           <span v-if="predictionOdds" class="mb-0.5 text-base font-bold text-zinc-400 tabular-nums">@ {{ predictionOdds }}</span>
         </div>
         <!-- Sub-label -->
@@ -64,25 +64,25 @@
       </div>
 
       <!-- ═══ BET SUGGESTION CARD (when EV or Kelly available) ═══ -->
-      <div v-if="prediction.expected_value || prediction.kelly_percentage" class="bet-suggestion-card rounded-xl p-4">
+      <div v-if="prediction.expected_value || prediction.kelly_percentage" class="bet-suggestion-card rounded-xl p-3 sm:p-4">
         <div class="flex items-center gap-2 mb-3">
           <div class="w-1.5 h-4 rounded-full bg-gradient-to-b from-amber-400 to-amber-600"></div>
           <span class="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Suggested Bet</span>
         </div>
         <!-- Bet line -->
-        <div class="flex items-center gap-2 mb-3">
-          <span class="text-base font-extrabold" :class="outcomeColor">{{ outcomeLabel }}</span>
+        <div class="flex items-center gap-2 mb-3 min-w-0">
+          <span class="text-sm sm:text-base font-extrabold truncate" :class="outcomeColor">{{ outcomeLabel }}</span>
           <span v-if="predictionOdds" class="text-sm font-bold text-zinc-300 tabular-nums">@ {{ predictionOdds }}</span>
         </div>
         <!-- EV + Kelly metrics -->
         <div class="grid grid-cols-2 gap-2">
-          <div v-if="prediction.expected_value" class="metric-cell rounded-lg px-3 py-2">
+          <div v-if="prediction.expected_value" class="metric-cell rounded-lg px-2.5 sm:px-3 py-2">
             <span class="text-[10px] text-zinc-500 block mb-0.5">Expected Value</span>
             <span class="text-sm font-bold tabular-nums" :class="prediction.expected_value > 0 ? 'text-emerald-400' : 'text-red-400'">
               {{ prediction.expected_value > 0 ? '+' : '' }}{{ (prediction.expected_value * 100).toFixed(1) }}%
             </span>
           </div>
-          <div v-if="prediction.kelly_percentage" class="metric-cell rounded-lg px-3 py-2">
+          <div v-if="prediction.kelly_percentage" class="metric-cell rounded-lg px-2.5 sm:px-3 py-2">
             <span class="text-[10px] text-zinc-500 block mb-0.5">Kelly Stake</span>
             <span class="text-sm font-bold text-indigo-400 tabular-nums">{{ (prediction.kelly_percentage * 100).toFixed(1) }}%</span>
           </div>

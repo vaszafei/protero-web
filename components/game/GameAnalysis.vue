@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-4">
+  <div class="space-y-3 sm:space-y-4">
     <!-- ===== ODDS SECTION ===== -->
-    <div v-if="hasOdds" class="space-y-3">
+    <div v-if="hasOdds" class="space-y-2.5 sm:space-y-3">
       <div class="flex items-center justify-between">
         <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Betting Odds</h4>
         <span v-if="recommendedMarket" class="text-[9px] font-bold text-amber-400 uppercase tracking-wider">AI Pick highlighted</span>
@@ -89,8 +89,8 @@
     </div>
 
     <!-- ===== H2H SECTION ===== -->
-    <div class="border-t border-edge/50 pt-4">
-      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Head to Head</h4>
+    <div class="border-t border-edge/50 pt-3.5 sm:pt-4">
+      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Head to Head</h4>
       
       <!-- Loading -->
       <div v-if="h2hLoading" class="flex justify-center py-8">
@@ -102,7 +102,7 @@
       <!-- H2H Data -->
       <div v-else-if="h2h && h2h.matches && h2h.matches.length > 0">
         <!-- Summary Bar -->
-        <div class="flex items-center gap-2 mb-3">
+        <div class="flex items-center gap-2 mb-2.5 sm:mb-3">
           <div class="flex-1 h-7 rounded-full overflow-hidden flex text-[10px] font-bold">
             <div class="h2h-home flex items-center justify-center transition-all" :style="{ width: homeWinPct + '%' }">
               <span v-if="homeWinPct >= 15" class="text-white/90">{{ h2h.summary.homeTeamWins }}</span>
@@ -118,16 +118,16 @@
         </div>
 
         <!-- Summary Stats -->
-        <div class="grid grid-cols-3 gap-1.5 mb-3">
-          <div class="bg-surface-light rounded px-2 py-1.5 text-center">
+        <div class="grid grid-cols-3 gap-1.5 mb-2.5 sm:mb-3">
+          <div class="bg-surface-light rounded px-1.5 sm:px-2 py-1.5 text-center">
             <span class="text-[10px] text-zinc-500 block">Avg {{ isBball ? 'Total' : 'Goals' }}</span>
             <span class="text-sm font-bold text-zinc-200">{{ h2h.summary.avgGoalsPerMatch }}</span>
           </div>
-          <div class="bg-surface-light rounded px-2 py-1.5 text-center">
+          <div class="bg-surface-light rounded px-1.5 sm:px-2 py-1.5 text-center">
             <span class="text-[10px] text-zinc-500 block">{{ game.home_name?.split(' ')[0] }} Goals</span>
             <span class="text-sm font-bold text-zinc-200">{{ h2h.summary.homeTeamGoals }}</span>
           </div>
-          <div class="bg-surface-light rounded px-2 py-1.5 text-center">
+          <div class="bg-surface-light rounded px-1.5 sm:px-2 py-1.5 text-center">
             <span class="text-[10px] text-zinc-500 block">{{ game.away_name?.split(' ')[0] }} Goals</span>
             <span class="text-sm font-bold text-zinc-200">{{ h2h.summary.awayTeamGoals }}</span>
           </div>
@@ -138,7 +138,7 @@
           <div
             v-for="match in h2h.matches.slice(0, 5)"
             :key="match.date"
-            class="flex items-center gap-2 px-2 py-1.5 rounded bg-surface-light/50"
+            class="flex items-center gap-2 px-2 py-1 rounded bg-surface-light/50"
           >
             <span class="text-[10px] text-zinc-600 w-16 flex-shrink-0 tabular-nums">{{ formatH2HDate(match.date) }}</span>
             <div class="flex-1 flex items-center justify-between min-w-0">
