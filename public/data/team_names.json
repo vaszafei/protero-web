@@ -1,0 +1,20 @@
+{
+  "Premier League": [
+    "Chelsea", "Everton", "Liverpool", "Brighton", "Burnley", "Fulham", "Arsenal", "Wolves", "Sunderland", "Newcastle", "West Ham", "Aston Villa", "Crystal Palace", "Manchester City", "Nottingham Forest", "Tottenham", "Brentford", "Leeds", "Manchester United", "Bournemouth"
+  ],
+  "LaLiga": [
+    "Real Sociedad", "Girona", "Atletico Madrid", "Valencia", "Mallorca", "Elche", "Barcelona", "Osasuna", "Getafe", "Espanyol", "Sevilla", "Oviedo", "Celta", "Athletic Bilbao", "Levante", "Villarreal", "Alavés", "Real Madrid", "Rayo Vallecano", "Betis"
+  ],
+  "Serie A": [
+    "Lecce", "Pisa", "Torino", "Cremonese", "Parma", "Lazio", "Atalanta", "Cagliari", "Milan", "Sassuolo", "Udinese", "Napoli", "Fiorentina", "Verona", "Genoa", "Inter", "Bologna", "Juventus", "Roma", "Como"
+  ],
+  "Bundesliga": [
+    "Union Berlin", "Leipzig", "Eintracht Frankfurt", "Augsburg", "Gladbach", "Wolfsburg", "St. Pauli", "Heidenheim", "Hoffenheim", "Hamburg", "Leverkusen", "Koln", "Freiburg", "Dortmund", "Bayern Munich", "Mainz", "Werder Bremen", "Stuttgart"
+  ],
+  "Greek Super League": [
+    "Levadiakos", "AEL", "OFI", "Panserraikos", "Kifisia", "Asteras Tripolis", "Panaitolikos", "AEK", "Atromitos", "PAOK", "Aris", "Olympiakos", "Panathinaikos", "NPS Volos"
+  ],
+  "Ligue 1": [
+    "Angers", "Nantes", "Rennes", "Brest", "Metz", "Paris Saint-Germain", "Paris FC", "Toulouse", "Lyon", "Havre", "Lens", "Nice", "Strasbourg", "Lorient", "Auxerre", "Lille", "Marseille", "Monaco"
+  ]
+}

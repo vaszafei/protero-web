@@ -1,0 +1,406 @@
+<template>
+  <div>
+    <div class="space-y-4">
+      <!-- Possession (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_possession != null && game.away_possession != null"
+        label="Possession"
+        :home-value="game.home_possession"
+        :away-value="game.away_possession"
+        suffix="%"
+      />
+
+      <!-- Shots (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_shots != null && game.away_shots != null"
+        label="Shots"
+        :home-value="game.home_shots"
+        :away-value="game.away_shots"
+      />
+
+      <!-- Shots on Target (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_shots_on_target != null && game.away_shots_on_target != null"
+        label="Shots on Target"
+        :home-value="game.home_shots_on_target"
+        :away-value="game.away_shots_on_target"
+      />
+
+      <!-- Corners (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_corners != null && game.away_corners != null"
+        label="Corners"
+        :home-value="game.home_corners"
+        :away-value="game.away_corners"
+      />
+
+      <!-- Fouls (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_fouls != null && game.away_fouls != null"
+        label="Fouls"
+        :home-value="game.home_fouls"
+        :away-value="game.away_fouls"
+      />
+
+      <!-- Yellow Cards (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_yellow_cards != null && game.away_yellow_cards != null"
+        label="Yellow Cards"
+        :home-value="game.home_yellow_cards"
+        :away-value="game.away_yellow_cards"
+        color="yellow"
+      />
+
+      <!-- Red Cards (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_red_cards != null && game.away_red_cards != null"
+        label="Red Cards"
+        :home-value="game.home_red_cards"
+        :away-value="game.away_red_cards"
+        color="red"
+      />
+
+      <!-- Offsides (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_offsides != null && game.away_offsides != null"
+        label="Offsides"
+        :home-value="game.home_offsides"
+        :away-value="game.away_offsides"
+      />
+
+      <!-- Expected Goals (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_xg != null && game.away_xg != null && (game.home_xg > 0 || game.away_xg > 0)"
+        label="Expected Goals (xG)"
+        :home-value="parseFloat(game.home_xg.toFixed(2))"
+        :away-value="parseFloat(game.away_xg.toFixed(2))"
+        color="blue"
+      />
+
+      <!-- Big Chances (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_big_chances != null && game.away_big_chances != null && (game.home_big_chances > 0 || game.away_big_chances > 0)"
+        label="Big Chances"
+        :home-value="game.home_big_chances"
+        :away-value="game.away_big_chances"
+      />
+
+      <!-- Goalkeeper Saves (football only) -->
+      <StatBar 
+        v-if="isFootball && game.home_saves != null && game.away_saves != null && (game.home_saves > 0 || game.away_saves > 0)"
+        label="Goalkeeper Saves"
+        :home-value="game.home_saves"
+        :away-value="game.away_saves"
+      />
+
+      <!-- Basketball Stats from sport_stats -->
+      <template v-if="!isFootball && hasBballStats">
+        <!-- Quarter Scores -->
+        <div v-if="quarters" class="mb-6">
+          <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Quarter Scores</h3>
+          <div class="grid gap-2 text-center text-sm" :style="{ gridTemplateColumns: `40px repeat(${quarters.length}, 1fr)` }">
+            <div></div>
+            <div v-for="(_, i) in quarters" :key="i" class="text-zinc-500 font-medium text-xs">{{ i < 4 ? 'Q' + (i + 1) : 'OT' + (i - 3) }}</div>
+            <!-- Home row -->
+            <div class="flex items-center justify-center">
+              <img v-if="homeLogo" :src="homeLogo" class="w-5 h-5 object-contain" :alt="game.home_name" :title="game.home_name" @error="(e) => e.target.style.display='none'" />
+              <span v-else class="text-zinc-400 text-xs font-semibold truncate">{{ game.home_name?.split(' ').pop()?.slice(0, 3) }}</span>
+            </div>
+            <div v-for="(q, i) in quarters" :key="'h'+i" class="font-semibold" :class="q[0] > q[1] ? 'text-zinc-100' : 'text-zinc-500'">{{ q[0] }}</div>
+            <!-- Away row -->
+            <div class="flex items-center justify-center">
+              <img v-if="awayLogo" :src="awayLogo" class="w-5 h-5 object-contain" :alt="game.away_name" :title="game.away_name" @error="(e) => e.target.style.display='none'" />
+              <span v-else class="text-zinc-400 text-xs font-semibold truncate">{{ game.away_name?.split(' ').pop()?.slice(0, 3) }}</span>
+            </div>
+            <div v-for="(q, i) in quarters" :key="'a'+i" class="font-semibold" :class="q[1] > q[0] ? 'text-zinc-100' : 'text-zinc-500'">{{ q[1] }}</div>
+          </div>
+        </div>
+
+        <div v-if="quarters" class="border-t border-edge my-4" />
+
+        <!-- Shooting -->
+        <StatBar label="2PT Field Goals" :home-value="bball.home.fg2_made" :away-value="bball.away.fg2_made" :suffix="fg2Suffix" />
+        <StatBar label="3PT Field Goals" :home-value="bball.home.fg3_made" :away-value="bball.away.fg3_made" :suffix="fg3Suffix" />
+        <StatBar label="Free Throws" :home-value="bball.home.ft_made" :away-value="bball.away.ft_made" :suffix="ftSuffix" />
+
+        <div class="border-t border-edge my-4" />
+
+        <!-- Rebounds -->
+        <StatBar label="Total Rebounds" :home-value="bball.home.total_reb" :away-value="bball.away.total_reb" />
+        <StatBar label="Offensive Reb" :home-value="bball.home.off_reb" :away-value="bball.away.off_reb" />
+        <StatBar label="Defensive Reb" :home-value="bball.home.def_reb" :away-value="bball.away.def_reb" />
+
+        <div class="border-t border-edge my-4" />
+
+        <!-- Playmaking & Turnovers -->
+        <StatBar label="Assists" :home-value="bball.home.assists" :away-value="bball.away.assists" />
+        <StatBar label="Steals" :home-value="bball.home.steals" :away-value="bball.away.steals" />
+        <StatBar label="Turnovers" :home-value="bball.home.turnovers" :away-value="bball.away.turnovers" color="red" />
+        <StatBar label="Blocks" :home-value="bball.home.blocks_for || 0" :away-value="bball.away.blocks_for || 0" />
+        <StatBar label="Fouls" :home-value="bball.home.fouls" :away-value="bball.away.fouls" color="yellow" />
+
+        <!-- Shooting Percentages -->
+        <div class="mt-6 pt-4 border-t border-edge/40 space-y-3">
+          <div class="flex items-center justify-between text-sm">
+            <span class="font-semibold text-[#e8a0a0]">{{ bballFg2Pct.home }}%</span>
+            <span class="text-zinc-500 text-xs uppercase tracking-wider font-medium">2PT %</span>
+            <span class="font-semibold text-[#a0b8e8]">{{ bballFg2Pct.away }}%</span>
+          </div>
+          <div class="flex items-center justify-between text-sm">
+            <span class="font-semibold text-[#e8a0a0]">{{ bballFg3Pct.home }}%</span>
+            <span class="text-zinc-500 text-xs uppercase tracking-wider font-medium">3PT %</span>
+            <span class="font-semibold text-[#a0b8e8]">{{ bballFg3Pct.away }}%</span>
+          </div>
+          <div class="flex items-center justify-between text-sm">
+            <span class="font-semibold text-[#e8a0a0]">{{ bballFtPct.home }}%</span>
+            <span class="text-zinc-500 text-xs uppercase tracking-wider font-medium">FT %</span>
+            <span class="font-semibold text-[#a0b8e8]">{{ bballFtPct.away }}%</span>
+          </div>
+        </div>
+
+        <!-- Attendance & Referees -->
+        <div v-if="bballMeta.attendance || bballMeta.referees" class="mt-6 pt-4 border-t border-edge">
+          <div v-if="bballMeta.attendance" class="flex items-center justify-between text-sm text-zinc-400 mb-2">
+            <span>Attendance</span>
+            <span class="text-zinc-300 font-medium">{{ Number(bballMeta.attendance).toLocaleString() }}</span>
+          </div>
+          <div v-if="bballMeta.referees" class="text-sm text-zinc-400">
+            <span>Referees: </span>
+            <span class="text-zinc-300">{{ bballMeta.referees }}</span>
+          </div>
+        </div>
+      </template>
+
+      <!-- No stats fallback -->
+      <div v-if="!isFootball && !hasBballStats" class="text-center py-8 text-zinc-500">
+        <p class="text-sm">Game statistics will be available after the game is completed.</p>
+      </div>
+
+      <!-- Additional Stats Section (football only) -->
+      <div v-if="isFootball && (hasShootingStats || hasPassingStats)" class="mt-6 pt-6 border-t border-edge space-y-3">
+        <!-- Shot Accuracy -->
+        <div v-if="hasShootingStats">
+          <div class="flex items-center justify-between text-sm mb-2">
+            <span class="font-semibold text-zinc-300">{{ homeAccuracy }}%</span>
+            <span class="text-zinc-400">Shot Accuracy</span>
+            <span class="font-semibold text-zinc-300">{{ awayAccuracy }}%</span>
+          </div>
+          <div class="text-center text-xs text-zinc-500">
+            (Shots on Target / Total Shots)
+          </div>
+        </div>
+
+        <!-- Pass Accuracy -->
+        <div v-if="hasPassingStats">
+          <div class="flex items-center justify-between text-sm mb-2">
+            <span class="font-semibold text-zinc-300">{{ homePassAccuracy }}%</span>
+            <span class="text-zinc-400">Pass Accuracy</span>
+            <span class="font-semibold text-zinc-300">{{ awayPassAccuracy }}%</span>
+          </div>
+          <div class="text-center text-xs text-zinc-500">
+            ({{ game.home_passes_completed }}/{{ game.home_passes_attempted }} - {{ game.away_passes_completed }}/{{ game.away_passes_attempted }})
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import StatBar from './StatBar.vue'
+
+const props = defineProps({
+  game: {
+    type: Object,
+    required: true
+  },
+  sport: {
+    type: String,
+    default: 'football'
+  }
+})
+
+const isFootball = computed(() => props.sport === 'football')
+
+import { getTeamLogoUrl } from '~/utils/teamLogo'
+
+const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key, props.game.league_key))
+const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key, props.game.league_key))
+
+// Aggregate team totals from per-player boxscore data (NBA API format)
+function aggregateFromPlayers(players) {
+  if (!players?.length) return null
+  const t = { fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
+               reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, tov: 0, blk: 0, pf: 0 }
+  for (const p of players) {
+    t.fgm  += p.field_goals_made ?? 0
+    t.fga  += p.field_goals_attempted ?? 0
+    t.fg3m += p.three_pointers_made ?? 0
+    t.fg3a += p.three_pointers_attempted ?? 0
+    t.ftm  += p.free_throws_made ?? 0
+    t.fta  += p.free_throws_attempted ?? 0
+    t.reb  += p.rebounds ?? 0
+    t.oreb += p.offensive_rebounds ?? 0
+    t.dreb += p.defensive_rebounds ?? 0
+    t.ast  += p.assists ?? 0
+    t.stl  += p.steals ?? 0
+    t.tov  += p.turnovers ?? 0
+    t.blk  += p.blocks ?? 0
+    t.pf   += p.personal_fouls ?? 0
+  }
+  return t
+}
+
+// Normalize basketball stats — Euroleague uses long names, NBA uses short names
+function normalizeBballSide(raw) {
+  if (!raw) return {}
+  // If already has long names (Euroleague format), return as-is
+  if ('fg2_made' in raw) return raw
+  // NBA FlashScore format: short aggregate names
+  if ('fgm' in raw) {
+    return {
+      fg2_made: (raw.fgm ?? 0) - (raw.fg3m ?? 0),
+      fg2_att:  (raw.fga ?? 0) - (raw.fg3a ?? 0),
+      fg3_made: raw.fg3m ?? 0,
+      fg3_att:  raw.fg3a ?? 0,
+      ft_made:  raw.ftm ?? 0,
+      ft_att:   raw.fta ?? 0,
+      total_reb: raw.reb ?? 0,
+      off_reb:  raw.oreb ?? 0,
+      def_reb:  raw.dreb ?? 0,
+      assists:  raw.ast ?? 0,
+      steals:   raw.stl ?? 0,
+      turnovers: raw.tov ?? 0,
+      blocks_for: raw.blk ?? 0,
+      fouls:    raw.pf ?? 0,
+      players:  raw.players,
+      team:     raw.team,
+    }
+  }
+  // NBA API boxscore format: only players array, aggregate team totals
+  const agg = aggregateFromPlayers(raw.players)
+  if (agg) {
+    return {
+      fg2_made: agg.fgm - agg.fg3m,
+      fg2_att:  agg.fga - agg.fg3a,
+      fg3_made: agg.fg3m,
+      fg3_att:  agg.fg3a,
+      ft_made:  agg.ftm,
+      ft_att:   agg.fta,
+      total_reb: agg.reb,
+      off_reb:  agg.oreb,
+      def_reb:  agg.dreb,
+      assists:  agg.ast,
+      steals:   agg.stl,
+      turnovers: agg.tov,
+      blocks_for: agg.blk,
+      fouls:    agg.pf,
+      players:  raw.players,
+    }
+  }
+  return {}
+}
+
+const bball = computed(() => ({
+  home: normalizeBballSide(props.game.sport_stats?.home),
+  away: normalizeBballSide(props.game.sport_stats?.away),
+}))
+
+const hasBballStats = computed(() => {
+  const ss = props.game.sport_stats
+  if (!ss) return false
+  // Has FlashScore team stats
+  const h = ss.home
+  if (h && (('fg2_made' in h) || ('fgm' in h))) return true
+  // Has NBA API boxscore players (can aggregate)
+  if (h?.players?.length > 0) return true
+  // Has at least quarter scores from NBA API
+  if (ss.quarters?.home?.length > 0) return true
+  return false
+})
+
+const quarters = computed(() => {
+  const q = props.game.sport_stats?.quarters
+  if (!q) return null
+
+  // NBA API format: { home: [30,27,28,41], away: [34,28,20,40] }
+  if (Array.isArray(q.home) && Array.isArray(q.away)) {
+    return q.home.map((h, i) => [h, q.away[i] ?? 0])
+  }
+
+  // FlashScore format: { q1: [h,a], q2: [h,a], ... }
+  const arr = []
+  for (let i = 1; i <= 4; i++) {
+    if (q['q' + i]) arr.push(q['q' + i])
+  }
+  for (let i = 1; i <= 5; i++) {
+    if (q['ot' + i]) arr.push(q['ot' + i])
+  }
+  return arr.length ? arr : null
+})
+
+const bballMeta = computed(() => ({
+  attendance: props.game.sport_stats?.attendance,
+  referees: props.game.sport_stats?.referees,
+}))
+
+const pct = (made, att) => att > 0 ? Math.round((made / att) * 100) : 0
+
+const bballFg2Pct = computed(() => ({
+  home: pct(bball.value.home.fg2_made, bball.value.home.fg2_att),
+  away: pct(bball.value.away.fg2_made, bball.value.away.fg2_att),
+}))
+
+const bballFg3Pct = computed(() => ({
+  home: pct(bball.value.home.fg3_made, bball.value.home.fg3_att),
+  away: pct(bball.value.away.fg3_made, bball.value.away.fg3_att),
+}))
+
+const bballFtPct = computed(() => ({
+  home: pct(bball.value.home.ft_made, bball.value.home.ft_att),
+  away: pct(bball.value.away.ft_made, bball.value.away.ft_att),
+}))
+
+const fg2Suffix = computed(() => '/' + bball.value.home.fg2_att + ' - ' + bball.value.away.fg2_att)
+const fg3Suffix = computed(() => '/' + bball.value.home.fg3_att + ' - ' + bball.value.away.fg3_att)
+const ftSuffix = computed(() => '/' + bball.value.home.ft_att + ' - ' + bball.value.away.ft_att)
+
+const hasShootingStats = computed(() => {
+  return props.game.home_shots != null && 
+         props.game.away_shots != null && 
+         props.game.home_shots_on_target != null && 
+         props.game.away_shots_on_target != null &&
+         props.game.home_shots > 0 && 
+         props.game.away_shots > 0
+})
+
+const homeAccuracy = computed(() => {
+  if (!hasShootingStats.value) return 0
+  return Math.round((props.game.home_shots_on_target / props.game.home_shots) * 100)
+})
+
+const awayAccuracy = computed(() => {
+  if (!hasShootingStats.value) return 0
+  return Math.round((props.game.away_shots_on_target / props.game.away_shots) * 100)
+})
+
+const hasPassingStats = computed(() => {
+  return props.game.home_passes_attempted != null && 
+         props.game.away_passes_attempted != null && 
+         props.game.home_passes_completed != null && 
+         props.game.away_passes_completed != null &&
+         props.game.home_passes_attempted > 0 && 
+         props.game.away_passes_attempted > 0
+})
+
+const homePassAccuracy = computed(() => {
+  if (!hasPassingStats.value) return 0
+  return Math.round((props.game.home_passes_completed / props.game.home_passes_attempted) * 100)
+})
+
+const awayPassAccuracy = computed(() => {
+  if (!hasPassingStats.value) return 0
+  return Math.round((props.game.away_passes_completed / props.game.away_passes_attempted) * 100)
+})
+</script>

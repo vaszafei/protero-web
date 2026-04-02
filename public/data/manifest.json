@@ -1,0 +1,44 @@
+[
+  {
+    "key": "premier_league",
+    "name": "Premier League",
+    "flag": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+    "path": "/data/leagues/premier_league.json"
+  },
+  {
+    "key": "la_liga",
+    "name": "La Liga",
+    "flag": "🇪🇸",
+    "path": "/data/leagues/la_liga.json"
+  },
+  {
+    "key": "serie_a",
+    "name": "Serie A",
+    "flag": "🇮🇹",
+    "path": "/data/leagues/serie_a.json"
+  },
+  {
+    "key": "bundesliga",
+    "name": "Bundesliga",
+    "flag": "🇩🇪",
+    "path": "/data/leagues/bundesliga.json"
+  },
+  {
+    "key": "ligue1",
+    "name": "Ligue 1",
+    "flag": "🇫🇷",
+    "path": "/data/leagues/ligue1.json"
+  },
+  {
+    "key": "greece",
+    "name": "Super League Greece",
+    "flag": "🇬🇷",
+    "path": "/data/leagues/greece.json"
+  },
+  {
+    "key": "conference_league",
+    "name": "UEFA Conference League",
+    "flag": "🏆",
+    "path": "/data/leagues/conference_league.json"
+  }
+]

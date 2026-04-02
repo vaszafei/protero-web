@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ΠροΤερο</string>
+    <string name="title_activity_main">ΠροΤερο</string>
+    <string name="package_name">com.protero.app</string>
+    <string name="custom_url_scheme">com.protero.app</string>
+</resources>
