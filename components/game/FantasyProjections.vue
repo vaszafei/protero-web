@@ -25,37 +25,39 @@
         <span class="text-[9px] sm:text-[10px] font-medium text-zinc-500 uppercase tracking-wider">{{ scoringLabel }}</span>
       </div>
 
-      <!-- Team sections -->
-      <div v-for="team in teams" :key="team.name" class="mb-3.5 sm:mb-4">
-        <div class="flex items-center gap-2 mb-1.5 sm:mb-2 px-1">
-          <div class="w-1.5 h-1.5 rounded-full" :class="team === teams[0] ? 'bg-[#f82828]' : 'bg-[#0848a8]'" />
-          <span class="text-[11px] sm:text-xs font-semibold text-zinc-300 truncate">{{ team.name }}</span>
-          <span class="text-[10px] text-zinc-600">{{ team.players.length }} players</span>
+      <div class="flex items-center justify-between mb-1 px-1">
+        <div class="flex items-center gap-2">
+          <div class="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-[#f82828] to-[#0848a8]" />
+          <span class="text-[11px] sm:text-xs font-semibold text-zinc-300">Top 7 Game Picks</span>
         </div>
-        
-        <div class="space-y-1">
-          <div
-            v-for="(player, i) in team.players"
-            :key="player.player_name"
-            class="flex items-center justify-between px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg"
-            :class="i % 2 === 0 ? 'bg-surface-light/40' : 'bg-surface/30'"
-          >
-            <div class="flex items-center gap-2 flex-1 min-w-0 pr-2">
-              <span class="text-[10px] sm:text-[11px] text-zinc-600 font-medium tabular-nums w-4 text-right">{{ i + 1 }}</span>
-              <span class="text-[11px] sm:text-[12px] font-semibold text-zinc-200 truncate leading-tight">{{ player.player_name }}</span>
+        <span class="text-[10px] text-zinc-600">{{ topPlayers.length }} players</span>
+      </div>
+
+      <div class="space-y-1">
+        <div
+          v-for="(player, i) in topPlayers"
+          :key="`${player.player_name}-${i}`"
+          class="flex items-center justify-between px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg"
+          :class="i % 2 === 0 ? 'bg-surface-light/40' : 'bg-surface/30'"
+        >
+          <div class="flex items-center gap-2 flex-1 min-w-0 pr-2">
+            <span class="text-[10px] sm:text-[11px] text-zinc-600 font-medium tabular-nums w-4 text-right">{{ i + 1 }}</span>
+            <div class="min-w-0">
+              <span class="text-[11px] sm:text-[12px] font-semibold text-zinc-200 truncate leading-tight block">{{ player.player_name }}</span>
+              <span class="text-[9px] uppercase tracking-wide text-zinc-500">{{ shortTeamName(player.team_name) }}</span>
             </div>
-            <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <div class="text-center min-w-[30px] sm:min-w-[32px]">
-                <span class="text-[9px] text-zinc-600 uppercase block leading-none">MIN</span>
-                <span class="text-[10px] sm:text-[11px] font-semibold text-zinc-400 tabular-nums">{{ player.projected_minutes?.toFixed(0) || '-' }}</span>
-              </div>
-              <div class="text-center min-w-[36px] sm:min-w-[40px]">
-                <span class="text-[9px] text-zinc-600 uppercase block leading-none">FPTS</span>
-                <span
-                  class="text-[12px] sm:text-[13px] font-bold tabular-nums"
-                  :class="player.projected_score >= 35 ? 'text-emerald-400' : player.projected_score >= 25 ? 'text-zinc-100' : 'text-zinc-400'"
-                >{{ player.projected_score?.toFixed(1) }}</span>
-              </div>
+          </div>
+          <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div class="text-center min-w-[30px] sm:min-w-[32px]">
+              <span class="text-[9px] text-zinc-600 uppercase block leading-none">MIN</span>
+              <span class="text-[10px] sm:text-[11px] font-semibold text-zinc-400 tabular-nums">{{ player.projected_minutes?.toFixed(0) || '-' }}</span>
+            </div>
+            <div class="text-center min-w-[36px] sm:min-w-[40px]">
+              <span class="text-[9px] text-zinc-600 uppercase block leading-none">FPTS</span>
+              <span
+                class="text-[12px] sm:text-[13px] font-bold tabular-nums"
+                :class="player.projected_score >= 35 ? 'text-emerald-400' : player.projected_score >= 25 ? 'text-zinc-100' : 'text-zinc-400'"
+              >{{ player.projected_score?.toFixed(1) }}</span>
             </div>
           </div>
         </div>
@@ -83,24 +85,18 @@ const scoringLabel = computed(() => {
   return st === 'dk' ? 'DraftKings' : st === 'pir' ? 'PIR' : st || ''
 })
 
-const teams = computed(() => {
-  const homeTeam = { name: props.homeName, players: [] as any[] }
-  const awayTeam = { name: props.awayName, players: [] as any[] }
-  
-  for (const p of projections.value) {
-    if (p.team_name === props.homeName) {
-      homeTeam.players.push(p)
-    } else {
-      awayTeam.players.push(p)
-    }
-  }
-  
-  // Sort by projected score descending
-  homeTeam.players.sort((a: any, b: any) => (b.projected_score || 0) - (a.projected_score || 0))
-  awayTeam.players.sort((a: any, b: any) => (b.projected_score || 0) - (a.projected_score || 0))
-  
-  return [homeTeam, awayTeam].filter(t => t.players.length > 0)
+const topPlayers = computed(() => {
+  return [...projections.value]
+    .sort((a: any, b: any) => (b.projected_score || 0) - (a.projected_score || 0))
+    .slice(0, 7)
 })
+
+function shortTeamName(teamName?: string) {
+  if (!teamName) return '-'
+  if (teamName === props.homeName) return 'HOME'
+  if (teamName === props.awayName) return 'AWAY'
+  return teamName.split(' ').slice(-1)[0].toUpperCase()
+}
 
 onMounted(async () => {
   try {
