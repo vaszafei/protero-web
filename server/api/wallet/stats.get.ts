@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
   const supabase = getSupabase()
   const query = getQuery(event)
 
-  // Determine walletId: explicit param > user's preferred_wallet_id > fallback 2
+  // Require explicit walletId — no hardcoded fallback
   let walletId = query.walletId ? Number(query.walletId) : null
 
   if (!walletId && query.userId) {
@@ -17,8 +17,9 @@ export default defineEventHandler(async (event) => {
     walletId = userRow?.preferred_wallet_id || null
   }
 
-  // Absolute fallback — admin wallet
-  if (!walletId) walletId = 2
+  if (!walletId) {
+    throw createError({ statusCode: 400, message: 'walletId is required' })
+  }
 
   try {
     // Get wallet info
@@ -32,12 +33,13 @@ export default defineEventHandler(async (event) => {
 
     // Get counts + aggregates via parallel COUNT queries (no row data transferred)
     // This replaces fetching ALL bets into Node.js for JS aggregation
-    const [totalRes, wonRes, lostRes, pendingRes, pushRes] = await Promise.all([
+    const [totalRes, wonRes, lostRes, pendingRes, pushRes, stakeRes] = await Promise.all([
       supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId),
       supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'won'),
       supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'lost'),
       supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'pending'),
       supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'push'),
+      supabase.from('bets').select('stake').eq('wallet_id', walletId).neq('status', 'void'),
     ])
 
     const totalBets = totalRes.count || 0
@@ -46,11 +48,11 @@ export default defineEventHandler(async (event) => {
     const pendingCount = pendingRes.count || 0
     const settledCount = wonCount + lostCount
 
-    // Use wallet's tracked profit + total_profit (maintained by settlement scripts)
-    // This avoids fetching all bets just to recalculate P/L
+    const totalStaked = (stakeRes.data || []).reduce((sum: number, b: any) => sum + Number(b.stake || 0), 0)
+
+    // Use wallet's tracked profit (maintained by settlement scripts)
     const totalProfit = parseFloat(wallet.total_profit || 0)
-    const totalStaked = parseFloat(wallet.initial_balance || 0) + totalProfit - parseFloat(wallet.balance || 0) + parseFloat(wallet.initial_balance || 0)
-    
+
     // Calculate ROI from wallet balance change
     const initialBalance = parseFloat(wallet.initial_balance || 0)
     const currentBalance = parseFloat(wallet.balance || 0)
@@ -73,7 +75,7 @@ export default defineEventHandler(async (event) => {
         wonBets: wonCount,
         lostBets: lostCount,
         pendingBets: pendingCount,
-        totalStaked: initialBalance.toFixed(2),
+        totalStaked: totalStaked.toFixed(2),
         totalProfit: totalProfit.toFixed(2),
         roi: roi.toFixed(2),
         winRate: winRate.toFixed(1),

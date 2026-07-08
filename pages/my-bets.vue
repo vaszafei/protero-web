@@ -55,7 +55,7 @@
       <p class="text-zinc-500 mb-4">Start tracking your bets or follow admin picks.</p>
       <div class="flex justify-center gap-3">
         <UButton variant="soft" color="primary" @click="showNewBet = true">Log a Bet</UButton>
-        <UButton variant="ghost" to="/picks">View Picks</UButton>
+        <UButton variant="ghost" to="/leagues">Browse Leagues</UButton>
       </div>
     </div>
 

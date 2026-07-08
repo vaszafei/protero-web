@@ -1,569 +1,399 @@
 <template>
-  <div class="p-3 sm:p-6 max-w-6xl mx-auto min-h-screen">
+  <div class="p-3 sm:p-6 max-w-5xl mx-auto min-h-screen pb-20 lg:pb-6">
     <!-- Header -->
-    <div class="mb-5 sm:mb-6">
-      <h1 class="text-xl sm:text-2xl font-bold text-white">Wallet</h1>
-      <p class="text-zinc-500 text-xs sm:text-sm mt-1">AI wallet performance & your personal bets</p>
-    </div>
-
-    <!-- ═══ FOLLOWED WALLET CARDS ═══ -->
-    <div v-if="wallets.length > 0" class="space-y-4 mb-6">
-      <!-- Wallet selector if multiple -->
-      <div v-if="wallets.length > 1" class="flex gap-2 overflow-x-auto pb-1">
-        <button
-          v-for="w in wallets" :key="w.id"
-          @click="activeWalletId = w.id"
-          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap"
-          :class="activeWalletId === w.id
-            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-            : 'bg-surface-light text-zinc-400 border border-edge hover:border-zinc-600'"
-        >
-          {{ w.name }}
-        </button>
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold text-white">Wallets</h1>
+        <p class="text-zinc-500 text-xs sm:text-sm mt-0.5">
+          {{ mode === 'subscribed' ? 'Your subscribed AI strategies' : 'Subscribe to AI strategies and follow their picks' }}
+        </p>
       </div>
-
-      <!-- Active wallet hero card -->
-      <div v-if="activeWallet" class="wallet-hero rounded-xl p-4 sm:p-6 relative overflow-hidden">
-        <div class="absolute inset-0 opacity-[0.03] pointer-events-none">
-          <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-emerald-500"></div>
-          <div class="absolute -left-10 -bottom-10 w-48 h-48 rounded-full bg-emerald-500"></div>
-        </div>
-
-        <div class="relative">
-          <!-- Wallet name + unfollow -->
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h2 class="text-sm sm:text-base font-bold text-zinc-200">{{ activeWallet.name }}</h2>
-              <p class="text-[10px] text-zinc-500 mt-0.5">AI-managed · Auto-updated daily</p>
-            </div>
-            <button
-              @click="unfollowWallet(activeWallet.id)"
-              class="text-[10px] text-zinc-600 hover:text-red-400 transition-colors"
-            >
-              Unfollow
-            </button>
-          </div>
-
-          <!-- Balance -->
-          <div class="mb-4">
-            <p class="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Balance</p>
-            <div class="flex items-baseline gap-2">
-              <span class="text-3xl sm:text-4xl font-extrabold text-white tabular-nums">${{ formatNum(activeWallet.balance) }}</span>
-              <span class="text-sm font-bold tabular-nums" :class="walletPL >= 0 ? 'text-emerald-400' : 'text-red-400'">
-                {{ walletPL >= 0 ? '+' : '' }}{{ formatNum(walletPL) }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Stats row -->
-          <div class="grid grid-cols-4 gap-2">
-            <div>
-              <p class="text-[10px] text-zinc-500">ROI</p>
-              <p class="text-sm font-bold tabular-nums" :class="walletROI >= 0 ? 'text-emerald-400' : 'text-red-400'">
-                {{ walletROI >= 0 ? '+' : '' }}{{ walletROI.toFixed(1) }}%
-              </p>
-            </div>
-            <div>
-              <p class="text-[10px] text-zinc-500">Win Rate</p>
-              <p class="text-sm font-bold text-zinc-200 tabular-nums">{{ activeWallet.win_rate?.toFixed(1) || '0' }}%</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-zinc-500">Bets</p>
-              <p class="text-sm font-bold text-zinc-200 tabular-nums">{{ activeWallet.total_bets || 0 }}</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-zinc-500">W / L</p>
-              <p class="text-sm font-bold text-zinc-200 tabular-nums">{{ activeWallet.total_won || 0 }}/{{ activeWallet.total_lost || 0 }}</p>
-            </div>
-          </div>
-        </div>
+      <div v-if="balance != null" class="text-right">
+        <p class="text-[10px] text-zinc-500 uppercase tracking-wider">Credits</p>
+        <p class="text-base font-bold text-emerald-400 tabular-nums">{{ balance }}</p>
       </div>
     </div>
 
-    <!-- Browse wallets CTA (when no followed wallets) -->
-    <div v-else-if="!loading" class="bg-surface-light/50 border border-edge rounded-xl p-6 sm:p-8 text-center mb-6">
-      <Wallet :size="40" class="mx-auto text-zinc-500 mb-3" />
-      <h3 class="text-base font-semibold text-white mb-1">No Wallets Followed</h3>
-      <p class="text-zinc-500 text-sm mb-4">Follow an AI wallet to track its bets and performance.</p>
-      <button
-        @click="showBrowse = true"
-        class="px-4 py-2 bg-emerald-600/20 text-emerald-400 rounded-lg text-sm font-medium hover:bg-emerald-600/30 transition-colors"
-      >
-        Browse Wallets
-      </button>
+    <!-- Loading -->
+    <div v-if="loading" class="flex justify-center py-20">
+      <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
     </div>
 
-    <!-- ═══ TABS: AI Bets | My Bets ═══ -->
-    <div class="wallet-tabs-card rounded-lg overflow-hidden">
-      <div class="flex border-b border-edge/50">
-        <button
-          @click="tab = 'ai'"
-          class="flex-1 px-4 py-3 text-sm font-medium transition-all relative"
-          :class="tab === 'ai' ? 'text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'"
-        >
-          AI Bets
-          <span v-if="pendingCount > 0" class="ml-1.5 text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">{{ pendingCount }}</span>
-          <div v-if="tab === 'ai'" class="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-emerald-500/60 to-emerald-400/30"></div>
-        </button>
-        <button
-          @click="tab = 'personal'"
-          class="flex-1 px-4 py-3 text-sm font-medium transition-all relative"
-          :class="tab === 'personal' ? 'text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'"
-        >
-          My Bets
-          <div v-if="tab === 'personal'" class="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-blue-500/60 to-blue-400/30"></div>
-        </button>
-      </div>
+    <template v-else>
+      <!-- ════════════════════════════════════════════════════════════════
+           MODE A — DISCOVERY (no subscriptions yet)
+      ═════════════════════════════════════════════════════════════════ -->
+      <WalletDiscovery
+        v-if="mode === 'discovery'"
+        :wallets="catalogueWallets"
+        :pricing="pricing"
+        :busy-wallet-id="busyWalletId"
+        @subscribe="openSubscribeModal"
+      />
 
-      <div class="p-3 sm:p-4">
-        <!-- ─── AI BETS TAB ─── -->
-        <div v-if="tab === 'ai'">
-          <!-- Filters -->
-          <div class="flex items-center gap-2 mb-3 flex-wrap">
-            <button
-              v-for="f in statusFilters" :key="f.value"
-              @click="aiBetFilter = f.value"
-              class="text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors"
-              :class="aiBetFilter === f.value
-                ? 'bg-emerald-500/15 text-emerald-400'
-                : 'text-zinc-500 hover:text-zinc-300'"
-            >{{ f.label }}</button>
-          </div>
-
-          <!-- Loading -->
-          <div v-if="aiBetsLoading" class="flex justify-center py-8">
-            <svg class="w-5 h-5 animate-spin text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </div>
-
-          <!-- No bets -->
-          <div v-else-if="filteredAiBets.length === 0" class="text-center py-8">
-            <p class="text-sm text-zinc-500">No {{ aiBetFilter || '' }} bets found</p>
-          </div>
-
-          <!-- Bet list -->
-          <div v-else class="space-y-1.5">
-            <div
-              v-for="bet in filteredAiBets" :key="bet.id"
-              class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-light/30 hover:bg-surface-light/50 transition-colors"
-            >
-              <!-- Status dot -->
-              <div class="w-2 h-2 rounded-full flex-shrink-0" :class="statusDot(bet.status)"></div>
-
-              <!-- Content -->
-              <div class="flex-1 min-w-0">
-                <p class="text-[12px] font-medium text-zinc-200 truncate">
-                  {{ bet.home_name || 'Home' }} vs {{ bet.away_name || 'Away' }}
-                </p>
-                <p class="text-[10px] text-zinc-500 truncate">
-                  {{ bet.bet_type_display }} · {{ formatDate(bet.date) }}
-                </p>
-              </div>
-
-              <!-- Odds + stake -->
-              <div class="text-right flex-shrink-0">
-                <p class="text-[12px] font-bold text-zinc-200 tabular-nums">
-                  ${{ bet.stake?.toFixed(2) }} @ {{ bet.odds?.toFixed(2) }}
-                </p>
-                <p v-if="bet.profit != null" class="text-[10px] font-bold tabular-nums"
-                  :class="bet.profit >= 0 ? 'text-emerald-400' : 'text-red-400'">
-                  {{ bet.profit >= 0 ? '+' : '' }}{{ bet.profit.toFixed(2) }}
-                </p>
-                <p v-else class="text-[10px] text-amber-400/70">Pending</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─── PERSONAL BETS TAB ─── -->
-        <div v-if="tab === 'personal'">
-          <!-- User bet stats -->
-          <div v-if="userStats" class="grid grid-cols-3 gap-2 mb-3">
-            <div class="bg-surface-light/30 rounded-lg p-2.5 text-center">
-              <p class="text-lg font-bold text-white tabular-nums">{{ userStats.total_bets }}</p>
-              <p class="text-[10px] text-zinc-500">Bets</p>
-            </div>
-            <div class="bg-surface-light/30 rounded-lg p-2.5 text-center">
-              <p class="text-lg font-bold tabular-nums" :class="userStats.win_rate >= 50 ? 'text-emerald-400' : 'text-zinc-300'">
-                {{ userStats.win_rate }}%
-              </p>
-              <p class="text-[10px] text-zinc-500">Win Rate</p>
-            </div>
-            <div class="bg-surface-light/30 rounded-lg p-2.5 text-center">
-              <p class="text-lg font-bold tabular-nums" :class="userStats.total_profit >= 0 ? 'text-emerald-400' : 'text-red-400'">
-                {{ userStats.total_profit >= 0 ? '+' : '' }}{{ userStats.total_profit }}€
-              </p>
-              <p class="text-[10px] text-zinc-500">P/L</p>
-            </div>
-          </div>
-
-          <div v-if="userBets.length === 0 && !personalLoading" class="text-center py-8">
-            <p class="text-sm text-zinc-500 mb-3">No personal bets yet</p>
-            <button
-              @click="showNewBet = true"
-              class="px-3 py-1.5 bg-blue-600/20 text-blue-400 rounded-lg text-xs font-medium hover:bg-blue-600/30 transition-colors"
-            >
-              Log a Bet
-            </button>
-          </div>
-
-          <div v-else class="space-y-1.5">
-            <div
-              v-for="bet in userBets" :key="bet.id"
-              class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-light/30 hover:bg-surface-light/50 transition-colors"
-            >
-              <div class="w-2 h-2 rounded-full flex-shrink-0" :class="statusDot(bet.status)"></div>
-              <div class="flex-1 min-w-0">
-                <p class="text-[12px] font-medium text-zinc-200 truncate">
-                  {{ bet.games?.home_team?.name || 'Home' }} vs {{ bet.games?.away_team?.name || 'Away' }}
-                </p>
-                <p class="text-[10px] text-zinc-500 truncate">
-                  {{ bet.selection }} · {{ formatDate(bet.games?.date) }}
-                </p>
-              </div>
-              <div class="text-right flex-shrink-0">
-                <p class="text-[12px] font-bold text-zinc-200 tabular-nums">
-                  {{ bet.stake }}€ @ {{ bet.odds?.toFixed(2) }}
-                </p>
-                <p v-if="bet.profit != null" class="text-[10px] font-bold tabular-nums"
-                  :class="bet.profit >= 0 ? 'text-emerald-400' : 'text-red-400'">
-                  {{ bet.profit >= 0 ? '+' : '' }}{{ bet.profit.toFixed(2) }}€
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══ BROWSE WALLETS SECTION ═══ -->
-    <div class="mt-6">
-      <button
-        @click="showBrowse = !showBrowse"
-        class="flex items-center gap-2 text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors mb-3"
-      >
-        <ChevronRight :size="14" :class="showBrowse ? 'rotate-90 transition-transform' : 'transition-transform'" />
-        Browse All Wallets
-      </button>
-
-      <div v-if="showBrowse" class="grid gap-2 sm:grid-cols-2">
-        <div
-          v-for="w in allWallets" :key="w.id"
-          class="bg-surface-light/30 border border-edge rounded-lg p-3 flex items-center justify-between"
-        >
-          <div>
-            <p class="text-sm font-medium text-zinc-200">{{ w.name }}</p>
-            <div class="flex items-center gap-3 mt-1 text-[10px] text-zinc-500">
-              <span>${{ formatNum(w.balance) }}</span>
-              <span :class="walletROIOf(w) >= 0 ? 'text-emerald-400' : 'text-red-400'">
-                {{ walletROIOf(w) >= 0 ? '+' : '' }}{{ walletROIOf(w).toFixed(1) }}% ROI
-              </span>
-              <span>{{ w.total_bets }} bets</span>
-            </div>
-          </div>
+      <!-- ════════════════════════════════════════════════════════════════
+           MODE B — SUBSCRIBED VIEW
+      ═════════════════════════════════════════════════════════════════ -->
+      <template v-else>
+        <!-- Subscribed wallet pill row -->
+        <div class="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-thin">
           <button
-            v-if="!isFollowed(w.id)"
-            @click="followWallet(w.id)"
-            class="px-3 py-1 text-[11px] font-medium bg-emerald-600/20 text-emerald-400 rounded-full hover:bg-emerald-600/30 transition-colors"
+            v-for="w in subscribedWallets" :key="w.id"
+            @click="selectWallet(w.id)"
+            class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap border"
+            :class="activeWalletId === w.id
+              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+              : 'bg-surface-light text-zinc-400 border-edge hover:border-zinc-600'"
           >
-            Follow
+            <span>{{ getWalletMeta(w.id).shortName }}</span>
+            <span class="ml-1.5 tabular-nums" :class="walletROIOf(w) >= 0 ? 'text-emerald-400/70' : 'text-red-400/70'">
+              {{ walletROIOf(w) >= 0 ? '+' : '' }}{{ walletROIOf(w).toFixed(0) }}%
+            </span>
           </button>
-          <span v-else class="px-3 py-1 text-[11px] font-medium text-zinc-500">Following</span>
-        </div>
-      </div>
-    </div>
 
-    <!-- ═══ NEW BET MODAL ═══ -->
-    <UModal v-model="showNewBet">
-      <UCard>
-        <template #header>
-          <h3 class="text-lg font-semibold text-white">Log New Bet</h3>
-        </template>
-        <div class="space-y-4">
-          <UFormGroup label="Game ID">
-            <UInput v-model="newBet.game_id" placeholder="Game ID" />
-          </UFormGroup>
-          <div class="grid grid-cols-2 gap-4">
-            <UFormGroup label="Bet Type">
-              <USelect v-model="newBet.bet_type" :options="betTypeOptions" />
-            </UFormGroup>
-            <UFormGroup label="Sport">
-              <USelect v-model="newBet.sport" :options="[{ label: 'Football', value: 'football' }, { label: 'Basketball', value: 'basketball' }]" />
-            </UFormGroup>
-          </div>
-          <UFormGroup label="Selection">
-            <UInput v-model="newBet.selection" placeholder="e.g. Home Win, Over 2.5" />
-          </UFormGroup>
-          <div class="grid grid-cols-2 gap-4">
-            <UFormGroup label="Stake (€)">
-              <UInput v-model.number="newBet.stake" type="number" step="0.01" />
-            </UFormGroup>
-            <UFormGroup label="Odds">
-              <UInput v-model.number="newBet.odds" type="number" step="0.01" />
-            </UFormGroup>
-          </div>
-          <UFormGroup label="Notes">
-            <UTextarea v-model="newBet.notes" placeholder="Optional notes" />
-          </UFormGroup>
+          <!-- Add more button -->
+          <button
+            @click="showDiscoveryModal = true"
+            class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 whitespace-nowrap"
+          >
+            <UIcon name="i-heroicons-plus" class="w-3 h-3 inline -mt-0.5" />
+            Subscribe
+          </button>
         </div>
-        <template #footer>
-          <div class="flex justify-end gap-3">
-            <UButton variant="ghost" @click="showNewBet = false">Cancel</UButton>
-            <UButton color="primary" :loading="saving" @click="saveBet">Save</UButton>
+
+        <!-- Hero -->
+        <div v-if="activeWallet" class="mb-4">
+          <WalletHero
+            :wallet="activeWallet"
+            :subscription="activeSubscription"
+            :sparkline-points="sparklinePoints"
+          />
+        </div>
+
+        <!-- Performance chart -->
+        <div v-if="activeWalletId" class="mb-4">
+          <WalletPerformanceChart
+            :points="historyPoints"
+            :model-value="historyDays"
+            :loading="historyLoading"
+            :seed="parseFloat(activeWallet?.initial_balance || 0)"
+            @update:days="setHistoryDays"
+          />
+        </div>
+
+        <!-- Bets card -->
+        <div class="rounded-xl bg-surface border border-edge overflow-hidden">
+          <WalletBetFilterBar
+            :status="betFilter"
+            :total="combinedTotal"
+            @update:status="setBetFilter"
+          />
+
+          <div class="p-2 sm:p-3">
+            <div v-if="betsLoading || parlaysLoading" class="flex justify-center py-8">
+              <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin text-zinc-600" />
+            </div>
+
+            <div v-else-if="bets.length === 0 && parlays.length === 0" class="text-center py-8">
+              <p class="text-sm text-zinc-500">No {{ betFilter || '' }} bets found</p>
+            </div>
+
+            <template v-else>
+              <!-- Parlays section -->
+              <div v-if="parlays.length > 0" class="space-y-1.5">
+                <p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-1 mb-1.5">
+                  Parlays · {{ parlaysTotal }}
+                </p>
+                <WalletParlayRow v-for="p in parlays" :key="`p${p.id}`" :parlay="p" />
+              </div>
+
+              <!-- Divider -->
+              <div
+                v-if="parlays.length > 0 && bets.length > 0"
+                class="border-t border-edge/30 my-3"
+              ></div>
+
+              <!-- Singles section -->
+              <div v-if="bets.length > 0" class="space-y-1.5">
+                <p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-1 mb-1.5">
+                  Singles · {{ betsTotal }}
+                </p>
+                <WalletBetRow v-for="bet in bets" :key="`b${bet.id}`" :bet="bet" />
+              </div>
+            </template>
+
+            <!-- Pagination (singles only — parlays display is fixed-window) -->
+            <div v-if="!betsLoading && betsTotal > PAGE_SIZE" class="flex items-center justify-center gap-3 mt-4 pt-3 border-t border-edge/30">
+              <button
+                :disabled="betsPage === 0"
+                @click="prevPage"
+                class="px-3 py-1.5 text-xs font-medium rounded bg-surface-light text-zinc-400 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              >Previous</button>
+              <span class="text-[11px] text-zinc-500 tabular-nums">
+                {{ betsPage * PAGE_SIZE + 1 }}–{{ Math.min((betsPage + 1) * PAGE_SIZE, betsTotal) }} of {{ betsTotal }}
+              </span>
+              <button
+                :disabled="(betsPage + 1) * PAGE_SIZE >= betsTotal"
+                @click="nextPage"
+                class="px-3 py-1.5 text-xs font-medium rounded bg-surface-light text-zinc-400 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              >Next</button>
+            </div>
           </div>
-        </template>
-      </UCard>
-    </UModal>
+        </div>
+      </template>
+
+      <!-- Discovery modal (Mode B → "Subscribe" pill) -->
+      <UModal v-model="showDiscoveryModal">
+        <div class="p-4 sm:p-5 bg-surface rounded-xl max-h-[85vh] overflow-y-auto">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-zinc-100">More wallets</h2>
+            <button @click="showDiscoveryModal = false" class="text-zinc-500 hover:text-zinc-300">
+              <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+          <WalletDiscovery
+            :wallets="unsubscribedWallets"
+            :pricing="pricing"
+            :busy-wallet-id="busyWalletId"
+            @subscribe="(w) => { showDiscoveryModal = false; openSubscribeModal(w) }"
+          />
+          <div v-if="unsubscribedWallets.length === 0" class="text-center py-6">
+            <p class="text-sm text-zinc-500">You're subscribed to every available wallet.</p>
+          </div>
+        </div>
+      </UModal>
+
+      <!-- Subscribe confirm -->
+      <WalletSubscribeModal
+        v-model="showConfirmModal"
+        :wallet="modalWallet"
+        :pricing="pricing"
+        :balance="balance ?? 0"
+        :busy="confirming"
+        @confirm="confirmSubscribe"
+      />
+    </template>
   </div>
 </template>
 
 <script setup>
-import { Wallet, ChevronRight } from 'lucide-vue-next'
+import { ref, computed, onMounted } from 'vue'
+import { getWalletMeta } from '~/utils/wallet-meta'
 
 definePageMeta({ middleware: 'auth' })
 
-const api = useApi()
-const supabase = useSupabaseClient()
 const toast = useToast()
+const api = useApi()
+
+// ─── Constants ──────────────────────────────────────────
+const PAGE_SIZE = 50
 
 // ─── State ──────────────────────────────────────────────
 const loading = ref(true)
-const wallets = ref([])
-const allWallets = ref([])
+const allWallets = ref([])         // every active wallet from `wallets`
+const subscriptions = ref([])      // [{wallet_id, expires_at, ...}]
+const pricing = ref({ cost_credits: 500, duration_days: 30 })
+const balance = ref(null)          // user's credit balance
 const activeWalletId = ref(null)
-const tab = ref('ai')
-const showBrowse = ref(false)
 
-// AI bets
-const aiBets = ref([])
-const aiBetsLoading = ref(false)
-const aiBetFilter = ref('')
-const statusFilters = [
-  { label: 'All', value: '' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Won', value: 'won' },
-  { label: 'Lost', value: 'lost' }
-]
+// Bets (singles)
+const bets = ref([])
+const betsTotal = ref(0)
+const betsLoading = ref(false)
+const betFilter = ref('')
+const betsPage = ref(0)
 
-// Personal bets
-const userBets = ref([])
-const userStats = ref(null)
-const personalLoading = ref(false)
+// Parlays (no pagination — show recent 100 max)
+const parlays = ref([])
+const parlaysTotal = ref(0)
+const parlaysLoading = ref(false)
 
-// New bet modal
-const showNewBet = ref(false)
-const saving = ref(false)
-const newBet = ref({
-  game_id: '',
-  bet_type: '1x2',
-  selection: '',
-  stake: 10,
-  odds: 1.80,
-  sport: 'football',
-  notes: ''
-})
-const betTypeOptions = [
-  { label: '1X2', value: '1x2' },
-  { label: 'Over/Under', value: 'over_under' },
-  { label: 'Spread', value: 'spread' },
-  { label: 'Other', value: 'other' }
-]
+const combinedTotal = computed(() => betsTotal.value + parlaysTotal.value)
+
+// Performance chart
+const historyDays = ref(30)
+const historyPoints = ref([])
+const historyLoading = ref(false)
+
+// Modals
+const showDiscoveryModal = ref(false)
+const showConfirmModal = ref(false)
+const modalWallet = ref(null)
+const busyWalletId = ref(null)
+const confirming = ref(false)
 
 // ─── Computed ───────────────────────────────────────────
-const activeWallet = computed(() => wallets.value.find(w => w.id === activeWalletId.value) || wallets.value[0] || null)
+const subscribedIds = computed(() => new Set(subscriptions.value.map(s => s.wallet_id)))
 
-const walletPL = computed(() => {
-  if (!activeWallet.value) return 0
-  return parseFloat(activeWallet.value.balance) - parseFloat(activeWallet.value.initial_balance)
-})
+const subscribedWallets = computed(() =>
+  allWallets.value.filter(w => subscribedIds.value.has(w.id))
+)
+const unsubscribedWallets = computed(() =>
+  allWallets.value.filter(w => !subscribedIds.value.has(w.id))
+)
+const catalogueWallets = computed(() => allWallets.value)
 
-const walletROI = computed(() => {
-  if (!activeWallet.value) return 0
-  const init = parseFloat(activeWallet.value.initial_balance) || 1
-  return ((parseFloat(activeWallet.value.balance) - init) / init) * 100
-})
+const mode = computed(() => subscribedWallets.value.length > 0 ? 'subscribed' : 'discovery')
 
-const pendingCount = computed(() => aiBets.value.filter(b => b.status === 'pending').length)
+const activeWallet = computed(() => allWallets.value.find(w => w.id === activeWalletId.value) || null)
+const activeSubscription = computed(() => subscriptions.value.find(s => s.wallet_id === activeWalletId.value) || null)
 
-const filteredAiBets = computed(() => {
-  if (!aiBetFilter.value) return aiBets.value
-  return aiBets.value.filter(b => b.status === aiBetFilter.value)
+const sparklinePoints = computed(() => {
+  // Last 30 history points serve double-duty as the hero sparkline.
+  return historyPoints.value.slice(-30)
 })
 
 // ─── Helpers ────────────────────────────────────────────
-function formatNum(n) {
-  return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function formatDate(d) {
-  if (!d) return ''
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-}
-
-function statusDot(status) {
-  if (status === 'won') return 'bg-emerald-400'
-  if (status === 'lost') return 'bg-red-400'
-  if (status === 'pending') return 'bg-amber-400 animate-pulse'
-  return 'bg-zinc-500'
-}
-
 function walletROIOf(w) {
   const init = parseFloat(w.initial_balance) || 1
   return ((parseFloat(w.balance) - init) / init) * 100
 }
 
-function isFollowed(walletId) {
-  return wallets.value.some(w => w.id === walletId)
-}
-
-// ─── Data Loading ───────────────────────────────────────
-async function loadFollowedWallets() {
+// ─── Data loading ───────────────────────────────────────
+async function loadAll() {
   try {
-    const res = await $fetch('/api/user/wallet-subscriptions')
-    wallets.value = res.wallets || []
-    if (wallets.value.length > 0 && !activeWalletId.value) {
-      activeWalletId.value = wallets.value[0].id
-    }
-  } catch (e) {
-    console.error('Failed to load wallet subscriptions:', e)
-  }
-}
-
-async function loadAllWallets() {
-  try {
-    const data = await supabase
-      .from('wallets')
-      .select('id, name, balance, initial_balance, total_bets, win_rate, is_active')
-      .eq('is_active', true)
-      .order('id', { ascending: true })
-    allWallets.value = data.data || []
-  } catch (e) {
-    console.error('Failed to load all wallets:', e)
-  }
-}
-
-async function loadAiBets() {
-  if (!activeWallet.value) return
-  aiBetsLoading.value = true
-  try {
-    const { data, error } = await supabase
-      .from('bets')
-      .select(`
-        id, bet_type, stake, odds, status, profit, placed_at, notes, sport, strategy,
-        games!inner(date, league_key, home_team:teams!home_team_id(name), away_team:teams!away_team_id(name))
-      `)
-      .eq('wallet_id', activeWallet.value.id)
-      .order('placed_at', { ascending: false })
-      .limit(100)
-
-    if (error) throw error
-
-    aiBets.value = (data || []).map(b => {
-      const notes = typeof b.notes === 'string' ? tryParse(b.notes) : b.notes
-      return {
-        ...b,
-        home_name: b.games?.home_team?.name || 'Home',
-        away_name: b.games?.away_team?.name || 'Away',
-        date: b.games?.date,
-        bet_type_display: notes?.selection || b.bet_type
-      }
-    })
-  } catch (e) {
-    console.error('Failed to load AI bets:', e)
-  } finally {
-    aiBetsLoading.value = false
-  }
-}
-
-async function loadUserBets() {
-  personalLoading.value = true
-  try {
-    const [betsRes, statsRes] = await Promise.all([
-      api.fetchUserBets({}),
-      api.fetchBetStats()
+    const [subsData, creditsData] = await Promise.all([
+      api.fetchWalletSubscriptions(),
+      api.fetchCredits().catch(() => null),
     ])
-    userBets.value = betsRes.bets || []
-    userStats.value = statsRes?.stats || null
-  } catch (e) {
-    console.error('Failed to load user bets:', e)
-  } finally {
-    personalLoading.value = false
-  }
-}
+    allWallets.value = subsData.wallets || []
+    subscriptions.value = subsData.subscriptions || []
+    pricing.value = subsData.pricing || pricing.value
+    balance.value = creditsData?.balance ?? creditsData?.credits ?? null
 
-function tryParse(s) {
-  try { return JSON.parse(s) } catch { return null }
-}
-
-// ─── Actions ────────────────────────────────────────────
-async function followWallet(walletId) {
-  try {
-    await $fetch('/api/user/wallet-subscriptions', {
-      method: 'POST',
-      body: { walletId, action: 'follow' }
-    })
-    await loadFollowedWallets()
-    toast.add({ title: 'Wallet followed', color: 'green' })
-  } catch (e) {
-    toast.add({ title: 'Failed to follow wallet', color: 'red' })
-  }
-}
-
-async function unfollowWallet(walletId) {
-  try {
-    await $fetch('/api/user/wallet-subscriptions', {
-      method: 'POST',
-      body: { walletId, action: 'unfollow' }
-    })
-    wallets.value = wallets.value.filter(w => w.id !== walletId)
-    if (activeWalletId.value === walletId) {
-      activeWalletId.value = wallets.value[0]?.id || null
+    // Auto-select first subscribed wallet (or first wallet if discovery mode)
+    if (!activeWalletId.value && subscribedWallets.value.length > 0) {
+      activeWalletId.value = subscribedWallets.value[0].id
     }
-    toast.add({ title: 'Wallet unfollowed', color: 'gray' })
   } catch (e) {
-    toast.add({ title: 'Failed to unfollow', color: 'red' })
+    console.error('Failed to load wallet data:', e)
+    toast.add({ title: 'Failed to load wallets', color: 'red' })
   }
 }
 
-async function saveBet() {
-  if (!newBet.value.selection || !newBet.value.stake) return
-  saving.value = true
+async function loadBets() {
+  if (!activeWalletId.value) return
+  betsLoading.value = true
   try {
-    await api.createUserBet(newBet.value)
-    toast.add({ title: 'Bet logged', color: 'green' })
-    showNewBet.value = false
-    await loadUserBets()
-    newBet.value = { game_id: '', bet_type: '1x2', selection: '', stake: 10, odds: 1.80, sport: 'football', notes: '' }
+    const data = await api.fetchWalletBets(activeWalletId.value, {
+      limit: PAGE_SIZE,
+      offset: betsPage.value * PAGE_SIZE,
+      status: betFilter.value || undefined,
+    })
+    bets.value = data.bets || []
+    betsTotal.value = data.total || 0
   } catch (e) {
-    toast.add({ title: 'Failed to save bet', color: 'red' })
+    console.error('Failed to load bets:', e)
   } finally {
-    saving.value = false
+    betsLoading.value = false
   }
 }
 
-// ─── Watchers ───────────────────────────────────────────
-watch(activeWalletId, () => { loadAiBets() })
-watch(tab, (t) => {
-  if (t === 'personal' && userBets.value.length === 0) loadUserBets()
-})
+async function loadParlays() {
+  if (!activeWalletId.value) return
+  parlaysLoading.value = true
+  try {
+    const data = await api.fetchWalletParlays(activeWalletId.value, {
+      limit: 100,
+      offset: 0,
+      status: betFilter.value || undefined,
+    })
+    parlays.value = data.parlays || []
+    parlaysTotal.value = data.total || 0
+  } catch (e) {
+    console.error('Failed to load parlays:', e)
+    parlays.value = []
+    parlaysTotal.value = 0
+  } finally {
+    parlaysLoading.value = false
+  }
+}
+
+async function loadHistory() {
+  if (!activeWalletId.value) return
+  historyLoading.value = true
+  try {
+    const data = await api.fetchWalletBalanceHistory(activeWalletId.value, historyDays.value)
+    historyPoints.value = data.points || []
+  } catch (e) {
+    console.error('Failed to load wallet history:', e)
+    historyPoints.value = []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function selectWallet(id) {
+  if (activeWalletId.value === id) return
+  activeWalletId.value = id
+  betsPage.value = 0
+  betFilter.value = ''
+  loadBets()
+  loadParlays()
+  loadHistory()
+}
+
+function setBetFilter(val) {
+  betFilter.value = val
+  betsPage.value = 0
+  loadBets()
+  loadParlays()
+}
+
+function setHistoryDays(d) {
+  historyDays.value = d
+  loadHistory()
+}
+
+function prevPage() { betsPage.value--; loadBets() }
+function nextPage() { betsPage.value++; loadBets() }
+
+// ─── Subscribe flow ─────────────────────────────────────
+function openSubscribeModal(w) {
+  modalWallet.value = { ...w, meta: getWalletMeta(w.id) }
+  showConfirmModal.value = true
+}
+
+async function confirmSubscribe(w) {
+  if (!w) return
+  confirming.value = true
+  busyWalletId.value = w.id
+  try {
+    const res = await api.subscribeToWallet(w.id)
+    if (res?.success) {
+      toast.add({ title: 'Subscribed', description: `Active until ${new Date(res.expires_at).toLocaleDateString()}` })
+      balance.value = res.balance_after ?? balance.value
+      showConfirmModal.value = false
+      // Refresh subscriptions and select the new wallet
+      await loadAll()
+      activeWalletId.value = w.id
+      betsPage.value = 0
+      betFilter.value = ''
+      await Promise.all([loadBets(), loadParlays(), loadHistory()])
+    } else {
+      toast.add({
+        title: 'Could not subscribe',
+        description: res?.error === 'insufficient_credits'
+          ? `Need ${res.required} credits, have ${res.balance}`
+          : (res?.error || 'unknown error'),
+        color: 'red',
+      })
+    }
+  } catch (e) {
+    console.error('Subscribe failed:', e)
+    toast.add({ title: 'Subscribe failed', description: e.message || String(e), color: 'red' })
+  } finally {
+    confirming.value = false
+    busyWalletId.value = null
+  }
+}
 
 // ─── Init ───────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([loadFollowedWallets(), loadAllWallets()])
+  await loadAll()
   loading.value = false
-  loadAiBets()
+  if (activeWalletId.value) {
+    await Promise.all([loadBets(), loadParlays(), loadHistory()])
+  }
 })
 </script>
-
-<style scoped>
-.wallet-hero {
-  background: linear-gradient(135deg, rgba(28, 31, 39, 0.98) 0%, rgba(16, 55, 40, 0.2) 100%);
-  border: 1px solid rgba(52, 211, 153, 0.15);
-}
-.wallet-tabs-card {
-  background: rgba(28, 31, 39, 0.9);
-  border: 1px solid rgba(42, 47, 58, 0.4);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-}
-</style>

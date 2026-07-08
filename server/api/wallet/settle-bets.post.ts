@@ -34,6 +34,9 @@ export default defineEventHandler(async (event) => {
     let totalLost = 0
     let totalProfit = 0
 
+    // Accumulate per-wallet deltas to batch the wallet updates
+    const walletDeltas = new Map<number, { balanceDelta: number; wonDelta: number; lostDelta: number; profitDelta: number }>()
+
     for (const bet of pendingBets) {
       const game = (bet as any).game
       const homeGoals = Number(game.home_goals)
@@ -54,7 +57,7 @@ export default defineEventHandler(async (event) => {
       const status = betWon ? 'won' : 'lost'
       const profit = betWon ? (Number(bet.stake) * Number(bet.odds)) - Number(bet.stake) : -Number(bet.stake)
 
-      // Update bet
+      // Update bet status
       await supabase
         .from('bets')
         .update({
@@ -65,69 +68,56 @@ export default defineEventHandler(async (event) => {
         })
         .eq('id', bet.id)
 
-      // Update wallet
+      // Accumulate wallet delta (avoids N+1 wallet queries)
+      const wid = bet.wallet_id
+      const d = walletDeltas.get(wid) || { balanceDelta: 0, wonDelta: 0, lostDelta: 0, profitDelta: 0 }
+      d.profitDelta += profit
       if (betWon) {
-        const { data: wallet } = await supabase
-          .from('wallets')
-          .select('balance, total_won, total_profit')
-          .eq('id', bet.wallet_id)
-          .single()
-        if (wallet) {
-          await supabase
-            .from('wallets')
-            .update({
-              balance: Number(wallet.balance) + Number(bet.stake) + profit,
-              total_won: Number(wallet.total_won) + 1,
-              total_profit: Number(wallet.total_profit) + profit
-            })
-            .eq('id', bet.wallet_id)
-        }
+        // Return stake + winnings to balance
+        d.balanceDelta += Number(bet.stake) + profit
+        d.wonDelta += 1
         totalWon++
       } else {
-        const { data: wallet } = await supabase
-          .from('wallets')
-          .select('total_lost, total_profit')
-          .eq('id', bet.wallet_id)
-          .single()
-        if (wallet) {
-          await supabase
-            .from('wallets')
-            .update({
-              total_lost: Number(wallet.total_lost) + 1,
-              total_profit: Number(wallet.total_profit) + profit
-            })
-            .eq('id', bet.wallet_id)
-        }
+        d.lostDelta += 1
         totalLost++
       }
+      walletDeltas.set(wid, d)
 
       totalProfit += profit
       settled++
     }
 
-    // Update wallet win_rate and roi
-    const walletIds = [...new Set(pendingBets.map((b: any) => b.wallet_id))]
-
-    for (const walletId of walletIds) {
+    // Apply accumulated deltas — one SELECT + one UPDATE per unique wallet
+    for (const [walletId, deltas] of walletDeltas) {
       const { data: wallet } = await supabase
         .from('wallets')
-        .select('*')
+        .select('balance, total_won, total_lost, total_profit, total_bets, initial_balance')
         .eq('id', walletId)
         .single()
 
-      if (wallet) {
-        const winRate = Number(wallet.total_bets) > 0
-          ? (Number(wallet.total_won) / Number(wallet.total_bets) * 100).toFixed(2)
-          : '0'
-        const roi = Number(wallet.initial_balance) > 0
-          ? (Number(wallet.total_profit) / Number(wallet.initial_balance) * 100).toFixed(2)
-          : '0'
+      if (!wallet) continue
 
-        await supabase
-          .from('wallets')
-          .update({ win_rate: Number(winRate), roi: Number(roi) })
-          .eq('id', walletId)
-      }
+      const newBalance = Number(wallet.balance) + deltas.balanceDelta
+      const newWon = Number(wallet.total_won) + deltas.wonDelta
+      const newLost = Number(wallet.total_lost) + deltas.lostDelta
+      const newProfit = Number(wallet.total_profit) + deltas.profitDelta
+      const totalBets = Number(wallet.total_bets) || 0
+      const winRate = totalBets > 0 ? (newWon / totalBets) * 100 : 0
+      const roi = Number(wallet.initial_balance) > 0
+        ? (newProfit / Number(wallet.initial_balance)) * 100
+        : 0
+
+      await supabase
+        .from('wallets')
+        .update({
+          balance: newBalance,
+          total_won: newWon,
+          total_lost: newLost,
+          total_profit: newProfit,
+          win_rate: Number(winRate.toFixed(2)),
+          roi: Number(roi.toFixed(2))
+        })
+        .eq('id', walletId)
     }
 
     await logOperation('settle-bets', 'success', {
