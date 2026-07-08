@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { getSupabase } from '~/server/utils/supabase'
+import { signUserToken } from '~/server/utils/jwt'
 
 export default defineEventHandler(async (event) => {
   const { email, password } = await readBody(event)
@@ -64,7 +65,7 @@ export default defineEventHandler(async (event) => {
         expires_at: expiresAt.toISOString()
       })
 
-    // Set session cookie
+    // Set session cookie (legacy path — used by SSR + same-origin requests)
     setCookie(event, 'session_id', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -72,6 +73,10 @@ export default defineEventHandler(async (event) => {
       maxAge: 60 * 60 * 24 * 30,
       path: '/'
     })
+
+    // Issue Supabase-compatible JWT (HS256) so direct supabase-js calls from
+    // the browser / Capacitor APK pass RLS via `Authorization: Bearer <token>`.
+    const supabaseToken = signUserToken(user.id)
 
     return {
       user: {
@@ -84,7 +89,8 @@ export default defineEventHandler(async (event) => {
         preferred_sports: user.preferred_sports ?? [],
         preferred_wallet_id: user.preferred_wallet_id,
         timezone: user.timezone
-      }
+      },
+      access_token: supabaseToken
     }
   } catch (error: any) {
     if (error.statusCode) throw error

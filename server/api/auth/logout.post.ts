@@ -12,7 +12,6 @@ export default defineEventHandler(async (event) => {
         .from('sessions')
         .delete()
         .eq('token', sessionId)
-        .execute()
     } catch (error) {
       console.error('Logout error:', error)
     }

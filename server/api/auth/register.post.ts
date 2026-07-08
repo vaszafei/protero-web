@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { getSupabase } from '~/server/utils/supabase'
 import { initializeUserCredits } from '~/server/utils/credits'
+import { signUserToken } from '~/server/utils/jwt'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -123,7 +124,10 @@ export default defineEventHandler(async (event) => {
       console.error('Failed to initialize credits (non-fatal):', creditErr)
     }
 
-    return { user }
+    // Supabase-RLS-compatible JWT (see comments in login.post.ts)
+    const supabaseToken = signUserToken(user.id)
+
+    return { user, access_token: supabaseToken }
   } catch (error: any) {
     if (error.statusCode) throw error
 

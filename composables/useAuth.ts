@@ -22,6 +22,7 @@ interface UserData {
 
 export const useAuth = () => {
   const user = useState<UserData | null>('user', () => null)
+  const { getToken, setToken } = useAuthToken()
   const isAuthenticated = computed(() => !!user.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
   const needsOnboarding = computed(() => !!user.value && !user.value.onboarding_completed && user.value.role !== 'admin')
@@ -31,14 +32,15 @@ export const useAuth = () => {
    */
   const login = async (email: string, password: string) => {
     try {
-      const data = await $fetch<{ user: UserData }>('/api/auth/login', {
+      const data = await $fetch<{ user: UserData; access_token?: string }>(authEndpoint('login'), {
         method: 'POST',
         body: { email, password }
       })
       user.value = data.user
+      if (data.access_token) setToken(data.access_token)
       return { success: true }
     } catch (err: any) {
-      const msg = err?.data?.statusMessage || err?.message || 'Login failed'
+      const msg = err?.data?.statusMessage || err?.data?.error || err?.message || 'Login failed'
       return { success: false, error: msg }
     }
   }
@@ -48,11 +50,12 @@ export const useAuth = () => {
    */
   const logout = async () => {
     try {
-      await $fetch('/api/auth/logout', { method: 'POST' })
+      await $fetch(authEndpoint('logout'), { method: 'POST' })
     } catch (err) {
       console.error('Logout error:', err)
     }
     user.value = null
+    setToken(null)
     navigateTo('/login')
   }
 
@@ -61,14 +64,15 @@ export const useAuth = () => {
    */
   const register = async (email: string, password: string, name: string) => {
     try {
-      const data = await $fetch<{ user: UserData }>('/api/auth/register', {
+      const data = await $fetch<{ user: UserData; access_token?: string }>(authEndpoint('register'), {
         method: 'POST',
         body: { email, password, name }
       })
       user.value = data.user
+      if (data.access_token) setToken(data.access_token)
       return { success: true }
     } catch (err: any) {
-      const msg = err?.data?.statusMessage || err?.message || 'Registration failed'
+      const msg = err?.data?.statusMessage || err?.data?.error || err?.message || 'Registration failed'
       return { success: false, error: msg }
     }
   }
@@ -78,11 +82,16 @@ export const useAuth = () => {
    */
   const checkAuth = async () => {
     try {
-      const data = await $fetch<{ user: UserData }>('/api/auth/me')
+      const token = getToken()
+      const headers: Record<string, string> = {}
+      if (token) headers.Authorization = `Bearer ${token}`
+      const data = await $fetch<{ user: UserData; access_token?: string }>(authEndpoint('me'), { headers })
       user.value = data.user
+      if (data.access_token) setToken(data.access_token)
       return true
     } catch {
       user.value = null
+      setToken(null)
       return false
     }
   }
