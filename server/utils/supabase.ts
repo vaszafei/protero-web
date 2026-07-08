@@ -152,22 +152,23 @@ export async function getPredictionsWithGames(filters: {
  */
 export async function getWalletWithStats(walletId: number = 1) {
   const supabase = getSupabase()
-  
-  const { data, error } = await supabase
+
+  const { data: wallet, error } = await supabase
     .from('wallets')
-    .select(`
-      *,
-      bets(count),
-      pending_bets:bets(count, stake.sum()).eq(status, 'pending')
-    `)
+    .select('*')
     .eq('id', walletId)
     .single()
-  
+
   if (error) {
     throw new Error(`Failed to fetch wallet: ${error.message}`)
   }
-  
-  return data
+
+  const [{ count: totalBets }, { count: pendingBets }] = await Promise.all([
+    supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId),
+    supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'pending'),
+  ])
+
+  return { ...wallet, totalBets: totalBets || 0, pendingBets: pendingBets || 0 }
 }
 
 /**
@@ -223,23 +224,34 @@ export async function placeBet(bet: {
   notes?: string
 }) {
   const supabase = getSupabase()
-  
-  // Check wallet balance first
-  const { data: wallet, error: walletError } = await supabase
+
+  // Optimistic-lock pattern: SELECT current balance, then UPDATE with an equality guard.
+  // If another concurrent bet deducted the balance between our SELECT and UPDATE,
+  // the .eq('balance', snapshot) predicate will match zero rows and we reject.
+  const { data: wallet } = await supabase
     .from('wallets')
-    .select('balance')
+    .select('id, balance')
     .eq('id', bet.wallet_id)
-    .single()
-  
-  if (walletError || !wallet) {
-    throw new Error('Wallet not found')
+    .gte('balance', bet.stake) // pre-check: fail fast if clearly insufficient
+    .maybeSingle()
+
+  if (!wallet) {
+    throw new Error('Insufficient balance or wallet not found')
   }
-  
-  if (wallet.balance < bet.stake) {
-    throw new Error('Insufficient balance')
+
+  // Attempt atomic deduction: only succeeds if balance is still exactly what we read
+  const { data: updateRows, error: updateError } = await supabase
+    .from('wallets')
+    .update({ balance: wallet.balance - bet.stake })
+    .eq('id', bet.wallet_id)
+    .eq('balance', wallet.balance) // optimistic lock — rejects on concurrent modification
+    .select('id')
+
+  if (updateError || !updateRows?.length) {
+    throw new Error('Insufficient balance or concurrent modification — please retry')
   }
-  
-  // Deduct from wallet and insert bet in transaction
+
+  // Insert bet record now that balance is safely deducted
   const { data, error } = await supabase
     .from('bets')
     .insert({
@@ -249,19 +261,16 @@ export async function placeBet(bet: {
     })
     .select()
     .single()
-  
+
   if (error) {
+    // Compensate: restore balance if bet insert fails
+    await supabase
+      .from('wallets')
+      .update({ balance: wallet.balance })
+      .eq('id', bet.wallet_id)
     throw new Error(`Failed to place bet: ${error.message}`)
   }
-  
-  // Update wallet balance
-  await supabase
-    .from('wallets')
-    .update({ 
-      balance: wallet.balance - bet.stake 
-    })
-    .eq('id', bet.wallet_id)
-  
+
   return data
 }
 

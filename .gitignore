@@ -27,3 +27,6 @@ pnpm-debug.log*
 android/.gradle/
 android/app/build/
 ios/DerivedData/
+
+# Supabase CLI cache
+supabase/.temp/
