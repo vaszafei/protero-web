@@ -30,3 +30,6 @@ ios/DerivedData/
 
 # Supabase CLI cache
 supabase/.temp/
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json

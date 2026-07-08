@@ -49,9 +49,7 @@
           rel="noopener noreferrer"
           class="flex items-center gap-2 text-primary-400 hover:text-primary-400 transition-colors"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
+          <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-4 h-4" />
           <span class="text-sm font-medium">View on FlashScore</span>
         </a>
       </div>
@@ -82,6 +80,7 @@ const formatDate = (dateString) => {
 const formatTime = (dateString) => {
   const date = new Date(dateString)
   return date.toLocaleTimeString('en-US', { 
+    timeZone: 'Europe/Athens',
     hour: '2-digit', 
     minute: '2-digit',
     hour12: false

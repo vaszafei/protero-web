@@ -1,34 +1,35 @@
 <template>
-  <div class="stat-bar-row py-2.5">
-    <!-- Label and Values -->
-    <div class="flex items-center justify-between text-sm mb-2">
-      <span class="font-semibold text-[#e8a0a0]">{{ homeValue }}{{ suffix }}</span>
-      <span class="text-zinc-500 text-xs uppercase tracking-wider font-medium">{{ label }}</span>
-      <span class="font-semibold text-[#a0b8e8]">{{ awayValue }}{{ suffix }}</span>
+  <div class="stat-bar-row py-1.5">
+    <!-- Centered label -->
+    <div class="text-center text-[10px] uppercase tracking-wider text-zinc-500 font-medium mb-1">
+      {{ label }}
     </div>
 
-    <!-- Progress Bars — center-out layout -->
-    <div class="flex items-center gap-0">
-      <!-- Home bar: grows RIGHT-TO-LEFT from center -->
-      <div class="flex-1 h-[5px] bg-surface-light/60 rounded-l-full overflow-hidden flex justify-end">
-        <div 
-          class="h-full rounded-l-full bar-fill"
-          :class="homeBarClass"
-          :style="{ width: `${homePercentage}%` }"
-        />
+    <!-- One-line: [home_val] [bar] [away_val] -->
+    <div class="grid grid-cols-[44px_1fr_44px] items-center gap-2">
+      <span class="text-right text-[13px] font-semibold text-[#e8a0a0] tabular-nums">{{ homeValue }}{{ suffix }}</span>
+
+      <div class="flex items-center gap-0">
+        <!-- Home bar: grows RIGHT-TO-LEFT from center -->
+        <div class="flex-1 h-[5px] bg-surface-light/60 rounded-l-full overflow-hidden flex justify-end">
+          <div
+            class="h-full rounded-l-full bar-fill"
+            :class="homeBarClass"
+            :style="{ width: `${homePercentage}%` }"
+          />
+        </div>
+        <div class="w-px h-3 bg-zinc-600/60 flex-shrink-0" />
+        <!-- Away bar: grows LEFT-TO-RIGHT from center -->
+        <div class="flex-1 h-[5px] bg-surface-light/60 rounded-r-full overflow-hidden">
+          <div
+            class="h-full rounded-r-full bar-fill"
+            :class="awayBarClass"
+            :style="{ width: `${awayPercentage}%` }"
+          />
+        </div>
       </div>
 
-      <!-- Center divider -->
-      <div class="w-px h-3 bg-zinc-600/60 flex-shrink-0" />
-
-      <!-- Away bar: grows LEFT-TO-RIGHT from center -->
-      <div class="flex-1 h-[5px] bg-surface-light/60 rounded-r-full overflow-hidden">
-        <div 
-          class="h-full rounded-r-full bar-fill"
-          :class="awayBarClass"
-          :style="{ width: `${awayPercentage}%` }"
-        />
-      </div>
+      <span class="text-left text-[13px] font-semibold text-[#a0b8e8] tabular-nums">{{ awayValue }}{{ suffix }}</span>
     </div>
   </div>
 </template>

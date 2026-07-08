@@ -54,15 +54,11 @@
             {{ getLeagueBetCount(league) }}
           </span>
           <span class="text-[11px] text-zinc-500 font-medium tabular-nums flex-shrink-0">{{ gamesByLeague[league].length }}</span>
-          <svg 
+          <UIcon
             class="w-3.5 h-3.5 text-zinc-500 transition-transform duration-200 flex-shrink-0"
             :class="{ 'rotate-90': expandedLeagues[league] }"
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-          </svg>
+            name="i-heroicons-chevron-right"
+          />
         </div>
 
         <!-- League Games - Expandable -->
@@ -138,7 +134,7 @@
                 </template>
               </div>
 
-              <!-- Bet picks row -->
+              <!-- Bet picks row (real placed bets) -->
               <div v-if="getGameBets(game).length > 0" class="px-2.5 pb-1.5 flex flex-wrap gap-1 border-t border-edge/20 pt-1">
                 <div
                   v-for="bet in getGameBets(game)"
@@ -154,9 +150,21 @@
                   <span class="text-zinc-500">@</span>
                   <span>{{ Number(bet.odds).toFixed(2) }}</span>
                   <span class="text-zinc-500">•</span>
-                  <span>${{ Number(bet.stake).toFixed(1) }}</span>
+                  <span>€{{ Number(bet.stake).toFixed(1) }}</span>
                   <span v-if="bet.status === 'won'" class="text-emerald-400">W</span>
                   <span v-else-if="bet.status === 'lost'" class="text-red-400">L</span>
+                </div>
+              </div>
+
+              <!-- Prediction chip (only when no bet exists for this game) -->
+              <div
+                v-else-if="getPredictionChip(game)"
+                class="px-2.5 pb-1.5 flex flex-wrap gap-1 border-t border-edge/20 pt-1"
+              >
+                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                  <span class="font-bold">{{ getPredictionChip(game)?.label }}</span>
+                  <span v-if="getPredictionChip(game)?.ev != null" class="text-blue-400/70">•</span>
+                  <span v-if="getPredictionChip(game)?.ev != null" class="text-emerald-400">EV {{ getPredictionChip(game)?.ev }}</span>
                 </div>
               </div>
             </div>
@@ -183,15 +191,11 @@
           @click="toggleParlay(parlay.id)"
         >
           <div class="flex items-center gap-2 flex-1">
-            <svg 
+            <UIcon 
               class="w-4 h-4 text-zinc-400 transition-transform duration-200"
               :class="{ 'rotate-90': expandedParlayIds[parlay.id] }"
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
+              name="i-heroicons-chevron-right"
+            />
             <div>
               <div class="font-semibold text-zinc-100 text-sm">Parlay #{{ parlay.id }}</div>
               <div class="text-xs text-zinc-500">{{ parlay.num_legs || 0 }} legs • {{ parlay.parlay_odds?.toFixed(2) || '0.00' }}x • €{{ parlay.total_stake?.toFixed(2) || '0.00' }}</div>
@@ -261,6 +265,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { betLabelShort } from '~/utils/bet-label'
+
+const LEAGUE_EXPAND_KEY = 'dashboard:expandedLeagues'
 
 const props = defineProps<{
   date: Date | null
@@ -271,7 +278,14 @@ const props = defineProps<{
   showBets?: boolean
 }>()
 
-const expandedLeagues = ref<Record<string, boolean>>({})
+// Restore persisted expand/collapse state from localStorage
+const expandedLeagues = ref<Record<string, boolean>>((() => {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(LEAGUE_EXPAND_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+})())
 const expandedParlayIds = ref<Record<number, boolean>>({})
 const viewMode = ref<'games' | 'parlays'>('games')
 
@@ -281,6 +295,9 @@ const navigateToGame = (gameId: number) => {
 
 const toggleLeague = (league: string) => {
   expandedLeagues.value[league] = !expandedLeagues.value[league]
+  if (typeof window !== 'undefined') {
+    try { window.localStorage.setItem(LEAGUE_EXPAND_KEY, JSON.stringify(expandedLeagues.value)) } catch {}
+  }
 }
 
 const toggleParlay = (parlayId: number) => {
@@ -385,11 +402,18 @@ const gamesByLeague = computed(() => {
   return grouped
 })
 
-// Default open all league panels
+// Default open all league panels (only set keys not already in persisted state)
 watch(() => Object.keys(gamesByLeague.value), (keys) => {
+  let mutated = false
   keys.forEach(k => {
-    if (expandedLeagues.value[k] === undefined) expandedLeagues.value[k] = true
+    if (expandedLeagues.value[k] === undefined) {
+      expandedLeagues.value[k] = true
+      mutated = true
+    }
   })
+  if (mutated && typeof window !== 'undefined') {
+    try { window.localStorage.setItem(LEAGUE_EXPAND_KEY, JSON.stringify(expandedLeagues.value)) } catch {}
+  }
 }, { immediate: true })
 
 const getLeagueName = (leagueKey: string) => {
@@ -437,25 +461,47 @@ const getLegGameName = (leg: any) => {
   return null
 }
 
-// Get bets for a specific game (from game.bets or from allBets prop)
-function getGameBets(game: any): any[] {
-  // First try embedded bets from the games API
-  if (game.bets && game.bets.length > 0) return game.bets
-  // Fallback: match from the separate bets array
-  if (props.bets && props.bets.length > 0) {
-    return props.bets.filter((b: any) => b.game_id === game.id)
+// Wallets that ONLY produce parlays (props strategies). Their per-leg `bets`
+// rows must never render as standalone chips on a game card — those legs
+// belong to a parlay that spans multiple games.
+const PARLAY_ONLY_WALLETS = new Set([19, 20])
+
+function isParlayLeg(bet: any): boolean {
+  if (!bet?.notes) return false
+  let n: any = bet.notes
+  if (typeof n === 'string') {
+    try { n = JSON.parse(n) } catch { return false }
   }
-  return []
+  return !!(n && (n.parlay_id || n.pick_type === 'prop_parlay_leg' || n.leg_number))
+}
+
+// Get bets for a specific game (from game.bets or from allBets prop).
+// Filters out parlay legs and parlay-only wallets so chips only show
+// real per-game singles.
+function getGameBets(game: any): any[] {
+  let raw: any[] = []
+  if (game.bets && game.bets.length > 0) raw = game.bets
+  else if (props.bets && props.bets.length > 0) {
+    raw = props.bets.filter((b: any) => b.game_id === game.id)
+  }
+  return raw.filter((b: any) => {
+    if (PARLAY_ONLY_WALLETS.has(Number(b.wallet_id))) return false
+    if (isParlayLeg(b)) return false
+    return true
+  })
 }
 
 // Format bet type for display
 function formatBetType(bet: any): string {
+  // Prefer canonical short label so the dashboard chip matches /game/[id]
+  const short = betLabelShort(bet)
+  if (short && short.length <= 14) return short
   const type = bet.bet_type || ''
   const notes = bet.notes || ''
-  
+
   // If we have notes (e.g. "Over 169.5", "Virtus Bologna +8.5"), use them
   if (notes && notes.length > 0 && notes.length < 40) return notes
-  
+
   // Format bet type labels
   const labels: Record<string, string> = {
     'OVER': 'Over',
@@ -469,6 +515,29 @@ function formatBetType(bet: any): string {
     'SGP_AWAY_ML_AWAY_COVERS': 'SGP: Away+Spread',
   }
   return labels[type] || type
+}
+
+// Build prediction chip data: short label + EV (if available). Returns null when no
+// usable prediction. Used only when game has no placed bet (stake badge supersedes).
+function getPredictionChip(game: any): { label: string; ev: string | null } | null {
+  const pred = game.predictions?.[0]
+  if (!pred) return null
+  // Prefer canonical short label via bet-label.ts when bet_type present
+  let label = ''
+  if (pred.bet_type) {
+    label = betLabelShort({ bet_type: pred.bet_type, notes: pred.prediction })
+  }
+  if (!label) label = formatPredictionLabel(pred)
+  if (!label) return null
+  // Cap chip width
+  if (label.length > 18) label = label.slice(0, 17) + '\u2026'
+  let ev: string | null = null
+  const evRaw = pred.expected_value ?? pred.ev ?? pred.edge_pct
+  if (typeof evRaw === 'number' && isFinite(evRaw)) {
+    const evPct = Math.abs(evRaw) <= 1 ? evRaw * 100 : evRaw
+    ev = `${evPct >= 0 ? '+' : ''}${evPct.toFixed(0)}%`
+  }
+  return { label, ev }
 }
 
 // Format prediction label for display (handles basketball markets)

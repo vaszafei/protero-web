@@ -32,16 +32,6 @@
       </NuxtLink>
 
       <NuxtLink 
-        to="/picks" 
-        class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
-        active-class="bg-surface-light text-white"
-        @click="$emit('navigate')"
-      >
-        <Target :size="18" />
-        <span class="text-sm font-medium">Picks</span>
-      </NuxtLink>
-
-      <NuxtLink 
         to="/wallet" 
         class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
         active-class="bg-surface-light text-white"
@@ -50,6 +40,16 @@
         <Wallet :size="18" />
         <span class="text-sm font-medium">Wallet</span>
       </NuxtLink>
+
+      <NuxtLink 
+        to="/my-bets" 
+        class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
+        active-class="bg-surface-light text-white"
+        @click="$emit('navigate')"
+      >
+        <ClipboardList :size="18" />
+        <span class="text-sm font-medium">My Bets</span>
+      </NuxtLink>
     </div>
 
     <!-- Settings (Available for all users) -->
@@ -57,37 +57,6 @@
     
     <div class="p-4 border-t border-edge">
       <h2 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-3">Settings</h2>
-      
-      <NuxtLink 
-        to="/credits" 
-        class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
-        active-class="bg-surface-light text-white"
-        @click="$emit('navigate')"
-      >
-        <Coins :size="18" />
-        <span class="text-sm font-medium">Credits</span>
-        <CreditsBadge :balance="balance" class="ml-auto" />
-      </NuxtLink>
-
-      <NuxtLink 
-        to="/contribute" 
-        class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
-        active-class="bg-surface-light text-white"
-        @click="$emit('navigate')"
-      >
-        <FileText :size="18" />
-        <span class="text-sm font-medium">Contribute</span>
-      </NuxtLink>
-      
-      <NuxtLink 
-        to="/preferences" 
-        class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
-        active-class="bg-surface-light text-white"
-        @click="$emit('navigate')"
-      >
-        <ListCheck :size="18" />
-        <span class="text-sm font-medium">Preferences</span>
-      </NuxtLink>
       
       <NuxtLink 
         to="/account" 
@@ -124,13 +93,11 @@
 </template>
 
 <script setup>
-import { LayoutGrid, ListCheck, User, LogOut, Shield, Trophy, Target, Wallet, Coins, FileText } from 'lucide-vue-next'
-import CreditsBadge from '~/components/CreditsBadge.vue'
+import { LayoutGrid, User, LogOut, Shield, Trophy, Wallet, ClipboardList } from 'lucide-vue-next'
 
 defineEmits(['navigate'])
 
 const { isAdmin, logout, user } = useAuth()
-const { balance } = useCredits()
 
 const handleLogout = async () => {
   await logout()

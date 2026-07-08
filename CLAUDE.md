@@ -10,10 +10,26 @@ Read the root `../CLAUDE.md` before any cross-cutting work. The frontend reads e
 |---|----------|-----------|
 | 1 | **SSR disabled (`ssr: false`)** | App is SPA-only. All rendering is client-side. Nitro server handles API routes only. |
 | 2 | **Nuxt UI v2 + heroicons** | Component library is `@nuxt/ui` v2. Icons come from `heroicons` set. `lucide-vue-next` is also installed but secondary. |
-| 3 | **Cloud Supabase only** | Frontend connects to `twkhmatgjeiribbjxkis.supabase.co`. Local Supabase is for ML/scraping. |
-| 4 | **Custom auth, not Supabase Auth** | Auth uses custom `users`/`sessions` tables with bcrypt + JWT cookies. Not Supabase's built-in auth. |
+| 3 | **Web → local Supabase, APK → cloud Supabase** | Web dev reads from local Supabase (all seasons). APK ships against cloud Supabase (current season only). Both hit the same schema. |
+| 4 | **Custom JWT (HS256) + bcrypt** | Custom `users`/`sessions` tables. Web uses Nitro endpoints + httpOnly cookie. APK uses Edge Functions + Bearer JWT in localStorage. Same JWT contract (`iss:'protero'`, `role:'authenticated'`, `user_id`). Shared HS256 secret (`JWT_SECRET` on Nitro, `APP_JWT_SECRET` on Edge Functions). |
 | 5 | **Dark mode only** | Color mode preference is `dark`. UI is designed exclusively for dark backgrounds. `tailwind.config.cjs` has custom dark surface/edge colors. |
 | 6 | **No icons in new components** | Do not use inline `<svg>`, emoji, or symbol characters as icons in component templates. Text labels only. If an icon is truly needed, use `<UIcon>` from Nuxt UI — but prefer plain text. |
+| 7 | **Schema changes go through migrations only** | Schema edits live in `supabase-local/supabase/migrations/`. Apply to cloud by pasting the migration into the Dashboard SQL Editor. Never click-edit columns in the Studio UI on either side. |
+
+## Unified Frontend Architecture (Web + APK)
+
+Single Nuxt codebase ships two products:
+
+| Target | Data backend | Auth transport | Build command |
+|---|---|---|---|
+| **Web** (`npm run dev`) | Local Supabase `127.0.0.1:54321` | `/api/auth/*` Nitro endpoints + httpOnly cookie | `nuxi dev` / `nuxi build` |
+| **APK** (`protero-release.apk`) | Cloud Supabase `twkhmatgjeiribbjxkis.supabase.co` | `/functions/v1/auth-*` Edge Functions + localStorage Bearer JWT | `CAPACITOR_BUILD=true nuxi generate && npx cap sync android && gradlew assembleRelease` |
+
+- `useAuthEndpoint(action)` routes auth calls: returns `/api/auth/${action}` in web mode, `${supabaseUrl}/functions/v1/auth-${action}` when `runtimeConfig.public.capacitor` is true (set by the `CAPACITOR_BUILD=true` env var).
+- `useSupabaseClient()` attaches the stored JWT (from `useAuthToken()` → `localStorage['protero.access_token']`) on every Supabase call via the `accessToken` callback.
+- All data reads go through `useApi` composable helpers (`fetchWallets`, `fetchWalletBets`, `fetchWalletStats`, `fetchParlays`, `fetchPredictionsAccuracy`) — direct Supabase queries, gated by RLS.
+- Edge Functions live in `supabase-local/supabase/functions/auth-{login,register,logout,me}/` + `_shared/{jwt.ts,util.ts}`. Deployed to cloud via `supabase functions deploy <name> --project-ref twkhmatgjeiribbjxkis --no-verify-jwt`.
+- APK artifacts: `protero-debug.apk` (18MB) + `protero-release.apk` (17MB, signed with `android/protero-release.keystore`, alias `protero`, pass `protero2026`).
 
 ## Project Map
 
@@ -177,10 +193,19 @@ npm run dev          # nuxi dev — http://localhost:3000
 npm run build        # nuxi build
 npm run start        # nuxi preview (serves .output/)
 
-# Mobile (Android)
-npm run mobile:build  # nuxi generate + cap sync
-npm run mobile:open   # opens Android Studio
-npm run mobile:run    # deploy to device/emulator
+# Mobile (Android via Capacitor)
+npm run apk:generate       # CAPACITOR_BUILD=true nuxi generate (static .output/public)
+npm run apk:sync           # npx cap sync android
+npm run apk:open           # opens Android Studio
+npm run apk:build:debug    # gradlew assembleDebug  → app-debug.apk (~18MB)
+npm run apk:build:release  # gradlew assembleRelease → app-release.apk (~17MB, signed)
+
+# Edge Functions (cloud auth for APK)
+# Requires: supabase login + SUPABASE_ACCESS_TOKEN env var
+cd supabase-local && supabase functions deploy auth-login auth-register auth-logout auth-me \
+    --project-ref twkhmatgjeiribbjxkis --no-verify-jwt
+# Set shared JWT secret (must match Nitro's JWT_SECRET):
+supabase secrets set APP_JWT_SECRET='<base64 HS256 secret>' --project-ref twkhmatgjeiribbjxkis
 ```
 
 ## Agent Failure Modes
@@ -234,3 +259,39 @@ When schema changes happen in Supabase, update this file to keep types in sync.
 - Component added without mobile responsiveness
 - Hardcoded values that should come from DB config
 - Dead imports or unused components left behind
+
+---
+
+## Wallet Subscription System (live since Apr 2026)
+
+Users spend credits to subscribe to AI strategy wallets and follow their picks. Full build log with RPC contracts and component inventory: [docs/mobile-redesign-log.md](docs/mobile-redesign-log.md).
+
+- **RPCs:** `subscribe_to_wallet(p_wallet_id)` (atomic, SECURITY DEFINER, extends active subs), `unsubscribe_from_wallet` (soft, no refund). Pricing rows in `credits_config` (`wallet_subscription_cost`, `wallet_subscription_duration_days`).
+- **Components:** `components/wallet/` (WalletDiscovery, WalletHero, WalletPerformanceChart, WalletBetFilterBar, WalletBetRow, WalletSubscribeModal). `pages/wallet.vue` is a discovery/subscribed state machine.
+- **Prediction gating:** `server/utils/wallet-models.ts` — `WALLET_MODEL_MAP` (wallet → model_versions) + `pickBestPrediction()` (V6 hybrid > V18 > V20 football; V6 AIF > V5 TS > V4 RL basketball). Anonymous users see games but **no AI predictions**.
+- **Auth helpers:** `server/utils/auth.ts` — `getOptionalUserId()` / `requireUserId()` (dual-mode: Bearer JWT + session cookie).
+
+## Standing Constraints (learned from redesign sessions)
+
+- Never `.single()` for nullable lookups — always `.maybeSingle()`.
+- Nuxt auto-imports composables/components — don't add explicit imports for them.
+- New fetchers use `useSwr` ([composables/useSwr.ts](composables/useSwr.ts)) from day one — the SWR layer (memory + `@capacitor/preferences` persist) is the production caching strategy.
+- `WALLET_MODEL_MAP` (server) and `utils/wallet-meta.ts` (client) must stay in sync — adding a wallet means updating both.
+- Wallets 19 + 20 are **parlay-only** (root CD #22): their bets never render as standalone chips — `DayMatchesPanel.vue` + `DashboardGameCard.vue` filter via `PARLAY_ONLY_WALLETS = new Set([19, 20])`; they surface only under the per-date `Parlays (N)` toggle. `fetchGames` also strips parlay-leg bets (`notes.parlay_id` / `pick_type='prop_parlay_leg'` / `leg_number`).
+- Cache keys for subscription-gated payloads must include the user's sub-set (see `league:${slug}:...:${subKey}` pattern) so users with different wallets don't pollute each other's payloads.
+- Use `python3` (never `python`) in any spawned processes/shebangs.
+
+## Pending Work
+
+| Item | Status | Notes |
+|---|---|---|
+| Phase 5 Analysis redesign | next | 7 sections; likely needs RPC `get_league_analysis(league_key, season)` |
+| Phase 6 Account | queued | 5-section card stack; migration: `user_prefs.notification_prefs JSONB`; new `pages/notifications.vue` |
+| Phase 1 Dashboard redesign | queued | Sport dropdown, date-strip swipe + haptics, pick chips (`betLabelShort`), PullToRefresh |
+| Phase 2 Game detail redesign | queued | Includes **basketball predictions UI**: `PredictionsView.vue` still shows the stale "No ML predictions" disclaimer — the server already delivers V4/V5/V6 via the subscription gate; render an AI prediction block when `isBball && match.prediction`, keep projected-score panel as fallback |
+| Phase 0.3 Dashboard request budget | queued | RPC `get_dashboard_bundle(...)` — today's dashboard fires 5–15 requests, target ≤3 |
+| Phases 0.5 / 4 / 7 / 8 | queued | PullToRefresh, My Bets redesign, Picks reuse of wallet components, 2-step onboarding |
+| APK safe-area / notch clipping | known bug | `pt-[env(safe-area-inset-top)]` missing on top bar in `layouts/default.vue`; logo clips because `overlaysWebView: true` |
+
+Pending migrations: `notification_prefs` column, `get_league_analysis`, `get_dashboard_bundle`, `get_game_detail` RPCs. (Applied: `20260423000004_wallet_subscriptions_credits.sql` — local + cloud.)
+

@@ -24,18 +24,34 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Invalid session' })
   }
 
-  // Get user subscriptions with league info
-  const { data: subs, error } = await supabase
-    .from('user_subscriptions')
-    .select('id, league_key, sport, is_active, created_at')
-    .eq('user_id', session.user_id)
-    .eq('is_active', true)
-    .order('sport', { ascending: true })
-    .order('league_key', { ascending: true })
+  // Get user subscriptions, league unlocks, and free league key in parallel
+  const [subsRes, unlocksRes, userRes] = await Promise.all([
+    supabase
+      .from('user_subscriptions')
+      .select('id, league_key, sport, is_active, created_at')
+      .eq('user_id', session.user_id)
+      .eq('is_active', true)
+      .order('sport', { ascending: true })
+      .order('league_key', { ascending: true }),
+    supabase
+      .from('league_unlocks')
+      .select('league_key, unlocked_at, expires_at, credits_spent')
+      .eq('user_id', session.user_id)
+      .gte('expires_at', new Date().toISOString()),
+    supabase
+      .from('users')
+      .select('free_league_key')
+      .eq('id', session.user_id)
+      .maybeSingle()
+  ])
 
-  if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+  if (subsRes.error) {
+    throw createError({ statusCode: 500, statusMessage: subsRes.error.message })
   }
 
-  return { subscriptions: subs || [] }
+  return {
+    subscriptions: subsRes.data || [],
+    active_unlocks: unlocksRes.data || [],
+    free_league_key: userRes.data?.free_league_key ?? null
+  }
 })

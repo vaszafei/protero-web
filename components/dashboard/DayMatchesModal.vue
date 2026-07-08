@@ -15,9 +15,7 @@
           @click="$emit('close')"
           class="text-zinc-500 hover:text-zinc-400 transition-colors"
         >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <UIcon name="i-heroicons-x-mark" class="w-6 h-6" />
         </button>
       </div>
 
@@ -159,12 +157,12 @@ const navigateToGame = (gameId: number) => {
 
 const dayName = computed(() => {
   if (!props.date) return ''
-  return props.date.toLocaleDateString('en-US', { weekday: 'long' })
+  return props.date.toLocaleDateString('en-US', { timeZone: 'Europe/Athens', weekday: 'long' })
 })
 
 const fullDate = computed(() => {
   if (!props.date) return ''
-  return props.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  return props.date.toLocaleDateString('en-US', { timeZone: 'Europe/Athens', month: 'long', day: 'numeric', year: 'numeric' })
 })
 
 // Group games by league
@@ -207,7 +205,7 @@ const sortedGames = computed(() => {
 
 const formatTime = (dateStr: string) => {
   const date = new Date(dateStr)
-  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return date.toLocaleTimeString('en-US', { timeZone: 'Europe/Athens', hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 const getLeagueFlag = (leagueKey: string) => {

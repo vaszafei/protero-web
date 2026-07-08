@@ -18,12 +18,13 @@ export default defineEventHandler(async (event) => {
   const toDate   = (query.to   as string) || defaultTo.toISOString().split('T')[0]
   const season   = (query.season as string) || '2025-2026'
   const includeBets = query.bets === 'true'
+  const walletId = query.walletId ? Number(query.walletId) : null
 
   // League filter — comma-separated league keys (e.g. "nba,euroleague")
   // When provided, only fetch games for these leagues (DB-level filter)
   const leagueKeys = (query.leagues as string)?.split(',').filter(Boolean) || []
 
-  const cacheKey = `games:${season}:${fromDate}:${toDate}:bets=${includeBets}:lg=${leagueKeys.sort().join(',') || 'all'}`
+  const cacheKey = `games:${season}:${fromDate}:${toDate}:bets=${includeBets}:w=${walletId || 'all'}:lg=${leagueKeys.sort().join(',') || 'all'}`
   const cached = getCached<any>(cacheKey)
   if (cached) {
     setHeader(event, 'X-Cache', 'HIT')
@@ -46,7 +47,7 @@ export default defineEventHandler(async (event) => {
         over_15_prob, over_25_prob, over_35_prob,
         result_correct, created_at
       )
-      ${includeBets ? `,bets(id,wallet_id,bet_type,stake,odds,status,profit,notes,sport,strategy)` : ''}
+      ${includeBets ? `,bets!left(id,wallet_id,bet_type,stake,odds,status,profit,notes,sport,strategy)` : ''}
     `
 
     let q = supabase
@@ -65,13 +66,21 @@ export default defineEventHandler(async (event) => {
 
     if (error) throw error
 
-    const enriched = (games || []).map((game: any) => ({
-      ...game,
-      home_name: game.home_team?.name || 'Unknown',
-      away_name: game.away_team?.name || 'Unknown',
-      home_key: game.home_team?.team_key || null,
-      away_key: game.away_team?.team_key || null,
-    }))
+    const enriched = (games || []).map((game: any) => {
+      // Filter bets to the selected wallet client-side (PostgREST can't filter nested)
+      let bets = game.bets || []
+      if (walletId && bets.length > 0) {
+        bets = bets.filter((b: any) => b.wallet_id === walletId)
+      }
+      return {
+        ...game,
+        bets,
+        home_name: game.home_team?.name || 'Unknown',
+        away_name: game.away_team?.name || 'Unknown',
+        home_key: game.home_team?.team_key || null,
+        away_key: game.away_team?.team_key || null,
+      }
+    })
 
     const result = {
       success: true,

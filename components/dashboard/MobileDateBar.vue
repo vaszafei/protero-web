@@ -5,7 +5,16 @@
       <button @click="shiftWeek(-7)" class="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-surface-light active:bg-surface-hover transition-colors">
         <ChevronLeft :size="18" class="text-zinc-400" />
       </button>
-      <span class="text-sm font-semibold text-zinc-200">{{ monthLabel }}</span>
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-semibold text-zinc-200">{{ monthLabel }}</span>
+        <button
+          v-if="selectedDateStr !== todayStr"
+          @click="jumpToToday"
+          class="px-2 py-1 text-[10px] font-bold uppercase tracking-wide rounded-md bg-[#f82828]/10 text-[#f82828] border border-[#f82828]/30 hover:bg-[#f82828]/20 transition-colors"
+        >
+          Today
+        </button>
+      </div>
       <button @click="shiftWeek(7)" class="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-surface-light active:bg-surface-hover transition-colors">
         <ChevronRight :size="18" class="text-zinc-400" />
       </button>
@@ -66,6 +75,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import DayMatchesPanel from './DayMatchesPanel.vue'
+import { toAthensDateStr, todayAthensStr } from '~/utils/dateTime'
 
 const props = defineProps<{
   games: any[]
@@ -89,16 +99,11 @@ const rangeAnchor = ref(new Date())
 // How many days to show either side of the anchor
 const RANGE_DAYS = 21 // ±21 days = 6 weeks of scrollable dates
 
-// Selected date string (YYYY-MM-DD)
-const today = new Date()
-today.setHours(0, 0, 0, 0)
-const toDateStr = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${dd}`
-}
-const selectedDateStr = ref(toDateStr(today))
+// Selected date string (YYYY-MM-DD in Europe/Athens)
+const todayStr = todayAthensStr()
+// toDateStr: converts any Date to the Athens calendar date string
+const toDateStr = (d: Date) => toAthensDateStr(d)
+const selectedDateStr = ref(todayStr)
 
 // Build date range array
 const dateRange = computed(() => {
@@ -117,7 +122,7 @@ const dateRange = computed(() => {
       dateStr,
       dayNumber: d.getDate(),
       weekDay: d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3),
-      isToday: dateStr === toDateStr(today),
+      isToday: dateStr === todayStr,
       gameCount: dayGames.length,
       games: dayGames,
     })
@@ -125,11 +130,11 @@ const dateRange = computed(() => {
   return days
 })
 
-// Month label based on selected date
+// Month label based on selected date (shown in Athens time)
 const monthLabel = computed(() => {
   const sel = dateRange.value.find(d => d.dateStr === selectedDateStr.value)
-  if (sel) return sel.date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-  return rangeAnchor.value.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  if (sel) return sel.date.toLocaleDateString('en-US', { timeZone: 'Europe/Athens', month: 'long', year: 'numeric' })
+  return rangeAnchor.value.toLocaleDateString('en-US', { timeZone: 'Europe/Athens', month: 'long', year: 'numeric' })
 })
 
 // The full day data object for the selected date
@@ -166,14 +171,37 @@ const selectDate = (day: any) => {
   }
 }
 
-// Get games for a specific date
+// Jump back to today: reset anchor + select today + scroll into view
+const jumpToToday = async () => {
+  rangeAnchor.value = new Date()
+  selectedDateStr.value = todayStr
+  await nextTick()
+  const todayDay = dateRange.value.find(d => d.isToday)
+  if (todayDay) {
+    emit('select-day', {
+      date: todayDay.date,
+      dayNumber: todayDay.dayNumber,
+      isCurrentMonth: true,
+      isToday: true,
+      games: todayDay.games,
+    })
+  }
+  if (todayEl.value && scrollContainer.value) {
+    const el = todayEl.value as HTMLElement
+    const container = scrollContainer.value
+    const offset = el.offsetLeft - container.offsetWidth / 2 + el.offsetWidth / 2
+    container.scrollTo({ left: offset, behavior: 'smooth' })
+  }
+}
+
+// Get games for a specific date — compare in Athens timezone so NBA late-night
+// games (e.g. 23:30 UTC = 02:30 Athens next day) appear on the correct Athens date.
 const getGamesForDate = (date: Date) => {
   const dateStr = toDateStr(date)
   return props.games
     .filter(game => {
       if (!game.date) return false
-      const gameDateStr = game.date.split('T')[0]
-      return gameDateStr === dateStr
+      return toAthensDateStr(game.date) === dateStr
     })
     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
 }

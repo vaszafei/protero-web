@@ -30,14 +30,6 @@ export default defineEventHandler(async () => {
     throw createError({ statusCode: 500, statusMessage: lErr.message })
   }
 
-  // Get distinct league_keys that actually have games (across recent seasons)
-  const { data: leaguesWithGames } = await supabase
-    .from('games')
-    .select('league_key')
-    .in('season', ['2025-2026', '2024-2025'])
-
-  const activeLeagueKeys = new Set((leaguesWithGames || []).map((g: any) => g.league_key))
-
   // Fetch available wallets (admin wallets users can follow)
   const { data: wallets, error: wErr } = await supabase
     .from('wallets')
@@ -52,7 +44,6 @@ export default defineEventHandler(async () => {
   }
 
   for (const l of (leagues || [])) {
-    if (!activeLeagueKeys.has(l.key)) continue  // skip leagues with no games
     const sport = l.sport || 'football'
     if (!sportLeagues[sport]) sportLeagues[sport] = {}
     const country = l.country || 'Other'

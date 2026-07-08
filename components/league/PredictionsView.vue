@@ -13,9 +13,7 @@
 
     <!-- Loading -->
     <div v-if="loadingPredictions" class="pred-card rounded-lg p-8 text-center">
-      <svg class="w-8 h-8 mx-auto animate-spin text-zinc-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
+      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 mx-auto animate-spin text-zinc-600 mb-2" />
       <p class="text-xs text-zinc-500">Loading...</p>
     </div>
 
@@ -169,7 +167,7 @@
         <!-- Recent Games (collapsible) -->
         <details v-if="match.homeRecent.length > 0" class="mt-1.5 group">
           <summary class="cursor-pointer text-[10px] font-semibold text-zinc-400 hover:text-zinc-300 flex items-center gap-1">
-            <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 transition-transform group-open:rotate-90" />
             Recent Games
           </summary>
           <div class="mt-1.5 space-y-2">
@@ -203,9 +201,7 @@
     <!-- Disclaimer -->
     <div class="pred-card rounded-lg p-3 border-amber-500/20" style="background: rgba(245, 158, 11, 0.06); border-color: rgba(245, 158, 11, 0.15);">
       <div class="flex items-start gap-2">
-        <svg class="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-        </svg>
+        <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
         <p class="text-[10px] text-amber-300/80 leading-relaxed">Projections based on season averages (home/away splits, pace, efficiency). No ML predictions available yet for basketball.</p>
       </div>
     </div>
@@ -226,9 +222,7 @@
     <!-- Loading State -->
     <div v-if="loadingPredictions" class="text-center py-12">
       <div class="text-zinc-500 mb-4">
-        <svg class="w-16 h-16 mx-auto animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
+        <UIcon name="i-heroicons-arrow-path" class="w-16 h-16 mx-auto animate-spin" />
       </div>
       <p class="text-zinc-500">Loading predictions...</p>
     </div>
@@ -236,9 +230,7 @@
     <!-- No Matches State -->
     <div v-else-if="enrichedPredictions.length === 0" class="text-center py-12">
       <div class="text-zinc-500 mb-4">
-        <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <UIcon name="i-heroicons-check-circle" class="w-16 h-16 mx-auto" />
       </div>
       <p class="text-zinc-500">All rounds have been played. No predictions available.</p>
     </div>
@@ -452,9 +444,7 @@
               <div class="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-lg p-3 border border-indigo-500/20">
                 <div class="flex items-center justify-between mb-2">
                   <div class="flex items-center gap-1.5">
-                    <svg class="w-4 h-4 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                    </svg>
+                    <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-indigo-400" />
                     <span class="text-xs font-bold text-indigo-300">Statistical Predictions</span>
                   </div>
                   <div class="bg-indigo-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">
@@ -569,9 +559,7 @@
                 <!-- Show message if no prediction -->
                 <div v-if="!match.prediction" class="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-lg border border-blue-500/20 p-4 flex items-center justify-center">
                   <div class="text-center">
-                    <svg class="w-8 h-8 text-blue-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
+                    <UIcon name="i-heroicons-information-circle" class="w-8 h-8 text-blue-400 mx-auto mb-2" />
                     <p class="text-sm font-semibold text-zinc-400">No prediction yet</p>
                   </div>
                 </div>
@@ -601,9 +589,7 @@
           <div v-if="match.h2h && match.h2h.length > 0" class="mt-4 px-3">
             <details class="group">
               <summary class="cursor-pointer text-xs font-semibold text-zinc-300 hover:text-zinc-100 flex items-center gap-1">
-                <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
+                <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 transition-transform group-open:rotate-90" />
                 Head to Head ({{ match.h2h.length }} matches)
                 <span v-if="match.h2hSummary" class="ml-2 text-zinc-500 font-normal">
                   {{ match.home_name }}: {{ match.h2hSummary.homeTeamWins }}W • 
@@ -667,9 +653,7 @@
       <!-- Disclaimer -->
       <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 mt-6">
         <div class="flex items-start gap-2">
-          <svg class="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-          </svg>
+          <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
           <div class="text-xs text-amber-300/80">
             <p class="font-semibold mb-1">Disclaimer</p>
             <p>These predictions are based on statistical analysis. Past performance does not guarantee future results. Gamble responsibly.</p>
@@ -682,9 +666,7 @@
         <div class="bg-surface rounded-xl border-2 border-amber-500/30 p-6">
           <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 bg-amber-500/20 rounded-full flex items-center justify-center">
-              <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-              </svg>
+              <UIcon name="i-heroicons-star" class="w-5 h-5 text-amber-400" />
             </div>
             <div>
               <h3 class="text-xl font-bold text-zinc-100">Top Form Teams</h3>
@@ -1536,7 +1518,7 @@ watch(enrichedPredictions, (newPredictions) => {
 function formatBballDate(dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('en-US', { timeZone: 'Europe/Athens', weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { timeZone: 'Europe/Athens', hour: '2-digit', minute: '2-digit', hour12: false })
 }
 </script>
 

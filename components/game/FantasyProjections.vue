@@ -2,9 +2,7 @@
   <div class="space-y-3 sm:space-y-4">
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-8">
-      <svg class="w-6 h-6 animate-spin text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
+      <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
     </div>
 
     <!-- Empty -->
@@ -17,12 +15,20 @@
       <!-- Header -->
       <div class="flex items-center justify-between mb-2.5 sm:mb-3">
         <h4 class="text-sm font-bold text-zinc-200 flex items-center gap-2">
-          <svg class="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
+          <UIcon name="i-heroicons-star" class="w-4 h-4 text-purple-400" />
           Fantasy Projections
         </h4>
-        <span class="text-[9px] sm:text-[10px] font-medium text-zinc-500 uppercase tracking-wider">{{ scoringLabel }}</span>
+        <!-- Scoring system toggle -->
+        <div v-if="availableScoringTypes.length > 1" class="inline-flex rounded-md bg-surface-light p-0.5">
+          <button
+            v-for="st in availableScoringTypes"
+            :key="st"
+            @click="activeScoringType = st"
+            :class="['text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors',
+                     activeScoringType === st ? 'bg-purple-500/30 text-purple-200' : 'text-zinc-500 hover:text-zinc-300']"
+          >{{ scoringLabelOf(st) }}</button>
+        </div>
+        <span v-else class="text-[9px] sm:text-[10px] font-medium text-zinc-500 uppercase tracking-wider">{{ scoringLabel }}</span>
       </div>
 
       <div class="flex items-center justify-between mb-1 px-1">
@@ -42,12 +48,20 @@
         >
           <div class="flex items-center gap-2 flex-1 min-w-0 pr-2">
             <span class="text-[10px] sm:text-[11px] text-zinc-600 font-medium tabular-nums w-4 text-right">{{ i + 1 }}</span>
+            <span
+              v-if="player.position"
+              class="inline-flex items-center justify-center text-[9px] font-extrabold rounded px-1.5 py-0.5 bg-purple-500/20 text-purple-300 flex-shrink-0"
+            >{{ player.position }}</span>
             <div class="min-w-0">
               <span class="text-[11px] sm:text-[12px] font-semibold text-zinc-200 truncate leading-tight block">{{ player.player_name }}</span>
               <span class="text-[9px] uppercase tracking-wide text-zinc-500">{{ shortTeamName(player.team_name) }}</span>
             </div>
           </div>
           <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div v-if="player.salary" class="text-center min-w-[42px] sm:min-w-[48px]">
+              <span class="text-[9px] text-zinc-600 uppercase block leading-none">SAL</span>
+              <span class="text-[10px] sm:text-[11px] font-semibold text-amber-300 tabular-nums">{{ formatSalary(player.salary) }}</span>
+            </div>
             <div class="text-center min-w-[30px] sm:min-w-[32px]">
               <span class="text-[9px] text-zinc-600 uppercase block leading-none">MIN</span>
               <span class="text-[10px] sm:text-[11px] font-semibold text-zinc-400 tabular-nums">{{ player.projected_minutes?.toFixed(0) || '-' }}</span>
@@ -67,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 const props = defineProps<{
   gameId: number
@@ -78,18 +92,38 @@ const props = defineProps<{
 const api = useApi()
 const projections = ref<any[]>([])
 const loading = ref(true)
+const activeScoringType = ref<string>('')
 
-const scoringLabel = computed(() => {
-  if (projections.value.length === 0) return ''
-  const st = projections.value[0].scoring_type
-  return st === 'dk' ? 'DraftKings' : st === 'pir' ? 'PIR' : st || ''
+function scoringLabelOf(st: string) {
+  if (st === 'dk') return 'DraftKings'
+  if (st === 'pir') return 'PIR'
+  if (st === 'stoiximan_nba' || st === 'stoiximan_euro') return 'Stoiximan'
+  return st || '—'
+}
+
+const availableScoringTypes = computed(() => {
+  const set = new Set<string>()
+  for (const p of projections.value) if (p.scoring_type) set.add(p.scoring_type)
+  return Array.from(set)
 })
 
+const scoringLabel = computed(() => scoringLabelOf(activeScoringType.value))
+
 const topPlayers = computed(() => {
-  return [...projections.value]
+  const filtered = activeScoringType.value
+    ? projections.value.filter((p: any) => p.scoring_type === activeScoringType.value)
+    : projections.value
+  return [...filtered]
     .sort((a: any, b: any) => (b.projected_score || 0) - (a.projected_score || 0))
     .slice(0, 7)
 })
+
+function formatSalary(v: number) {
+  if (!v) return '-'
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`
+  return String(v)
+}
 
 function shortTeamName(teamName?: string) {
   if (!teamName) return '-'
@@ -101,6 +135,12 @@ function shortTeamName(teamName?: string) {
 onMounted(async () => {
   try {
     projections.value = await api.fetchFantasyProjections(props.gameId)
+    if (availableScoringTypes.value.length) {
+      // Prefer DK > Stoiximan > PIR > whatever's first
+      const pref = ['dk', 'stoiximan_nba', 'stoiximan_euro', 'pir']
+      activeScoringType.value =
+        pref.find(t => availableScoringTypes.value.includes(t)) || availableScoringTypes.value[0]
+    }
   } catch (e) {
     console.warn('Fantasy projections fetch failed:', e)
   } finally {

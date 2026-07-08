@@ -9,7 +9,7 @@
     <div v-else-if="seasonData" class="max-w-3xl mx-auto p-3 sm:p-6">
       <!-- Back -->
       <button @click="$router.back()" class="inline-flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 mb-4 transition-colors">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
         <span class="text-sm font-medium">Back</span>
       </button>
 

@@ -88,10 +88,10 @@
             </div>
           </div>
 
-          <!-- League Game Counts -->
+          <!-- League Game Counts (truncated) -->
           <div class="p-0.5 sm:p-1 space-y-0.5 sm:space-y-1">
             <div
-              v-for="leagueCount in day.leagueCounts"
+              v-for="leagueCount in day.leagueCounts.slice(0, 4)"
               :key="leagueCount.key"
               class="flex items-center justify-between text-[11px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded"
               :class="{
@@ -101,6 +101,12 @@
             >
               <span class="text-zinc-300 truncate flex-1 hidden sm:inline">{{ leagueCount.name }}</span>
               <span class="font-semibold text-zinc-200 ml-0 sm:ml-1 text-[11px] sm:text-xs">{{ leagueCount.count }}</span>
+            </div>
+            <div
+              v-if="day.leagueCounts.length > 4"
+              class="text-[10px] text-zinc-500 text-center px-1 py-0.5"
+            >
+              +{{ day.leagueCounts.length - 4 }} more
             </div>
           </div>
         </div>

@@ -1,58 +1,78 @@
 <template>
-  <div class="min-h-screen bg-surface-base p-3 sm:p-6">
-    <div class="max-w-7xl mx-auto">
+  <div class="flex flex-col h-full p-3 sm:p-4 gap-3">
 
-      <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center items-center py-20">
-        <div class="flex items-center gap-3 text-zinc-500">
-          <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg>
-          <span class="text-sm">Loading leagues...</span>
+    <!-- Sport filter pills -->
+    <div class="flex items-center gap-1.5">
+      <button
+        v-for="sport in ['all', ...availableSports]"
+        :key="sport"
+        @click="selectedSport = sport"
+        :class="[
+          'px-3 py-1 rounded-full text-xs font-semibold transition-all capitalize',
+          selectedSport === sport
+            ? 'bg-primary-500/20 text-primary-400 border border-primary-500/40'
+            : 'sport-pill-inactive'
+        ]"
+      >
+        {{ sport === 'all' ? 'All Sports' : sport }}
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="flex-1 flex justify-center items-center">
+      <div class="flex items-center gap-3 text-zinc-500">
+        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
+        <span class="text-sm">Loading leagues...</span>
+      </div>
+    </div>
+
+    <!-- League Cards Grid -->
+    <div v-else-if="filteredLeagues.length > 0" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-3">
+      <NuxtLink
+        v-for="league in filteredLeagues"
+        :key="league.key"
+        :to="`/league/${league.key}?season=${selectedSeason}`"
+        class="group league-card flex flex-col items-center rounded-xl p-2.5 sm:p-3 transition-all duration-200"
+      >
+        <!-- League Logo -->
+        <div class="w-12 h-12 sm:w-14 sm:h-14 mb-2 flex items-center justify-center rounded-lg overflow-hidden bg-surface-base/60 group-hover:scale-105 transition-transform duration-200">
+          <img
+            :src="leagueLogo(league.key)"
+            :alt="league.name"
+            class="w-full h-full object-contain"
+            @error="(e) => { e.target.src = '/placeholder-logo.svg' }"
+          />
         </div>
-      </div>
 
-      <!-- League Cards Grid -->
-      <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-        <NuxtLink
-          v-for="league in activeLeagues"
-          :key="league.key"
-          :to="`/league/${league.key}?season=${selectedSeason}`"
-          class="group league-card flex flex-col items-center rounded-xl p-4 sm:p-5 transition-all duration-200"
-        >
-          <!-- League Logo -->
-          <div class="w-20 h-20 sm:w-24 sm:h-24 mb-3 flex items-center justify-center rounded-xl overflow-hidden bg-surface-base/60 group-hover:scale-105 transition-transform duration-200">
-            <img
-              :src="leagueLogo(league.key)"
-              :alt="league.name"
-              class="w-full h-full object-contain"
-              @error="(e) => { e.target.src = '/placeholder-logo.svg' }"
-            />
-          </div>
+        <!-- League Name -->
+        <h3 class="text-[11px] sm:text-xs font-semibold text-zinc-200 text-center group-hover:text-zinc-100 transition-colors leading-tight line-clamp-2">
+          {{ league.name }}
+        </h3>
 
-          <!-- League Name -->
-          <h3 class="text-sm sm:text-base font-bold text-zinc-200 text-center group-hover:text-zinc-100 transition-colors leading-tight">
-            {{ league.name }}
-          </h3>
+        <!-- Games Count Chip -->
+        <div class="mt-1.5">
+          <span
+            class="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+            :class="league.sport === 'basketball' ? 'bg-orange-500/15 text-orange-400' : 'bg-primary-500/15 text-primary-400'"
+          >
+            {{ leagueStats[league.key]?.played || 0 }}
+          </span>
+        </div>
+      </NuxtLink>
+    </div>
 
-          <!-- Games Count Chip -->
-          <div class="mt-2">
-            <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-              :class="league.sport === 'basketball' ? 'bg-orange-500/15 text-orange-400' : 'bg-primary-500/15 text-primary-400'">
-              {{ leagueStats[league.key]?.played || 0 }} games
-            </span>
-          </div>
-        </NuxtLink>
-      </div>
-
-      <!-- Empty state -->
-      <div v-if="!loading && activeLeagues.length === 0" class="league-card rounded-xl p-8 text-center">
-        <p class="text-zinc-400 text-sm">No leagues available yet</p>
+    <!-- Empty state -->
+    <div v-else-if="!loading" class="flex-1 flex items-center justify-center">
+      <div class="league-card rounded-xl p-8 text-center">
+        <p class="text-zinc-400 text-sm">No leagues available</p>
         <p class="text-zinc-500 text-xs mt-1">Leagues will appear once data is synced</p>
       </div>
     </div>
+
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 definePageMeta({
   layout: 'default',
   middleware: 'auth'
@@ -63,13 +83,28 @@ const api = useApi()
 const selectedSeason = '2025-2026'
 const allLeagues = ref([])
 const leagueStats = ref({})
+const selectedSport = ref('all')
+const accessibleKeys = ref<Set<string>>(new Set())
 
-// Flat list of all active leagues (no country grouping)
+// Only leagues the user has access to (free + subscribed + unlocked) with games
 const activeLeagues = computed(() => {
   return allLeagues.value.filter(l => {
-    const s = leagueStats.value[l.key]
-    return s && s.total > 0
+    const hasAccess = accessibleKeys.value.size === 0 || accessibleKeys.value.has(l.key)
+    const hasGames = (leagueStats.value[l.key]?.total || 0) > 0
+    return hasAccess && hasGames
   })
+})
+
+// Sports that actually have accessible leagues
+const availableSports = computed(() => {
+  const sports = [...new Set(activeLeagues.value.map(l => l.sport))]
+  return sports.sort()
+})
+
+// Leagues filtered by selected sport
+const filteredLeagues = computed(() => {
+  if (selectedSport.value === 'all') return activeLeagues.value
+  return activeLeagues.value.filter(l => l.sport === selectedSport.value)
 })
 
 // League logo path
@@ -78,16 +113,25 @@ const leagueLogo = (key) => `/data/leagues/${key}.png`
 const loadLeagues = async () => {
   loading.value = true
   try {
-    const [sportsData, leaguesApi] = await Promise.all([
+    const [sportsData, leaguesApi, subsData] = await Promise.all([
       api.fetchSports(),
-      api.fetchLeagues(selectedSeason).catch(() => null)
+      api.fetchLeagues(selectedSeason).catch(() => null),
+      api.fetchSubscriptions().catch(() => ({ subscriptions: [], active_unlocks: [], free_league_key: null }))
     ])
 
-    // Flatten all leagues from all sports into a single list
+    // Build the set of league keys this user can access
+    const keys = new Set<string>()
+    if (subsData.free_league_key) keys.add(subsData.free_league_key)
+    for (const u of (subsData.active_unlocks || [])) keys.add(u.league_key)
+    for (const s of (subsData.subscriptions || [])) {
+      if (s.is_active !== false) keys.add(s.league_key)
+    }
+    accessibleKeys.value = keys
+
     const leagues = []
     for (const sport of (sportsData.sports || [])) {
       for (const [country, countryLeagues] of Object.entries(sport.leagues || {})) {
-          for (const l of countryLeagues) {
+        for (const l of countryLeagues) {
           leagues.push({ ...l, sport: sport.key, country })
         }
       }
@@ -121,5 +165,15 @@ onMounted(loadLeagues)
 .league-card:hover {
   border-color: rgba(42, 47, 58, 0.7);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.sport-pill-inactive {
+  background: rgba(28, 31, 39, 0.85);
+  border: 1px solid rgba(42, 47, 58, 0.6);
+  color: rgb(113 113 122);
+}
+
+.sport-pill-inactive:hover {
+  color: rgb(212 212 216);
 }
 </style>

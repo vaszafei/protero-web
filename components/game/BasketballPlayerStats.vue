@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Team Toggle -->
-    <div class="flex bg-surface-light rounded-lg p-0.5 mb-4">
+    <div class="flex bg-surface-light rounded-lg p-0.5 mb-3">
       <button
         @click="activeTeam = 'home'"
         :class="[
@@ -26,23 +26,51 @@
       </button>
     </div>
 
+    <!-- Toolbar: DNP filter + active sort hint -->
+    <div class="flex items-center justify-between mb-2 text-[11px] text-zinc-500">
+      <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          v-model="showDNP"
+          class="accent-[#4d8fff] w-3.5 h-3.5 rounded"
+        />
+        <span>Show DNP</span>
+      </label>
+      <span class="tabular-nums">
+        Sorted by
+        <span class="text-zinc-300 font-semibold uppercase">{{ sortKey }}</span>
+        <UIcon
+          :name="sortDir === 'desc' ? 'i-heroicons-arrow-down' : 'i-heroicons-arrow-up'"
+          class="inline w-3 h-3 ml-0.5 -mt-0.5"
+        />
+      </span>
+    </div>
+
     <!-- Player Table -->
     <div class="overflow-x-auto -mx-3 sm:-mx-6 px-3 sm:px-6">
-      <table class="w-full text-sm min-w-[600px]">
+      <table class="w-full text-sm min-w-[720px]">
         <thead>
           <tr class="border-b border-edge text-zinc-500 text-xs uppercase tracking-wider">
-            <th class="text-left py-2 pr-2 font-medium">Player</th>
-            <th class="text-center py-2 px-1 font-medium w-12">MIN</th>
-            <th class="text-center py-2 px-1 font-medium w-9">PTS</th>
-            <th class="text-center py-2 px-1 font-medium w-9">REB</th>
-            <th class="text-center py-2 px-1 font-medium w-9">AST</th>
-            <th class="text-center py-2 px-1 font-medium w-9">STL</th>
-            <th class="text-center py-2 px-1 font-medium w-9">BLK</th>
-            <th class="text-center py-2 px-1 font-medium w-12">FG</th>
-            <th class="text-center py-2 px-1 font-medium w-12">3PT</th>
-            <th class="text-center py-2 px-1 font-medium w-12">FT</th>
-            <th class="text-center py-2 px-1 font-medium w-9">TO</th>
-            <th class="text-center py-2 px-1 font-medium w-9">+/-</th>
+            <th
+              v-for="col in columns"
+              :key="col.key"
+              :class="[
+                'py-2 font-medium select-none cursor-pointer transition-colors hover:text-zinc-300',
+                col.align === 'left' ? 'text-left pr-2' : 'text-center px-1',
+                col.width,
+                sortKey === col.key ? 'text-[#4d8fff]' : ''
+              ]"
+              @click="toggleSort(col.key)"
+            >
+              <span class="inline-flex items-center gap-0.5">
+                {{ col.label }}
+                <UIcon
+                  v-if="sortKey === col.key"
+                  :name="sortDir === 'desc' ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-up'"
+                  class="w-3 h-3"
+                />
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -50,6 +78,7 @@
             v-for="player in activePlayers"
             :key="player.id || player.name"
             class="border-b border-edge/50 hover:bg-surface-light/50 transition-colors cursor-pointer select-none"
+            :class="isDNP(player) ? 'opacity-50' : ''"
             @click="openPlayerModal(player)"
           >
             <td class="py-2 pr-2">
@@ -61,11 +90,12 @@
             <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ player.ast }}</td>
             <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ player.stl }}</td>
             <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ player.blk }}</td>
-            <td class="text-center py-2 px-1 text-zinc-400 tabular-nums text-xs">{{ player.fgm ?? 0 }}/{{ player.fga ?? 0 }}</td>
-            <td class="text-center py-2 px-1 tabular-nums text-xs" :class="player.fg3m > 0 ? 'text-orange-400' : 'text-zinc-500'">{{ player.fg3m ?? 0 }}/{{ player.fg3a ?? 0 }}</td>
-            <td class="text-center py-2 px-1 text-zinc-400 tabular-nums text-xs">{{ player.ftm ?? 0 }}/{{ player.fta ?? 0 }}</td>
-            <td class="text-center py-2 px-1 tabular-nums" :class="(player.tov || player.to || 0) > 3 ? 'text-red-400' : 'text-zinc-400'">{{ player.tov ?? player.to ?? 0 }}</td>
+            <td class="text-center py-2 px-1 tabular-nums text-xs" :class="pctClass(playerFgPct(player))">{{ playerFgPct(player) != null ? playerFgPct(player) + '%' : '—' }}</td>
+            <td class="text-center py-2 px-1 tabular-nums text-xs" :class="pctClass(playerThreePct(player))">{{ playerThreePct(player) != null ? playerThreePct(player) + '%' : '—' }}</td>
+            <td class="text-center py-2 px-1 tabular-nums text-xs" :class="pctClass(playerFtPct(player))">{{ playerFtPct(player) != null ? playerFtPct(player) + '%' : '—' }}</td>
+            <td class="text-center py-2 px-1 tabular-nums" :class="(player.tov || 0) > 3 ? 'text-red-400' : 'text-zinc-400'">{{ player.tov ?? 0 }}</td>
             <td class="text-center py-2 px-1 tabular-nums font-medium" :class="player.pm > 0 ? 'text-emerald-400' : player.pm < 0 ? 'text-red-400' : 'text-zinc-500'">{{ player.pm > 0 ? '+' : '' }}{{ player.pm }}</td>
+            <td class="text-center py-2 px-1 tabular-nums font-semibold text-amber-300">{{ playerFpts(player).toFixed(1) }}</td>
           </tr>
         </tbody>
       </table>
@@ -100,7 +130,7 @@
                   class="text-xs text-[#4d8fff] hover:text-[#6da3ff] font-medium whitespace-nowrap"
                 >See player page</NuxtLink>
                 <button @click="closeModal" class="w-8 h-8 rounded-full bg-surface-light flex items-center justify-center text-zinc-400 hover:text-zinc-200">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -425,8 +455,113 @@ function normalizePlayer(p) {
 const activePlayers = computed(() => {
   const team = props.sportStats?.[activeTeam.value]
   if (!team?.players) return []
-  return [...team.players].map(normalizePlayer).sort((a, b) => (b.pts || 0) - (a.pts || 0))
+  let list = team.players.map(normalizePlayer)
+  if (!showDNP.value) list = list.filter(p => !isDNP(p))
+  const dir = sortDir.value === 'desc' ? -1 : 1
+  const key = sortKey.value
+  list.sort((a, b) => {
+    const va = sortValue(a, key)
+    const vb = sortValue(b, key)
+    if (va === vb) return 0
+    return va < vb ? -dir : dir
+  })
+  return list
 })
+
+// ── Sort + filter state ────────────────────────────────
+const showDNP = ref(false)
+const sortKey = ref('pts')
+const sortDir = ref('desc')
+
+const columns = [
+  { key: 'name', label: 'Player', width: '',     align: 'left'  },
+  { key: 'min',  label: 'MIN',    width: 'w-12', align: 'center' },
+  { key: 'pts',  label: 'PTS',    width: 'w-9',  align: 'center' },
+  { key: 'reb',  label: 'REB',    width: 'w-9',  align: 'center' },
+  { key: 'ast',  label: 'AST',    width: 'w-9',  align: 'center' },
+  { key: 'stl',  label: 'STL',    width: 'w-9',  align: 'center' },
+  { key: 'blk',  label: 'BLK',    width: 'w-9',  align: 'center' },
+  { key: 'fg%',  label: 'FG%',    width: 'w-12', align: 'center' },
+  { key: '3p%',  label: '3P%',    width: 'w-12', align: 'center' },
+  { key: 'ft%',  label: 'FT%',    width: 'w-12', align: 'center' },
+  { key: 'tov',  label: 'TO',     width: 'w-9',  align: 'center' },
+  { key: 'pm',   label: '+/-',    width: 'w-12', align: 'center' },
+  { key: 'fpts', label: 'FPTS',   width: 'w-12', align: 'center' },
+]
+
+function toggleSort(key) {
+  if (key === sortKey.value) {
+    sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc'
+  } else {
+    sortKey.value = key
+    // Strings ascend by default; numbers descend by default.
+    sortDir.value = key === 'name' ? 'asc' : 'desc'
+  }
+}
+
+function parseMin(p) {
+  const raw = p.min ?? p.minutes ?? 0
+  if (typeof raw === 'number') return raw
+  const s = String(raw)
+  if (!s) return 0
+  if (s.includes(':')) {
+    const [m, sec] = s.split(':').map(Number)
+    return (m || 0) + ((sec || 0) / 60)
+  }
+  const n = parseFloat(s)
+  return isNaN(n) ? 0 : n
+}
+
+function isDNP(p) {
+  return parseMin(p) <= 0 && (p.pts ?? 0) === 0 && (p.reb ?? 0) === 0 && (p.ast ?? 0) === 0
+}
+
+function playerFgPct(p) {
+  const a = p.fga ?? 0
+  if (!a) return null
+  return Math.round(((p.fgm ?? 0) / a) * 100)
+}
+function playerThreePct(p) {
+  const a = p.fg3a ?? 0
+  if (!a) return null
+  return Math.round(((p.fg3m ?? 0) / a) * 100)
+}
+function playerFtPct(p) {
+  const a = p.fta ?? 0
+  if (!a) return null
+  return Math.round(((p.ftm ?? 0) / a) * 100)
+}
+
+// DraftKings-style fantasy points (no double-double bonus, kept simple).
+function playerFpts(p) {
+  return (p.pts ?? 0) * 1
+       + (p.fg3m ?? 0) * 0.5
+       + (p.reb ?? 0) * 1.25
+       + (p.ast ?? 0) * 1.5
+       + (p.stl ?? 0) * 2
+       + (p.blk ?? 0) * 2
+       - (p.tov ?? 0) * 0.5
+}
+
+function pctClass(pct) {
+  if (pct == null) return 'text-zinc-600'
+  if (pct >= 50) return 'text-emerald-400'
+  if (pct >= 40) return 'text-zinc-300'
+  if (pct >= 30) return 'text-amber-400'
+  return 'text-red-400'
+}
+
+function sortValue(p, key) {
+  switch (key) {
+    case 'name': return (p.name || '').toLowerCase()
+    case 'min':  return parseMin(p)
+    case 'fg%':  return playerFgPct(p) ?? -1
+    case '3p%':  return playerThreePct(p) ?? -1
+    case 'ft%':  return playerFtPct(p) ?? -1
+    case 'fpts': return playerFpts(p)
+    default:     return p[key] ?? 0
+  }
+}
 
 const activeCoach = computed(() => {
   return props.sportStats?.[activeTeam.value]?.coach || null

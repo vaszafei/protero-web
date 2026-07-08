@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(systemctl list-timers *)",
+      "Bash(sudo systemctl *)",
+      "Bash(systemctl --user status protero-football.service protero-basketball.service)",
+      "Read(//home/zafnitlab/**)"
+    ]
+  }
+}

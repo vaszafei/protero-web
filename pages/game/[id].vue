@@ -8,10 +8,14 @@
     <!-- Main Content -->
     <div v-else-if="data" class="max-w-7xl mx-auto p-2.5 sm:p-6">
       <!-- Back Button -->
-      <NuxtLink to="/" class="inline-flex items-center gap-1.5 sm:gap-2 text-zinc-400 hover:text-zinc-200 mb-4 sm:mb-6 transition-colors">
-        <ChevronLeft :size="18" />
-        <span class="text-sm font-medium">Back to Dashboard</span>
-      </NuxtLink>
+      <button
+        type="button"
+        @click="goBack"
+        aria-label="Back"
+        class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-light active:bg-surface-hover transition-colors mb-3 sm:mb-4 -ml-1"
+      >
+        <ChevronLeft :size="20" />
+      </button>
 
       <!-- Game Header -->
       <GameHeader 
@@ -112,6 +116,20 @@
                     class="absolute bottom-0 left-2 right-2 h-0.5 rounded-full tab-indicator"
                   ></div>
                 </button>
+                <button
+                  v-if="gameSport === 'basketball' && isAdmin"
+                  @click="activeTab = 'props'"
+                  class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-sm font-medium transition-all duration-200 relative"
+                  :class="activeTab === 'props' 
+                    ? 'text-zinc-100' 
+                    : 'text-zinc-500 hover:text-zinc-300'"
+                >
+                  Props
+                  <div 
+                    v-if="activeTab === 'props'"
+                    class="absolute bottom-0 left-2 right-2 h-0.5 rounded-full tab-indicator"
+                  ></div>
+                </button>
               </template>
             </div>
 
@@ -202,6 +220,17 @@
                     :away-name="data.game.away_name"
                   />
                 </div>
+
+                <!-- Props Tab (admin only) -->
+                <div v-if="gameSport === 'basketball' && isAdmin" v-show="activeTab === 'props'">
+                  <PlayerPropsUpload
+                    :game-id="data.game.id"
+                    :league-key="data.game.league_key"
+                    :home-team="data.game.home_name"
+                    :away-team="data.game.away_name"
+                    :game-date="data.game.date"
+                  />
+                </div>
               </template>
             </div>
           </div>
@@ -221,7 +250,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { ChevronLeft } from 'lucide-vue-next'
 import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
@@ -234,6 +263,7 @@ import BasketballPlayerStats from '~/components/game/BasketballPlayerStats.vue'
 import GameAnalysis from '~/components/game/GameAnalysis.vue'
 import GamePrediction from '~/components/game/GamePrediction.vue'
 import FantasyProjections from '~/components/game/FantasyProjections.vue'
+import PlayerPropsUpload from '~/components/PlayerPropsUpload.vue'
 
 definePageMeta({
   layout: 'default',
@@ -241,11 +271,27 @@ definePageMeta({
 })
 
 const route = useRoute()
+const router = useRouter()
 const api = useApi()
+const { isAdmin } = useAuth()
 const gameId = computed(() => route.params.id)
 
-// Fetch game data
-const { data, pending: loading, error } = await useAsyncData(`game-${gameId.value}`, () => api.fetchGame(Number(gameId.value)))
+// Back button: prefer browser history when present, fallback to dashboard
+function goBack() {
+  if (typeof window !== 'undefined' && window.history.length > 1) {
+    router.back()
+  } else {
+    navigateTo('/')
+  }
+}
+
+// Fetch game data (bundled — game + lineups + h2h + fantasy in parallel).
+// 5-minute SWR cache via useAsyncData key.
+const { data, pending: loading, error } = await useAsyncData(
+  `game:${gameId.value}`,
+  () => api.fetchGameDetail(Number(gameId.value)),
+  { server: false }
+)
 
 // Sport detection
 const gameSport = computed(() => data.value?.game?.sport || 'football')
@@ -273,6 +319,7 @@ const tabOrder = computed(() => {
   }
   const tabs = ['analysis', 'prediction']
   if (hasFantasy.value) tabs.push('fantasy')
+  if (gameSport.value === 'basketball' && isAdmin.value) tabs.push('props')
   return tabs
 })
 
@@ -331,6 +378,12 @@ async function checkFantasy() {
   if (!data.value?.game || isCompleted.value) return
   const sport = gameSport.value
   if (sport !== 'basketball') return
+  // Use bundled fantasy data when available (saves a round trip)
+  const bundled = (data.value as Record<string, any>)?.fantasy
+  if (Array.isArray(bundled)) {
+    hasFantasy.value = bundled.length > 0
+    return
+  }
   try {
     const projections = await api.fetchFantasyProjections(data.value.game.id)
     hasFantasy.value = projections.length > 0
@@ -349,6 +402,12 @@ const h2hLoading = ref(false)
 
 async function loadH2H() {
   if (!data.value?.game || isCompleted.value) return
+  // Use bundled h2h when available
+  const bundled = (data.value as Record<string, any>)?.h2h
+  if (bundled && (bundled.matches?.length || bundled.summary)) {
+    h2hData.value = bundled
+    return
+  }
   const g = data.value.game
   h2hLoading.value = true
   try {

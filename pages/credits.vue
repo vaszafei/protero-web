@@ -1,119 +1,161 @@
 <template>
-  <div class="p-3 sm:p-6">
-    <div class="max-w-3xl mx-auto space-y-6">
-      <!-- Header -->
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-zinc-100">Credits</h1>
-        <p class="text-xs text-zinc-500 mt-0.5">Earn credits by contributing data, spend them to unlock leagues</p>
-      </div>
+  <div class="px-3 py-3 sm:px-6 sm:py-6 max-w-2xl mx-auto space-y-3">
+    <!-- Back / title row -->
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        @click="goBack"
+        aria-label="Back"
+        class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-light transition-colors -ml-1"
+      >
+        <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
+      </button>
+      <h1 class="text-base font-bold text-zinc-100">Credits</h1>
+    </div>
 
-      <!-- Balance card -->
-      <div class="bg-surface border border-edge rounded-lg p-5">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-xs uppercase tracking-wider text-zinc-500 mb-1">Your Balance</p>
-            <p class="text-3xl font-bold text-zinc-100 tabular-nums">{{ balance }}</p>
-            <p class="text-xs text-zinc-500 mt-1">
-              {{ totalEarned }} earned · {{ totalSpent }} spent
-            </p>
+    <!-- Balance hero -->
+    <div class="account-card credits-hero rounded-xl p-5 relative overflow-hidden">
+      <div class="absolute -right-12 -top-12 w-44 h-44 rounded-full bg-amber-400/10 pointer-events-none" />
+      <div class="relative">
+        <p class="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">Available balance</p>
+        <div class="flex items-baseline gap-2">
+          <span class="text-5xl font-extrabold text-amber-300 tabular-nums">{{ formatNum(balance) }}</span>
+          <span class="text-xs text-zinc-500 font-medium">credits</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-4">
+          <div class="stat-pill">
+            <p class="text-[9px] text-zinc-500 uppercase tracking-wider">Total earned</p>
+            <p class="text-base font-bold text-emerald-400 tabular-nums">+{{ formatNum(totalEarned) }}</p>
           </div>
-          <div class="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center">
-            <svg class="w-7 h-7 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5" />
-              <text x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="currentColor">C</text>
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick stats -->
-      <div class="grid grid-cols-3 gap-3">
-        <div class="bg-surface border border-edge rounded-lg p-3 text-center">
-          <p class="text-lg font-bold text-zinc-200 tabular-nums">{{ freeLeagueKey || '—' }}</p>
-          <p class="text-xs text-zinc-500 mt-0.5">Free League</p>
-        </div>
-        <div class="bg-surface border border-edge rounded-lg p-3 text-center">
-          <p class="text-lg font-bold text-zinc-200 tabular-nums">{{ activeUnlocks.length }}</p>
-          <p class="text-xs text-zinc-500 mt-0.5">Active Unlocks</p>
-        </div>
-        <div class="bg-surface border border-edge rounded-lg p-3 text-center">
-          <p class="text-lg font-bold text-zinc-200 tabular-nums">{{ transactions.length }}</p>
-          <p class="text-xs text-zinc-500 mt-0.5">Transactions</p>
-        </div>
-      </div>
-
-      <!-- League access -->
-      <LeagueCreditsCard />
-
-      <!-- Earn credits CTA -->
-      <div class="bg-surface border border-edge rounded-lg p-5 text-center">
-        <svg class="w-8 h-8 mx-auto text-blue-400 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2v20M2 12h20" />
-        </svg>
-        <h3 class="font-semibold text-zinc-200 mb-1">Earn More Credits</h3>
-        <p class="text-xs text-zinc-500 mb-3">
-          Contribute match data to earn credits. First contributors get a bonus!
-        </p>
-        <NuxtLink
-          to="/contribute"
-          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 transition-colors"
-        >
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="12" y1="18" x2="12" y2="12" />
-            <line x1="9" y1="15" x2="15" y2="15" />
-          </svg>
-          View Available Tasks
-        </NuxtLink>
-      </div>
-
-      <!-- Transaction history -->
-      <div v-if="transactions.length > 0" class="bg-surface border border-edge rounded-lg">
-        <div class="px-4 py-3 border-b border-edge">
-          <h3 class="font-semibold text-zinc-200 text-sm">Recent Transactions</h3>
-        </div>
-        <div class="divide-y divide-edge">
-          <div
-            v-for="tx in transactions"
-            :key="tx.id"
-            class="px-4 py-3 flex items-center justify-between"
-          >
-            <div class="min-w-0">
-              <p class="text-sm text-zinc-300 truncate">{{ tx.description || tx.type }}</p>
-              <p class="text-xs text-zinc-600 mt-0.5">{{ formatDateTime(tx.created_at) }}</p>
-            </div>
-            <span
-              class="font-semibold text-sm tabular-nums flex-shrink-0 ml-3"
-              :class="tx.amount > 0 ? 'text-emerald-400' : 'text-red-400'"
-            >
-              {{ tx.amount > 0 ? '+' : '' }}{{ tx.amount }}
-            </span>
+          <div class="stat-pill">
+            <p class="text-[9px] text-zinc-500 uppercase tracking-wider">Total spent</p>
+            <p class="text-base font-bold text-zinc-300 tabular-nums">−{{ formatNum(totalSpent) }}</p>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Active unlocks -->
+    <div class="account-card rounded-xl p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-sm font-bold text-zinc-100 flex items-center gap-2">
+          <UIcon name="i-heroicons-lock-open" class="w-4 h-4 text-indigo-400" />
+          Active unlocks
+        </h3>
+        <UButton size="xs" color="indigo" variant="soft" to="/leagues" trailing-icon="i-heroicons-arrow-right">
+          Browse leagues
+        </UButton>
+      </div>
+      <div v-if="activeUnlocks.length" class="space-y-1.5">
+        <div
+          v-for="u in activeUnlocks"
+          :key="u.league_key"
+          class="flex items-center justify-between py-1.5 px-2 rounded bg-white/[0.02] text-[12px]"
+        >
+          <span class="font-semibold text-zinc-200">{{ u.league_key }}</span>
+          <span class="text-[10px] text-zinc-500">expires {{ formatDate(u.expires_at) }}</span>
+        </div>
+      </div>
+      <p v-else class="text-[11px] text-zinc-600 italic">No leagues unlocked yet.</p>
+    </div>
+
+    <!-- How to earn -->
+    <div class="account-card rounded-xl p-4">
+      <h3 class="text-sm font-bold text-zinc-100 flex items-center gap-2 mb-3">
+        <UIcon name="i-heroicons-sparkles" class="w-4 h-4 text-amber-400" />
+        How to earn credits
+      </h3>
+      <ul class="space-y-2">
+        <li v-for="row in earningRows" :key="row.label" class="flex items-center justify-between text-[12px]">
+          <span class="text-zinc-300">{{ row.label }}</span>
+          <span class="font-bold text-amber-300 tabular-nums">+{{ row.amount }}</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Transaction history -->
+    <div class="account-card rounded-xl p-4">
+      <h3 class="text-sm font-bold text-zinc-100 flex items-center gap-2 mb-3">
+        <UIcon name="i-heroicons-clock" class="w-4 h-4 text-zinc-400" />
+        History
+      </h3>
+      <div v-if="transactions.length" class="divide-y divide-white/[0.04]">
+        <div
+          v-for="tx in transactions"
+          :key="tx.id"
+          class="flex items-center justify-between py-2 text-[12px]"
+        >
+          <div class="flex-1 min-w-0">
+            <p class="text-zinc-200 truncate">{{ tx.description || prettyType(tx.type) }}</p>
+            <p class="text-[10px] text-zinc-600">{{ formatDate(tx.created_at) }}</p>
+          </div>
+          <span
+            class="font-bold tabular-nums flex-shrink-0 ml-2"
+            :class="Number(tx.amount) >= 0 ? 'text-emerald-400' : 'text-zinc-400'"
+          >
+            {{ Number(tx.amount) >= 0 ? '+' : '' }}{{ tx.amount }}
+          </span>
+        </div>
+      </div>
+      <p v-else-if="!loading" class="text-[11px] text-zinc-600 italic">No transactions yet.</p>
+    </div>
   </div>
 </template>
 
-<script setup>
-import LeagueCreditsCard from '~/components/LeagueCreditsCard.vue'
+<script setup lang="ts">
+definePageMeta({ middleware: 'auth' })
 
-definePageMeta({
-  layout: 'default',
-  middleware: 'auth'
-})
+const router = useRouter()
+const { balance, totalEarned, totalSpent, transactions, activeUnlocks, loading, fetchCredits } = useCredits()
 
-const { balance, totalEarned, totalSpent, freeLeagueKey, transactions, activeUnlocks, fetchCredits } = useCredits()
+useHead({ title: 'Credits · Protero' })
 
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
-    ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+const earningRows = [
+  { label: 'Daily login streak (3 days)', amount: 50 },
+  { label: 'Daily login streak (7 days)', amount: 150 },
+  { label: 'Place your first bet', amount: 100 },
+  { label: 'Win 5 bets in a row', amount: 250 },
+  { label: 'Refer a friend', amount: 500 },
+]
+
+function goBack() {
+  if (typeof window !== 'undefined' && window.history.length > 1) router.back()
+  else navigateTo('/account')
+}
+
+function formatNum(n: number | undefined | null) {
+  return Number(n || 0).toLocaleString('en-US')
+}
+
+function formatDate(d: string | null | undefined) {
+  if (!d) return ''
+  try {
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return ''
+  }
+}
+
+function prettyType(t: string) {
+  return (t || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 onMounted(() => {
   fetchCredits()
 })
 </script>
+
+<style scoped>
+.account-card {
+  background: rgba(24, 27, 36, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.credits-hero {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(24, 27, 36, 0.55));
+}
+.stat-pill {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+</style>

@@ -3,13 +3,13 @@
     <!-- Wait for subscriptions to load before rendering provider -->
     <div v-if="!subsLoaded" class="max-w-[1600px] mx-auto flex items-center justify-center py-20">
       <div class="flex items-center gap-3 text-zinc-500">
-        <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg>
+        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
         <span class="text-sm">Loading...</span>
       </div>
     </div>
 
     <DashboardDataProvider v-else :leagues="leagues" :user-league-keys="userLeagueKeys" :wallet-id="selectedWalletId" :user-id="user?.id" v-slot="{ games, predictions, bets, parlays, walletStats, loading: dataLoading, refresh, hasLeagueGames }">
-      <!-- Capture games into reactive ref for sport filtering -->
+      <!-- Sync slot-prop games into reactive ref (needed for computed filteredGames/availableSports) -->
       {{ captureGames(games) }}
       <div class="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
         
@@ -78,11 +78,6 @@
             </div>
           </div>
         </template>
-        
-        <!-- Auto-select today on mount (desktop calendar only) -->
-        <template v-if="!selectedDay && filteredGames.length > 0">
-          {{ autoSelectToday(filteredGames) }}
-        </template>
       </div>
     </DashboardDataProvider>
   </div>
@@ -103,7 +98,6 @@ definePageMeta({
 })
 
 const { isAdmin, user } = useAuth()
-const { fetchCredits } = useCredits()
 const api = useApi()
 const leagues = ref([])
 const userLeagueKeys = ref([])
@@ -142,28 +136,33 @@ const handleDaySelect = (day) => {
   selectedDay.value = day
 }
 
+// Auto-select today when filteredGames first becomes non-empty
+watch(filteredGames, (games) => {
+  if (!selectedDay.value && games.length > 0) {
+    autoSelectToday(games)
+  }
+}, { immediate: false })
+
 // Auto-select today's date when games are loaded
 const autoSelectToday = (games) => {
   if (!selectedDay.value && games.length > 0) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    const year = today.getFullYear()
-    const month = String(today.getMonth() + 1).padStart(2, '0')
-    const day = String(today.getDate()).padStart(2, '0')
-    const dateStr = `${year}-${month}-${day}`
-    
+    // Use Athens timezone so NBA late-night games (UTC date ≠ Athens date) are grouped correctly
+    const dateStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Athens',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date())
+
     const todayGames = games.filter(game => {
       if (!game.date) return false
-      const gameDate = new Date(game.date)
-      const gameYear = gameDate.getFullYear()
-      const gameMonth = String(gameDate.getMonth() + 1).padStart(2, '0')
-      const gameDay = String(gameDate.getDate()).padStart(2, '0')
-      const gameDateStr = `${gameYear}-${gameMonth}-${gameDay}`
+      const gameDateStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Athens',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date(game.date))
       return gameDateStr === dateStr
     })
     
     if (todayGames.length > 0) {
+      const today = new Date()
       selectedDay.value = {
         date: today,
         dayNumber: today.getDate(),
@@ -177,14 +176,13 @@ const autoSelectToday = (games) => {
 
 onMounted(async () => {
   try {
-    // Load leagues, user subscriptions, credits, and wallet list in parallel
+    // Load leagues, user subscriptions, and wallet list in parallel
     const [leaguesData, subsData, walletsData] = await Promise.all([
       api.fetchLeagues().catch(() => ({ leagues: [] })),
       api.fetchSubscriptions().catch(() => ({ subscriptions: [] })),
       user.value?.id
-        ? $fetch(`/api/wallet/list?userId=${user.value.id}`).catch(() => ({ wallets: [] }))
-        : Promise.resolve({ wallets: [] }),
-      fetchCredits().catch(() => {})
+        ? api.fetchWallets().catch(() => ({ wallets: [] }))
+        : Promise.resolve({ wallets: [] })
     ])
 
     if (leaguesData?.leagues) {

@@ -106,7 +106,7 @@
   </NuxtLink>
 </template>
 
-<script setup>
+<script setup lang="ts">
 const props = defineProps({
   game: {
     type: Object,
@@ -127,9 +127,21 @@ import { getTeamLogoUrl } from '~/utils/teamLogo'
 const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key, props.game.league_key))
 const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key, props.game.league_key))
 
-// Odds data from sport_stats
+// Odds data — prefer sport_stats.odds (pre-averaged), fall back to odds_raw arrays
 const oddsData = computed(() => {
-  return props.game.sport_stats?.odds || null
+  if (props.game.sport_stats?.odds) return props.game.sport_stats.odds
+  const raw = props.game.odds_raw
+  if (!raw) return null
+  // odds_raw stores arrays of bookmaker entries — take the first (most recent) per market
+  const ml = Array.isArray(raw.moneyline) ? raw.moneyline[0] : raw.moneyline
+  const hc = Array.isArray(raw.handicap) ? raw.handicap[0] : raw.handicap
+  const ou = Array.isArray(raw.over_under) ? raw.over_under[0] : raw.over_under
+  if (!ml && !hc && !ou) return null
+  return {
+    moneyline: ml || null,
+    handicap: hc || null,
+    over_under: ou || null,
+  }
 })
 
 // Extract prediction from game (handle both array and object)
@@ -140,7 +152,21 @@ const displayPrediction = computed(() => {
   return props.game.prediction || null
 })
 
-// Collect all bets for this game from props and game.bets
+// Wallets that only produce parlays (props strategies). Their per-leg bet
+// rows must never render as standalone chips on a game card.
+const PARLAY_ONLY_WALLETS = new Set([19, 20])
+
+function isParlayLeg(bet) {
+  if (!bet?.notes) return false
+  let n = bet.notes
+  if (typeof n === 'string') {
+    try { n = JSON.parse(n) } catch { return false }
+  }
+  return !!(n && (n.parlay_id || n.pick_type === 'prop_parlay_leg' || n.leg_number))
+}
+
+// Collect all bets for this game from props and game.bets, then filter out
+// parlay legs and parlay-only wallets so chips only show real per-game singles.
 const gameBets = computed(() => {
   const allBets = []
   if (props.bets && props.bets.length > 0) allBets.push(...props.bets)
@@ -150,7 +176,11 @@ const gameBets = computed(() => {
       if (!allBets.some(x => x.id === b.id)) allBets.push(b)
     }
   }
-  return allBets
+  return allBets.filter(b => {
+    if (PARLAY_ONLY_WALLETS.has(Number(b.wallet_id))) return false
+    if (isParlayLeg(b)) return false
+    return true
+  })
 })
 
 // Legacy single bet (kept for compatibility)

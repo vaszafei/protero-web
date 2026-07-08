@@ -3,9 +3,7 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
-        <svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
+        <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-blue-400" />
         <span class="text-sm font-bold text-zinc-100">AI Predictions</span>
       </div>
       <div :class="[
@@ -23,9 +21,7 @@
       <!-- Main Bets -->
       <div class="bg-surface rounded-lg p-2 border border-blue-500/20">
         <div class="text-xs font-bold text-zinc-300 mb-2 flex items-center gap-1">
-          <svg class="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
+          <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-blue-400" />
           Main Bets
         </div>
         <div class="space-y-1.5">
@@ -44,9 +40,7 @@
       <!-- Goals/Points Markets -->
       <div class="bg-surface rounded-lg p-2 border border-green-500/20">
         <div class="text-xs font-bold text-zinc-300 mb-2 flex items-center gap-1">
-          <svg class="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"></path>
-          </svg>
+          <UIcon name="i-heroicons-plus-circle" class="w-3 h-3 text-green-400" />
           {{ sport === 'basketball' ? 'Points' : 'Goals' }}
         </div>
         <div class="space-y-1">
@@ -72,9 +66,7 @@
       <!-- Special Markets (football only) -->
       <div v-if="sport === 'football'" class="bg-surface rounded-lg p-2 border border-amber-500/20">
         <div class="text-xs font-bold text-zinc-300 mb-2 flex items-center gap-1">
-          <svg class="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-          </svg>
+          <UIcon name="i-heroicons-star" class="w-3 h-3 text-amber-400" />
           Specials
         </div>
         <div class="space-y-1">

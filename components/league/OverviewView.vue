@@ -247,7 +247,7 @@
               </div>
             </div>
             <button @click="closeTeamModal" class="w-8 h-8 rounded-full bg-surface-light flex items-center justify-center text-zinc-400 hover:text-zinc-200">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
             </button>
           </div>
 
@@ -355,7 +355,7 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import GameCard from '~/components/league/GameCard.vue'
 
@@ -486,8 +486,8 @@ const modalRecentGames = computed(() => {
 function formatModalDate(dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  return `${months[d.getMonth()]} ${d.getDate()}`
+  const opts: Intl.DateTimeFormatOptions = { timeZone: 'Europe/Athens', month: 'short', day: 'numeric' }
+  return new Intl.DateTimeFormat('en-US', opts).format(d)
 }
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -515,7 +515,7 @@ function formatDateRange() {
 function formatDateShort(dateStr) {
   if (dateStr === 'TBD') return 'TBD'
   const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return date.toLocaleDateString('en-US', { timeZone: 'Europe/Athens', month: 'short', day: 'numeric' })
 }
 
 function isWinningOdds(game, type) {

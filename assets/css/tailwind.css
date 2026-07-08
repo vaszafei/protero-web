@@ -5,27 +5,6 @@
 /* Dark theme defaults */
 body { background-color: #14161b; color: #e4e7ec; }
 
-/* ─── Capacitor / Mobile safe areas ─────────────────────────────── */
-/* Safe-area padding is handled at the layout level (default.vue) to avoid double padding */
-
-/* Prevent pull-to-refresh in Capacitor webview */
-body {
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Disable text selection on interactive elements (native feel) */
-button, a, [role="button"] {
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  user-select: none;
-}
-
-/* Prevent horizontal swipe-back interference in scroll containers */
-.overflow-auto, .overflow-y-auto, .overflow-x-auto {
-  overscroll-behavior: contain;
-}
-
 /* Hide scrollbar utility (for horizontal tab navs, etc.) */
 .scrollbar-hide {
   -ms-overflow-style: none;

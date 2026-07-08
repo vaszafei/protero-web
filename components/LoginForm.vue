@@ -302,8 +302,8 @@ const handleRegister = async () => {
   try {
     const result = await register(registerForm.email, registerForm.password, registerForm.name)
     if (result.success) {
-      toast.add({ title: 'Account created', description: 'Setting up your profile', color: 'green' })
-      navigateTo('/onboarding')
+      toast.add({ title: 'Account created', description: 'Welcome to ΠρoΤερο', color: 'green' })
+      navigateTo('/')
     } else {
       errorMessage.value = result.error || 'Registration failed'
     }

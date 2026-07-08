@@ -6,6 +6,10 @@
     "androidScheme": "https",
     "iosScheme": "https"
   },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true
+  },
   "ios": {
     "contentInset": "automatic",
     "backgroundColor": "#0f172a",
@@ -15,17 +19,22 @@
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 2000,
-      "backgroundColor": "#0f172a",
-      "showSpinner": false
+      "launchShowDuration": 0,
+      "backgroundColor": "#14161b",
+      "showSpinner": false,
+      "launchAutoHide": false
     },
     "StatusBar": {
       "style": "dark",
-      "backgroundColor": "#0f172a",
+      "backgroundColor": "#14161b",
       "overlaysWebView": true
     },
     "PushNotifications": {
-      "presentationOptions": ["badge", "sound", "alert"]
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
     },
     "Keyboard": {
       "resize": "native",

@@ -94,68 +94,100 @@
       />
 
       <!-- Basketball Stats from sport_stats -->
-      <template v-if="!isFootball && hasBballStats">
+      <div v-if="!isFootball && hasBballStats">
         <!-- Quarter Scores -->
-        <div v-if="quarters" class="mb-6">
-          <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Quarter Scores</h3>
-          <div class="grid gap-2 text-center text-sm" :style="{ gridTemplateColumns: `40px repeat(${quarters.length}, 1fr)` }">
-            <div></div>
-            <div v-for="(_, i) in quarters" :key="i" class="text-zinc-500 font-medium text-xs">{{ i < 4 ? 'Q' + (i + 1) : 'OT' + (i - 3) }}</div>
-            <!-- Home row -->
-            <div class="flex items-center justify-center">
-              <img v-if="homeLogo" :src="homeLogo" class="w-5 h-5 object-contain" :alt="game.home_name" :title="game.home_name" @error="(e) => e.target.style.display='none'" />
-              <span v-else class="text-zinc-400 text-xs font-semibold truncate">{{ game.home_name?.split(' ').pop()?.slice(0, 3) }}</span>
-            </div>
-            <div v-for="(q, i) in quarters" :key="'h'+i" class="font-semibold" :class="q[0] > q[1] ? 'text-zinc-100' : 'text-zinc-500'">{{ q[0] }}</div>
-            <!-- Away row -->
-            <div class="flex items-center justify-center">
-              <img v-if="awayLogo" :src="awayLogo" class="w-5 h-5 object-contain" :alt="game.away_name" :title="game.away_name" @error="(e) => e.target.style.display='none'" />
-              <span v-else class="text-zinc-400 text-xs font-semibold truncate">{{ game.away_name?.split(' ').pop()?.slice(0, 3) }}</span>
-            </div>
-            <div v-for="(q, i) in quarters" :key="'a'+i" class="font-semibold" :class="q[1] > q[0] ? 'text-zinc-100' : 'text-zinc-500'">{{ q[1] }}</div>
+        <div v-if="quarters" class="mb-4">
+          <div class="overflow-x-auto">
+            <table class="w-full text-center text-sm">
+              <thead>
+                <tr>
+                  <th class="text-left pb-2.5 w-9"></th>
+                  <th
+                    v-for="(_, i) in quarters" :key="i"
+                    class="pb-2.5 px-1 text-xs font-semibold"
+                    :class="i >= 4 ? 'text-amber-400' : 'text-zinc-400'"
+                  >{{ i < 4 ? 'Q' + (i + 1) : 'OT' + (i - 3) }}</th>
+                  <th class="pb-2.5 px-1 text-xs font-bold text-zinc-300">T</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="py-1.5 pr-2">
+                    <img v-if="homeLogo" :src="homeLogo" class="w-7 h-7 object-contain" :alt="game.home_name" @error="(e) => e.target.style.display='none'" />
+                    <span v-else class="text-zinc-300 text-xs font-bold">{{ game.home_name?.split(' ').pop()?.slice(0, 3) }}</span>
+                  </td>
+                  <td
+                    v-for="(q, i) in quarters" :key="'h'+i"
+                    class="py-1.5 px-1 tabular-nums font-semibold"
+                    :class="q[0] > q[1] ? 'text-zinc-100' : 'text-zinc-500'"
+                  >{{ q[0] }}</td>
+                  <td class="py-1.5 px-1 tabular-nums font-bold text-zinc-100">{{ game.home_goals }}</td>
+                </tr>
+                <tr>
+                  <td class="py-1.5 pr-2">
+                    <img v-if="awayLogo" :src="awayLogo" class="w-7 h-7 object-contain" :alt="game.away_name" @error="(e) => e.target.style.display='none'" />
+                    <span v-else class="text-zinc-300 text-xs font-bold">{{ game.away_name?.split(' ').pop()?.slice(0, 3) }}</span>
+                  </td>
+                  <td
+                    v-for="(q, i) in quarters" :key="'a'+i"
+                    class="py-1.5 px-1 tabular-nums font-semibold"
+                    :class="q[1] > q[0] ? 'text-zinc-100' : 'text-zinc-500'"
+                  >{{ q[1] }}</td>
+                  <td class="py-1.5 px-1 tabular-nums font-bold text-zinc-100">{{ game.away_goals }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div v-if="quarters" class="border-t border-edge my-4" />
+        <div v-if="quarters" class="border-t border-edge my-2" />
 
-        <!-- Shooting -->
-        <StatBar label="2PT Field Goals" :home-value="bball.home.fg2_made" :away-value="bball.away.fg2_made" :suffix="fg2Suffix" />
-        <StatBar label="3PT Field Goals" :home-value="bball.home.fg3_made" :away-value="bball.away.fg3_made" :suffix="fg3Suffix" />
-        <StatBar label="Free Throws" :home-value="bball.home.ft_made" :away-value="bball.away.ft_made" :suffix="ftSuffix" />
+        <!-- Shooting (made/attempted with inline percentage) -->
+        <div class="space-y-0">
+        <div v-for="shot in shootingStats" :key="shot.label" class="py-1.5">
+          <div class="text-center text-[10px] uppercase tracking-wider text-zinc-500 font-medium mb-1">
+            {{ shot.label }}
+          </div>
+          <div class="grid grid-cols-[64px_1fr_64px] items-center gap-2">
+            <div class="text-right">
+              <span class="text-[13px] font-semibold text-[#e8a0a0] tabular-nums">{{ shot.homeMade }}/{{ shot.homeAtt }}</span>
+              <span class="block text-[10px] text-zinc-500 tabular-nums">{{ shot.homePct }}%</span>
+            </div>
+            <div class="flex items-center gap-0">
+              <div class="flex-1 h-[5px] bg-surface-light/60 rounded-l-full overflow-hidden flex justify-end">
+                <div class="h-full rounded-l-full bg-gradient-to-l from-[#f82828]/60 to-[#f82828]/30" :style="{ width: shot.homePct + '%' }" />
+              </div>
+              <div class="w-px h-3 bg-zinc-600/60 flex-shrink-0" />
+              <div class="flex-1 h-[5px] bg-surface-light/60 rounded-r-full overflow-hidden">
+                <div class="h-full rounded-r-full bg-gradient-to-r from-[#0848a8]/30 to-[#0848a8]/60" :style="{ width: shot.awayPct + '%' }" />
+              </div>
+            </div>
+            <div class="text-left">
+              <span class="text-[13px] font-semibold text-[#a0b8e8] tabular-nums">{{ shot.awayMade }}/{{ shot.awayAtt }}</span>
+              <span class="block text-[10px] text-zinc-500 tabular-nums">{{ shot.awayPct }}%</span>
+            </div>
+          </div>
+        </div>
+        </div>
 
-        <div class="border-t border-edge my-4" />
+        <div class="border-t border-edge my-3" />
 
         <!-- Rebounds -->
+        <div class="space-y-0">
         <StatBar label="Total Rebounds" :home-value="bball.home.total_reb" :away-value="bball.away.total_reb" />
         <StatBar label="Offensive Reb" :home-value="bball.home.off_reb" :away-value="bball.away.off_reb" />
         <StatBar label="Defensive Reb" :home-value="bball.home.def_reb" :away-value="bball.away.def_reb" />
+        </div>
 
-        <div class="border-t border-edge my-4" />
+        <div class="border-t border-edge my-3" />
 
         <!-- Playmaking & Turnovers -->
+        <div class="space-y-0">
         <StatBar label="Assists" :home-value="bball.home.assists" :away-value="bball.away.assists" />
         <StatBar label="Steals" :home-value="bball.home.steals" :away-value="bball.away.steals" />
         <StatBar label="Turnovers" :home-value="bball.home.turnovers" :away-value="bball.away.turnovers" color="red" />
         <StatBar label="Blocks" :home-value="bball.home.blocks_for || 0" :away-value="bball.away.blocks_for || 0" />
         <StatBar label="Fouls" :home-value="bball.home.fouls" :away-value="bball.away.fouls" color="yellow" />
-
-        <!-- Shooting Percentages -->
-        <div class="mt-6 pt-4 border-t border-edge/40 space-y-3">
-          <div class="flex items-center justify-between text-sm">
-            <span class="font-semibold text-[#e8a0a0]">{{ bballFg2Pct.home }}%</span>
-            <span class="text-zinc-500 text-xs uppercase tracking-wider font-medium">2PT %</span>
-            <span class="font-semibold text-[#a0b8e8]">{{ bballFg2Pct.away }}%</span>
-          </div>
-          <div class="flex items-center justify-between text-sm">
-            <span class="font-semibold text-[#e8a0a0]">{{ bballFg3Pct.home }}%</span>
-            <span class="text-zinc-500 text-xs uppercase tracking-wider font-medium">3PT %</span>
-            <span class="font-semibold text-[#a0b8e8]">{{ bballFg3Pct.away }}%</span>
-          </div>
-          <div class="flex items-center justify-between text-sm">
-            <span class="font-semibold text-[#e8a0a0]">{{ bballFtPct.home }}%</span>
-            <span class="text-zinc-500 text-xs uppercase tracking-wider font-medium">FT %</span>
-            <span class="font-semibold text-[#a0b8e8]">{{ bballFtPct.away }}%</span>
-          </div>
         </div>
 
         <!-- Attendance & Referees -->
@@ -169,7 +201,7 @@
             <span class="text-zinc-300">{{ bballMeta.referees }}</span>
           </div>
         </div>
-      </template>
+      </div>
 
       <!-- No stats fallback -->
       <div v-if="!isFootball && !hasBballStats" class="text-center py-8 text-zinc-500">
@@ -362,9 +394,35 @@ const bballFtPct = computed(() => ({
   away: pct(bball.value.away.ft_made, bball.value.away.ft_att),
 }))
 
-const fg2Suffix = computed(() => '/' + bball.value.home.fg2_att + ' - ' + bball.value.away.fg2_att)
-const fg3Suffix = computed(() => '/' + bball.value.home.fg3_att + ' - ' + bball.value.away.fg3_att)
-const ftSuffix = computed(() => '/' + bball.value.home.ft_att + ' - ' + bball.value.away.ft_att)
+const shootingStats = computed(() => [
+  {
+    label: '2PT Field Goals',
+    homeMade: bball.value.home.fg2_made ?? 0,
+    homeAtt: bball.value.home.fg2_att ?? 0,
+    awayMade: bball.value.away.fg2_made ?? 0,
+    awayAtt: bball.value.away.fg2_att ?? 0,
+    homePct: bballFg2Pct.value.home,
+    awayPct: bballFg2Pct.value.away,
+  },
+  {
+    label: '3PT Field Goals',
+    homeMade: bball.value.home.fg3_made ?? 0,
+    homeAtt: bball.value.home.fg3_att ?? 0,
+    awayMade: bball.value.away.fg3_made ?? 0,
+    awayAtt: bball.value.away.fg3_att ?? 0,
+    homePct: bballFg3Pct.value.home,
+    awayPct: bballFg3Pct.value.away,
+  },
+  {
+    label: 'Free Throws',
+    homeMade: bball.value.home.ft_made ?? 0,
+    homeAtt: bball.value.home.ft_att ?? 0,
+    awayMade: bball.value.away.ft_made ?? 0,
+    awayAtt: bball.value.away.ft_att ?? 0,
+    homePct: bballFtPct.value.home,
+    awayPct: bballFtPct.value.away,
+  },
+])
 
 const hasShootingStats = computed(() => {
   return props.game.home_shots != null && 

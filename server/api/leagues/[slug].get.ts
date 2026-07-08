@@ -1,13 +1,30 @@
 import { getSupabase } from '~/server/utils/supabase'
 import { getCached, setCache, invalidateCache } from '~/server/utils/cache'
+import { getOptionalUserId } from '~/server/utils/auth'
+import {
+  fetchActiveSubscribedWalletIds,
+  modelVersionsForWallets,
+  pickBestPrediction,
+} from '~/server/utils/wallet-models'
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
   const { round, season } = getQuery(event)
   const supabase = getSupabase()
 
-  // Cache key based on slug + season
-  const cacheKey = `league:${slug}:${round || 'all'}:${season || 'current'}`
+  // Resolve subscribed wallets early — included in cache key so two users with
+  // different subscriptions don't share the same payload.
+  const userId = await getOptionalUserId(event)
+  const subscribedWalletIds = userId
+    ? await fetchActiveSubscribedWalletIds(supabase, userId)
+    : []
+  const allowedModelVersions = modelVersionsForWallets(subscribedWalletIds)
+  const subKey = subscribedWalletIds.length
+    ? subscribedWalletIds.slice().sort((a, b) => a - b).join('-')
+    : 'anon'
+
+  // Cache key based on slug + season + subscription set
+  const cacheKey = `league:${slug}:${round || 'all'}:${season || 'current'}:${subKey}`
   const cached = getCached(cacheKey)
   if (cached) {
     return cached
@@ -110,9 +127,9 @@ export default defineEventHandler(async (event) => {
       const homeTeam = teamsMap.get(game.home_team_id)
       const awayTeam = teamsMap.get(game.away_team_id)
 
-      // Prefer V18 predictions, fall back to any
-      const v18Preds = game.predictions?.filter((p: any) => p.model_version === 'v18') || []
-      const prediction = v18Preds[0] || game.predictions?.[0]
+      // Pick the highest-priority prediction the user is subscribed to.
+      // Anonymous / unsubscribed users see no AI prediction at all.
+      const prediction = pickBestPrediction(game.predictions, allowedModelVersions)
       const bet = prediction?.bets?.[0]
 
       return {

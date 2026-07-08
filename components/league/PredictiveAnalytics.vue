@@ -9,9 +9,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center py-12">
       <div class="text-zinc-500 mb-4">
-        <svg class="w-16 h-16 mx-auto animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
+        <UIcon name="i-heroicons-arrow-path" class="w-16 h-16 mx-auto animate-spin" />
       </div>
       <p class="text-zinc-500 ml-3">Analyzing upcoming matches...</p>
     </div>
@@ -30,9 +28,7 @@
     <!-- No Upcoming Matches -->
     <div v-else-if="!upcomingMatches.length" class="text-center py-12">
       <div class="text-zinc-500 mb-4">
-        <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-        </svg>
+        <UIcon name="i-heroicons-calendar" class="w-16 h-16 mx-auto" />
       </div>
       <p class="text-zinc-500">No upcoming matches in the next 7 days</p>
       <p class="text-zinc-500 text-sm mt-2">Check back when fixtures are scheduled</p>
@@ -43,9 +39,7 @@
       <!-- League Patterns -->
       <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
         <div class="flex items-center gap-3 mb-3">
-          <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-          </svg>
+          <UIcon name="i-heroicons-chart-bar" class="w-6 h-6 text-blue-400" />
           <h3 class="text-lg font-bold text-blue-900">League Trends ({{ metadata.analyzedGamesCount }} games)</h3>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -71,9 +65,7 @@
       <!-- Upcoming Matches with Predictions -->
       <div class="space-y-4">
         <h3 class="text-lg font-semibold text-zinc-100 flex items-center gap-2">
-          <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
+          <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-green-400" />
           Next {{ upcomingMatches.length }} Matches - Predictions
         </h3>
 
@@ -196,9 +188,7 @@
       <!-- Top Form Teams -->
       <div class="bg-surface-light border border-edge rounded-lg p-4">
         <h3 class="text-lg font-semibold text-zinc-100 mb-3 flex items-center gap-2">
-          <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-          </svg>
+          <UIcon name="i-heroicons-sparkles" class="w-5 h-5 text-yellow-600" />
           Top Form Teams
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">

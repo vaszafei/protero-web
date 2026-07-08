@@ -3,32 +3,65 @@
     <!-- Has Prediction -->
     <template v-if="prediction">
 
-      <!-- ═══ TOP VERDICT CARD ═══ -->
+      <!-- ═══ CONSOLIDATED PICK CARD (ring + pick + EV/Kelly/Edge grid) ═══ -->
       <div :class="['verdict-card rounded-xl px-3.5 sm:px-5 py-4 sm:py-5 relative overflow-hidden', verdictAccentClass]">
         <!-- Background decoration -->
         <div class="absolute inset-0 opacity-5 pointer-events-none">
           <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full" :class="verdictBgCircle"></div>
-          <div class="absolute -left-8 -bottom-8 w-40 h-40 rounded-full" :class="verdictBgCircle"></div>
         </div>
-        <!-- Label -->
-        <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">AI Prediction</p>
-        <!-- Outcome -->
-        <div class="flex items-end gap-2.5 sm:gap-3">
-          <span class="text-[2rem] sm:text-3xl font-extrabold leading-[1.05] tracking-tight break-words" :class="outcomeColor">{{ outcomeLabel }}</span>
-          <span v-if="predictionOdds" class="mb-0.5 text-base font-bold text-zinc-400 tabular-nums">@ {{ predictionOdds }}</span>
-        </div>
-        <!-- Sub-label -->
-        <p class="text-[10px] text-zinc-500 mt-2 font-medium">Model {{ prediction.model_version || '?' }} · {{ marketLabel }}</p>
-      </div>
 
-      <!-- ═══ CONFIDENCE BAR ═══ -->
-      <div>
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="text-[11px] font-medium text-zinc-500">Confidence</span>
-          <span class="text-sm font-bold tabular-nums" :class="confidenceColor">{{ confidence }}%</span>
+        <div class="flex items-start gap-3 sm:gap-4 relative">
+          <!-- Confidence ring -->
+          <div class="flex-shrink-0">
+            <svg class="block" :width="ringSize" :height="ringSize" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(63,63,70,0.6)" stroke-width="6" />
+              <circle
+                cx="32" cy="32" r="28" fill="none" stroke-width="6" stroke-linecap="round"
+                :stroke="ringStroke"
+                :stroke-dasharray="ringCircumference"
+                :stroke-dashoffset="ringDashOffset"
+                transform="rotate(-90 32 32)"
+                style="transition: stroke-dashoffset 0.7s ease;"
+              />
+              <text x="32" y="36" text-anchor="middle" class="font-extrabold tabular-nums" :class="confidenceColor" style="font-size: 16px; fill: currentColor;">{{ confidence }}%</text>
+            </svg>
+            <p class="text-[9px] text-zinc-500 uppercase tracking-widest text-center mt-1 font-bold">Conf.</p>
+          </div>
+
+          <!-- Pick + odds + sub label -->
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">AI Pick</p>
+            <div class="flex items-baseline gap-2 flex-wrap">
+              <span class="text-xl sm:text-2xl font-extrabold leading-tight tracking-tight truncate" :class="outcomeColor" :title="outcomeLabel">{{ pickShort }}</span>
+              <span v-if="predictionOdds" class="text-sm font-bold text-zinc-300 tabular-nums">@ {{ predictionOdds }}</span>
+            </div>
+            <p class="text-[10px] text-zinc-500 mt-1 font-medium truncate">
+              <span v-if="isAdmin">Model {{ prediction.model_version || '?' }} · </span>{{ marketLabel }}
+            </p>
+          </div>
         </div>
-        <div class="w-full h-2 bg-surface-light rounded-full overflow-hidden">
-          <div class="h-full rounded-full transition-all duration-700" :class="confidenceBarClass" :style="{ width: confidence + '%' }"></div>
+
+        <!-- EV / Kelly / Edge mini-grid -->
+        <div v-if="hasMetrics" class="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2 relative">
+          <div class="metric-cell rounded-lg px-2 sm:px-2.5 py-1.5">
+            <span class="text-[9px] text-zinc-500 block uppercase tracking-wider font-bold">EV</span>
+            <span v-if="prediction.expected_value != null" class="text-sm font-bold tabular-nums" :class="evPct > 0 ? 'text-emerald-400' : 'text-red-400'">
+              {{ evPct > 0 ? '+' : '' }}{{ evPct.toFixed(0) }}%
+            </span>
+            <span v-else class="text-sm font-bold text-zinc-600">—</span>
+          </div>
+          <div class="metric-cell rounded-lg px-2 sm:px-2.5 py-1.5">
+            <span class="text-[9px] text-zinc-500 block uppercase tracking-wider font-bold">Kelly</span>
+            <span v-if="prediction.kelly_percentage != null" class="text-sm font-bold text-indigo-400 tabular-nums">{{ (prediction.kelly_percentage * 100).toFixed(1) }}%</span>
+            <span v-else class="text-sm font-bold text-zinc-600">—</span>
+          </div>
+          <div class="metric-cell rounded-lg px-2 sm:px-2.5 py-1.5">
+            <span class="text-[9px] text-zinc-500 block uppercase tracking-wider font-bold">Edge</span>
+            <div v-if="prediction.expected_value != null" class="mt-1.5 w-full h-1.5 bg-surface-light rounded-full overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-700" :class="evBarClass" :style="{ width: evBarWidth + '%' }"></div>
+            </div>
+            <span v-else class="text-sm font-bold text-zinc-600">—</span>
+          </div>
         </div>
       </div>
 
@@ -63,46 +96,6 @@
         </div>
       </div>
 
-      <!-- ═══ BET SUGGESTION CARD (when EV or Kelly available) ═══ -->
-      <div v-if="prediction.expected_value || prediction.kelly_percentage" class="bet-suggestion-card rounded-xl p-3 sm:p-4">
-        <div class="flex items-center gap-2 mb-3">
-          <div class="w-1.5 h-4 rounded-full bg-gradient-to-b from-amber-400 to-amber-600"></div>
-          <span class="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Suggested Bet</span>
-        </div>
-        <!-- Bet line -->
-        <div class="flex items-center gap-2 mb-3 min-w-0">
-          <span class="text-sm sm:text-base font-extrabold truncate" :class="outcomeColor">{{ outcomeLabel }}</span>
-          <span v-if="predictionOdds" class="text-sm font-bold text-zinc-300 tabular-nums">@ {{ predictionOdds }}</span>
-        </div>
-        <!-- EV + Kelly metrics -->
-        <div class="grid grid-cols-2 gap-2">
-          <div v-if="prediction.expected_value" class="metric-cell rounded-lg px-2.5 sm:px-3 py-2">
-            <span class="text-[10px] text-zinc-500 block mb-0.5">Expected Value</span>
-            <span class="text-sm font-bold tabular-nums" :class="prediction.expected_value > 0 ? 'text-emerald-400' : 'text-red-400'">
-              {{ prediction.expected_value > 0 ? '+' : '' }}{{ (prediction.expected_value * 100).toFixed(1) }}%
-            </span>
-          </div>
-          <div v-if="prediction.kelly_percentage" class="metric-cell rounded-lg px-2.5 sm:px-3 py-2">
-            <span class="text-[10px] text-zinc-500 block mb-0.5">Kelly Stake</span>
-            <span class="text-sm font-bold text-indigo-400 tabular-nums">{{ (prediction.kelly_percentage * 100).toFixed(1) }}%</span>
-          </div>
-        </div>
-        <!-- Edge strength bar -->
-        <div v-if="prediction.expected_value" class="mt-3">
-          <div class="flex justify-between text-[9px] text-zinc-600 mb-1">
-            <span>Edge</span>
-            <span>{{ evStrengthLabel }}</span>
-          </div>
-          <div class="w-full h-1.5 bg-surface-light rounded-full overflow-hidden">
-            <div
-              class="h-full rounded-full transition-all duration-700"
-              :class="evBarClass"
-              :style="{ width: evBarWidth + '%' }"
-            ></div>
-          </div>
-        </div>
-      </div>
-
       <!-- ═══ MARKET PREDICTIONS ═══ -->
       <div v-if="markets.length > 0" class="border-t border-edge/50 pt-3">
         <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Market Predictions</h4>
@@ -119,18 +112,22 @@
     <!-- No Prediction -->
     <div v-else class="text-center py-12">
       <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-surface-light flex items-center justify-center">
-        <svg class="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.674M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
+        <UIcon name="i-heroicons-light-bulb" class="w-6 h-6 text-zinc-600" />
       </div>
       <p class="text-sm font-medium text-zinc-400">No prediction yet</p>
       <p class="text-xs text-zinc-600 mt-1">Predictions are generated before game day</p>
     </div>
+
+    <!-- Player Prop Picks (basketball only) -->
+    <PlayerPropPicks v-if="isBball && game.id" :game-id="game.id" />
+
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import PlayerPropPicks from '~/components/game/PlayerPropPicks.vue'
+import { betLabelShort } from '~/utils/bet-label'
 
 const props = defineProps({
   game: { type: Object, required: true },
@@ -138,7 +135,39 @@ const props = defineProps({
   sport: { type: String, default: 'football' }
 })
 
+const { isAdmin } = useAuth()
 const isBball = computed(() => props.sport === 'basketball')
+
+// ─── Confidence ring geometry ───────────────────────────
+const ringSize = 64
+const ringCircumference = 2 * Math.PI * 28  // r=28
+const ringDashOffset = computed(() => {
+  const pct = Math.max(0, Math.min(100, confidence.value))
+  return ringCircumference * (1 - pct / 100)
+})
+const ringStroke = computed(() => {
+  if (confidence.value >= 70) return '#22c55e'
+  if (confidence.value >= 50) return '#eab308'
+  return '#f97316'
+})
+
+const hasMetrics = computed(() =>
+  props.prediction?.expected_value != null || props.prediction?.kelly_percentage != null
+)
+
+// Short pick label using shared formatter (≤14 chars). Falls back to verbose outcomeLabel.
+const pickShort = computed(() => {
+  if (!props.prediction) return ''
+  const bet = {
+    bet_type: props.prediction.bet_type || (props.prediction.prediction || '').toUpperCase(),
+    notes: props.prediction.prediction,
+    home_name: props.game.home_name,
+    away_name: props.game.away_name,
+  }
+  const short = betLabelShort(bet)
+  if (short && short.length <= 18) return short
+  return outcomeLabel.value
+})
 
 // ─── Helpers ─────────────────────────────────────────────
 const bballOdds = computed(() => props.game.sport_stats?.odds || null)
