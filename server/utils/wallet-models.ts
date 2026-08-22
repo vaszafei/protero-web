@@ -140,9 +140,15 @@ function priorityIndex(modelVersion: string): number {
 
 export function pickBestPrediction<T extends { model_version?: string | null }>(
   predictions: T[] | null | undefined,
-  allowed: Set<string>,
+  allowed: Set<string> | null,
 ): T | null {
   if (!predictions || predictions.length === 0) return null
+  // `null` means "no gate" — the operator sees every model.
+  if (allowed === null) {
+    return [...predictions].sort(
+      (a, b) => priorityIndex(a.model_version!) - priorityIndex(b.model_version!),
+    )[0]
+  }
   const families = [...allowed]
   const filtered = predictions.filter(
     p => p.model_version && families.some(f => matchesFamily(p.model_version!, f)),

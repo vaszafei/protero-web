@@ -323,7 +323,7 @@ export const useApi = () => {
           home_xg, away_xg, odds_home, odds_away, sport_stats,
           home_team:teams!home_team_id(name, team_key),
           away_team:teams!away_team_id(name, team_key),
-          predictions(id, prediction, confidence, over_15_prob, over_25_prob, over_35_prob, result_correct, created_at),
+          predictions(id, prediction, confidence, model_version, over_15_prob, over_25_prob, over_35_prob, over_85_corners_prob, over_95_corners_prob, over_105_corners_prob, odds_over_25, odds_under_25, expected_value, result_correct, created_at),
           bets(id, wallet_id, bet_type, stake, odds, status, profit)
         `)
         .eq('league_key', slug)
@@ -337,11 +337,34 @@ export const useApi = () => {
         .order('pts', { ascending: false })
     ])
 
-    const games = (gamesRes.data || []).map((g: any) => ({
-      ...g,
-      home_name: g.home_team?.name || 'Unknown',
-      away_name: g.away_team?.name || 'Unknown',
-    }))
+    if (gamesRes.error) throw gamesRes.error
+    if (standingsRes.error) throw standingsRes.error
+
+    // Flatten the best prediction onto each game — PredictionsView consumes
+    // `prediction_id` / `prediction` / `model_version` / `over_*_prob` at the
+    // game level, not a nested `predictions` array. Without this flatten the
+    // Predictions tab rendered zero AI predictions even though the rows exist.
+    const games = (gamesRes.data || []).map((g: any) => {
+      const prediction = (g.predictions && g.predictions[0]) || null
+      return {
+        ...g,
+        home_name: g.home_team?.name || 'Unknown',
+        away_name: g.away_team?.name || 'Unknown',
+        prediction_id: prediction?.id,
+        prediction: prediction?.prediction,
+        confidence: prediction?.confidence,
+        model_version: prediction?.model_version,
+        over_15_prob: prediction?.over_15_prob,
+        over_25_prob: prediction?.over_25_prob,
+        over_35_prob: prediction?.over_35_prob,
+        over_85_corners_prob: prediction?.over_85_corners_prob,
+        over_95_corners_prob: prediction?.over_95_corners_prob,
+        over_105_corners_prob: prediction?.over_105_corners_prob,
+        odds_over_25: prediction?.odds_over_25,
+        odds_under_25: prediction?.odds_under_25,
+        expected_value: prediction?.expected_value,
+      }
+    })
 
     return { league, games, standings: standingsRes.data || [] }
   }
