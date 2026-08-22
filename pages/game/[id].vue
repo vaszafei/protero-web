@@ -23,6 +23,8 @@
         :sport="gameSport"
       />
 
+      <TwinBlindSpotBanner v-if="blindSpot" :risk="blindSpot" class="mt-3" />
+
       <!-- Main Grid -->
       <div class="mt-4 sm:mt-6">
         <!-- Tabbed Content -->
@@ -251,7 +253,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ChevronLeft } from 'lucide-vue-next'
 import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
 import GameHeader from '~/components/game/GameHeader.vue'
@@ -293,8 +295,21 @@ const { data, pending: loading, error } = await useAsyncData(
   { server: false }
 )
 
-// Sport detection
-const gameSport = computed(() => data.value?.game?.sport || 'football')
+// Sport detection — sportOf() knows every basketball league_key, not just
+// nba/euroleague, so ACB/BCL/EuroCup/GBL games are no longer read as football.
+const gameSport = computed(() =>
+  data.value?.game ? sportOf(data.value.game) : 'football')
+
+// Twin blind-spot context: does either club lack history in this division?
+// `twin_fixture_risk` only returns fixtures that carry the risk, so a miss is
+// the common case and simply renders nothing.
+const twins = useTwins()
+const blindSpot = ref(null)
+watch(() => data.value?.game?.id, async (id) => {
+  if (!id) { blindSpot.value = null; return }
+  const m = await twins.fetchFixtureRiskFor([Number(id)]).catch(() => new Map())
+  blindSpot.value = m.get(Number(id)) || null
+}, { immediate: true })
 
 // Is the game completed?
 const isCompleted = computed(() => data.value?.game?.status === 'completed')
