@@ -513,13 +513,20 @@ const nextUnplayedRound = computed(() => {
   
   if (unplayedGames.length === 0) return 0
   
-  // Find the closest upcoming game date
-  const closestGame = unplayedGames
+  // Closest upcoming game first, but skip any whose round we do not know.
+  //
+  // A fixture that has kicked off is briefly in neither FlashScore feed — off
+  // `fixtures` because it started, not yet on `results` because it has not
+  // finished — so bin/backfill-rounds.js leaves its round NULL until the next
+  // run. Reading the single closest game meant one such fixture rendered the
+  // whole heading as "Round 0"; taking the nearest game that HAS a round shows
+  // the right matchday, because its siblings all carry it.
+  const candidates = unplayedGames
     .map(g => ({ ...g, dateObj: new Date(g.date) }))
     .filter(g => g.dateObj >= now || (now - g.dateObj) / (1000 * 60 * 60 * 24) <= 1) // Include games from last 24h
-    .sort((a, b) => Math.abs(a.dateObj - now) - Math.abs(b.dateObj - now))[0]
-  
-  return closestGame ? (closestGame.round || 0) : 0
+    .sort((a, b) => Math.abs(a.dateObj - now) - Math.abs(b.dateObj - now))
+
+  return candidates.find(g => g.round)?.round || 0
 })
 
 // Computed: All matches closest to today's date (most recent upcoming games)
