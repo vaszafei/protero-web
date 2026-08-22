@@ -91,7 +91,7 @@ export default defineEventHandler(async (event) => {
     for (const [walletId, deltas] of walletDeltas) {
       const { data: wallet } = await supabase
         .from('wallets')
-        .select('balance, total_won, total_lost, total_profit, total_bets, initial_balance')
+        .select('balance, total_won, total_lost, total_profit, total_bets')
         .eq('id', walletId)
         .single()
 
@@ -101,11 +101,6 @@ export default defineEventHandler(async (event) => {
       const newWon = Number(wallet.total_won) + deltas.wonDelta
       const newLost = Number(wallet.total_lost) + deltas.lostDelta
       const newProfit = Number(wallet.total_profit) + deltas.profitDelta
-      const totalBets = Number(wallet.total_bets) || 0
-      const winRate = totalBets > 0 ? (newWon / totalBets) * 100 : 0
-      const roi = Number(wallet.initial_balance) > 0
-        ? (newProfit / Number(wallet.initial_balance)) * 100
-        : 0
 
       await supabase
         .from('wallets')
@@ -114,8 +109,6 @@ export default defineEventHandler(async (event) => {
           total_won: newWon,
           total_lost: newLost,
           total_profit: newProfit,
-          win_rate: Number(winRate.toFixed(2)),
-          roi: Number(roi.toFixed(2))
         })
         .eq('id', walletId)
     }

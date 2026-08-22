@@ -22,65 +22,26 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // Get wallet info
+    // Get wallet identity
     const { data: wallet, error: walletError } = await supabase
       .from('wallets')
-      .select('*')
+      .select('id, name, persona_name, bio, archetype, lifecycle, balance, initial_balance, is_active, is_public')
       .eq('id', walletId)
       .single()
 
     if (walletError) throw walletError
 
-    // Get counts + aggregates via parallel COUNT queries (no row data transferred)
-    // This replaces fetching ALL bets into Node.js for JS aggregation
-    const [totalRes, wonRes, lostRes, pendingRes, pushRes, stakeRes] = await Promise.all([
-      supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId),
-      supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'won'),
-      supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'lost'),
-      supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'pending'),
-      supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'push'),
-      supabase.from('bets').select('stake').eq('wallet_id', walletId).neq('status', 'void'),
-    ])
+    // Wager-level performance from the RPC — profit/turnover, parlay = one
+    // wager. Never compute ROI from (balance - initial_balance), which is
+    // bankroll return and renders W7 as +69.7% where its ROI is +11.5%.
+    const { data: perf, error: perfError } = await supabase
+      .rpc('get_wallet_performance', { p_wallet_id: walletId })
 
-    const totalBets = totalRes.count || 0
-    const wonCount = wonRes.count || 0
-    const lostCount = lostRes.count || 0
-    const pendingCount = pendingRes.count || 0
-    const settledCount = wonCount + lostCount
-
-    const totalStaked = (stakeRes.data || []).reduce((sum: number, b: any) => sum + Number(b.stake || 0), 0)
-
-    // Use wallet's tracked profit (maintained by settlement scripts)
-    const totalProfit = parseFloat(wallet.total_profit || 0)
-
-    // Calculate ROI from wallet balance change
-    const initialBalance = parseFloat(wallet.initial_balance || 0)
-    const currentBalance = parseFloat(wallet.balance || 0)
-    const balanceChange = currentBalance - initialBalance
-    const roi = initialBalance > 0 ? (balanceChange / initialBalance) * 100 : 0
-
-    // Win rate
-    const winRate = settledCount > 0 ? (wonCount / settledCount) * 100 : 0
+    if (perfError) throw perfError
 
     return {
-      wallet: {
-        id: wallet.id,
-        balance: parseFloat(wallet.balance || 0),
-        initial_balance: parseFloat(wallet.initial_balance || 0),
-        season: wallet.season
-      },
-      stats: {
-        totalBets,
-        settledBets: settledCount,
-        wonBets: wonCount,
-        lostBets: lostCount,
-        pendingBets: pendingCount,
-        totalStaked: totalStaked.toFixed(2),
-        totalProfit: totalProfit.toFixed(2),
-        roi: roi.toFixed(2),
-        winRate: winRate.toFixed(1),
-        currentBalance: wallet.balance
-      }
+      wallet,
+      performance: (perf && perf[0]) || null,
     }
   } catch (error: any) {
     console.error('Error fetching wallet stats:', error)

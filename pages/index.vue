@@ -105,7 +105,7 @@ const selectedDay = ref(null)
 const subsLoaded = ref(false)
 const selectedSport = ref('all')
 const wallets = ref([])
-const selectedWalletId = ref(user.value?.preferred_wallet_id ?? null)
+const selectedWalletId = ref(null)
 
 // Captured from slot to allow computed derivations
 const capturedGames = ref([])
@@ -190,9 +190,18 @@ onMounted(async () => {
 
     if (walletsData?.wallets) {
       wallets.value = walletsData.wallets
-      // If selectedWalletId not set yet (no preferred wallet), use the first available
+      // Default to the wallet actually carrying open exposure — the one an
+      // operator checks first — not `preferred_wallet_id`, which for the
+      // admin is W2 (V18, inactive, zero bet rows) and would open the
+      // dashboard on a dead wallet. Same logic as pages/wallet.vue.
       if (!selectedWalletId.value && wallets.value.length > 0) {
-        selectedWalletId.value = wallets.value[0].id
+        const perf = await api.fetchWalletPerformance().catch(() => [])
+        const withOpen = perf
+          .filter(p => Number(p.n_pending) > 0)
+          .sort((a, b) => Number(b.n_pending) - Number(a.n_pending))[0]
+        selectedWalletId.value = withOpen
+          ? withOpen.wallet_id
+          : (wallets.value.find(w => w.lifecycle === 'trader') || wallets.value[0]).id
       }
     }
 

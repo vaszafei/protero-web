@@ -12,8 +12,8 @@
     <!-- ROI -->
     <div class="flex-shrink-0">
       <p class="text-[10px] text-zinc-500 uppercase tracking-wide">ROI</p>
-      <p :class="['text-sm font-bold leading-tight tabular-nums', roiPositive ? 'text-emerald-400' : 'text-red-400']">
-        {{ roiPositive ? '+' : '' }}{{ roi.toFixed(1) }}%
+      <p :class="['text-sm font-bold leading-tight tabular-nums', roi == null ? 'text-zinc-600' : roiPositive ? 'text-emerald-400' : 'text-red-400']">
+        {{ roi == null ? '—' : (roiPositive ? '+' : '') + roi.toFixed(1) + '%' }}
       </p>
     </div>
 
@@ -24,7 +24,7 @@
     <div class="flex-shrink-0 flex items-center gap-2">
       <div class="text-center">
         <p class="text-[10px] text-zinc-500 uppercase tracking-wide">W</p>
-        <p class="text-sm font-bold text-emerald-400 leading-tight tabular-nums">{{ wonBets }}</p>
+        <p class="text-sm font-bold text-emerald-400 leading-tight tabular-nums">{{ nWon }}</p>
       </div>
       <span class="text-zinc-600 text-xs">·</span>
       <div class="text-center">
@@ -34,7 +34,7 @@
     </div>
 
     <!-- Win rate mini bar -->
-    <div v-if="totalSettled > 0" class="flex-1 min-w-0">
+    <div v-if="nWagers > 0" class="flex-1 min-w-0">
       <div class="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
         <div
           class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
@@ -42,6 +42,16 @@
         />
       </div>
       <p class="text-[9px] text-zinc-600 mt-0.5 text-right">{{ winRatePct.toFixed(0) }}% win</p>
+    </div>
+
+    <!-- Verdict + p(luck) — ROI never travels alone -->
+    <div v-if="perf && perf.verdict !== 'n<10'" class="flex-shrink-0 flex items-center gap-1.5">
+      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="verdictClass(perf.verdict)">
+        {{ perf.verdict }}
+      </span>
+      <span v-if="perf.p_luck != null" class="text-[10px] text-zinc-500 tabular-nums">
+        p={{ Number(perf.p_luck).toFixed(2) }}
+      </span>
     </div>
 
     <!-- Pending badge -->
@@ -56,15 +66,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+/**
+ * The compact dashboard wallet card. Every number comes from
+ * `get_wallet_performance` (via fetchWalletStats) — never computed here, never
+ * read from the stale `wallets.roi` / `total_bets` columns.
+ */
 const props = defineProps<{
   walletStats: {
-    wallet?: { balance?: number; initial_balance?: number }
-    stats?: {
-      wonBets?: number
-      lostBets?: number
-      pendingBets?: number
-      roi?: number
-    }
+    wallet?: { balance?: number; initial_balance?: number; persona_name?: string }
+    performance?: {
+      roi_pct?: number | null
+      win_rate_pct?: number | null
+      n_wagers?: number
+      n_won?: number
+      n_pending?: number
+      p_luck?: number | null
+      verdict?: string
+    } | null
   } | null
 }>()
 
@@ -74,16 +92,26 @@ function toNum(val: any): number {
 }
 
 const balance = computed(() => toNum(props.walletStats?.wallet?.balance))
-const roi = computed(() => toNum(props.walletStats?.stats?.roi))
-const roiPositive = computed(() => roi.value >= 0)
-const wonBets = computed(() => toNum(props.walletStats?.stats?.wonBets))
-const lostBets = computed(() => toNum(props.walletStats?.stats?.lostBets))
-const pendingBets = computed(() => toNum(props.walletStats?.stats?.pendingBets))
-const totalSettled = computed(() => wonBets.value + lostBets.value)
-const winRatePct = computed(() => totalSettled.value > 0 ? (wonBets.value / totalSettled.value) * 100 : 0)
+const perf = computed(() => props.walletStats?.performance ?? null)
+const roi = computed(() => perf.value?.roi_pct == null ? null : Number(perf.value.roi_pct))
+const roiPositive = computed(() => (roi.value ?? 0) >= 0)
+const nWagers = computed(() => toNum(perf.value?.n_wagers))
+const nWon = computed(() => toNum(perf.value?.n_won))
+const lostBets = computed(() => Math.max(0, nWagers.value - nWon.value))
+const pendingBets = computed(() => toNum(perf.value?.n_pending))
+const winRatePct = computed(() => perf.value?.win_rate_pct == null ? 0 : Number(perf.value.win_rate_pct))
 
 function formatCurrency(val: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val)
+}
+
+function verdictClass(v: string): string {
+  return {
+    EDGE:   'bg-emerald-500/15 text-emerald-300',
+    hint:   'bg-amber-500/15 text-amber-300',
+    LUCK:   'bg-zinc-700/40 text-zinc-400',
+    'n<10': 'bg-zinc-800/60 text-zinc-600',
+  }[v] || 'bg-zinc-800/60 text-zinc-600'
 }
 </script>
 

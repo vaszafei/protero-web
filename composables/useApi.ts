@@ -1112,56 +1112,26 @@ export const useApi = () => {
   }
 
   /**
-   * GET /api/wallet/stats — aggregate stats for a wallet
+   * Wallet identity + wager-level performance for the dashboard card.
+   *
+   * Numbers come from the `get_wallet_performance` RPC (profit / turnover,
+   * parlay = one wager) — NOT from `(balance - initial_balance) / initial_balance`,
+   * which is bankroll return and rendered W7 as +69.7% where its ROI is +11.5%.
    */
   const fetchWalletStats = async (walletId: number) => {
     const { data: wallet, error: wErr } = await supabase
       .from('wallets')
-      .select('*')
+      .select(WALLET_IDENTITY_COLUMNS)
       .eq('id', walletId)
       .maybeSingle()
     if (wErr) throw wErr
     if (!wallet) return null
 
-    const [totalRes, wonRes, lostRes, pendingRes, stakeRes] = await Promise.all([
-      supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId),
-      supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'won'),
-      supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'lost'),
-      supabase.from('bets').select('*', { count: 'exact', head: true }).eq('wallet_id', walletId).eq('status', 'pending'),
-      supabase.from('bets').select('stake').eq('wallet_id', walletId).neq('status', 'void'),
-    ])
-
-    const totalBets = totalRes.count || 0
-    const wonCount = wonRes.count || 0
-    const lostCount = lostRes.count || 0
-    const pendingCount = pendingRes.count || 0
-    const settledCount = wonCount + lostCount
-    const totalStaked = (stakeRes.data || []).reduce((s: number, b: any) => s + Number(b.stake || 0), 0)
-    const totalProfit = parseFloat(wallet.total_profit || 0)
-    const initialBalance = parseFloat(wallet.initial_balance || 0)
-    const currentBalance = parseFloat(wallet.balance || 0)
-    const roi = initialBalance > 0 ? ((currentBalance - initialBalance) / initialBalance) * 100 : 0
-    const winRate = settledCount > 0 ? (wonCount / settledCount) * 100 : 0
+    const perf = await fetchWalletPerformance(walletId)
 
     return {
-      wallet: {
-        id: wallet.id,
-        balance: currentBalance,
-        initial_balance: initialBalance,
-        season: wallet.season,
-      },
-      stats: {
-        totalBets,
-        settledBets: settledCount,
-        wonBets: wonCount,
-        lostBets: lostCount,
-        pendingBets: pendingCount,
-        totalStaked: totalStaked.toFixed(2),
-        totalProfit: totalProfit.toFixed(2),
-        roi: roi.toFixed(2),
-        winRate: winRate.toFixed(1),
-        currentBalance,
-      },
+      wallet,
+      performance: perf[0] || null,
     }
   }
 
