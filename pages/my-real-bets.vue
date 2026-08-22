@@ -5,8 +5,7 @@
       <div>
         <h1 class="text-xl sm:text-2xl font-bold text-white">My Real Bets</h1>
         <p class="text-zinc-500 text-xs sm:text-sm mt-1">
-          Log the actual money you've placed at Stoiximan / other bookmakers ·
-          <NuxtLink to="/my-bets" class="text-blue-400 hover:underline">Followed picks →</NuxtLink>
+          Log the actual money you've placed at Stoiximan / other bookmakers
         </p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">

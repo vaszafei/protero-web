@@ -1,8 +1,23 @@
 # CLAUDE.md — ΠροΤερο Frontend
 
-Nuxt 3 SPA (no SSR) with Tailwind CSS, Nuxt UI v2, Supabase cloud backend, and Capacitor Android wrapper. Dark-mode only. Mobile-first design with bottom nav on small screens, sidebar on desktop.
+Nuxt 3 SPA (no SSR) with Tailwind CSS, Nuxt UI v2, and a Capacitor Android wrapper. Dark-mode only. Mobile-first design with bottom nav on small screens, sidebar on desktop.
 
-Read the root `../CLAUDE.md` before any cross-cutting work. The frontend reads exclusively from **cloud Supabase** — it never touches local Supabase or SQLite.
+Read the root `../CLAUDE.md` before any cross-cutting work.
+
+> **Data source: LOCAL Supabase only.** `.env` sets `SUPABASE_URL=http://127.0.0.1:54321` and is
+> labelled `LOCAL ADMIN TOOL`; the cloud keys are commented out. The cloud Supabase project is
+> inactive and out of scope (owner decision 2026-08-20, root CD #34) — `common/db.py` raises
+> `CloudParked` and both pipelines skip their sync steps. This file previously claimed the frontend
+> read "exclusively from cloud Supabase", which was wrong in both directions. Do not plan cloud
+> work, dual-write, or Edge Function deploys against the parked project.
+
+> **Open question — is this still a consumer product?** The Nuxt app was built to ship web + APK
+> from one codebase (root CD #17). The current intent is that it becomes our **admin console**,
+> which is what the `.env` relabel reflects. That pivot is **not a closed decision** and the
+> consumer surface has not been retired. `docs/plans/admin-frontend-examination.md` records what a
+> survey found and what to examine — including whether `server/api/admin/*` re-verifies the admin
+> claim server-side or trusts a client-side boolean, and whether Capacitor stays. Ask the owner
+> before building on either reading.
 
 ## Closed Decisions
 
@@ -10,15 +25,17 @@ Read the root `../CLAUDE.md` before any cross-cutting work. The frontend reads e
 |---|----------|-----------|
 | 1 | **SSR disabled (`ssr: false`)** | App is SPA-only. All rendering is client-side. Nitro server handles API routes only. |
 | 2 | **Nuxt UI v2 + heroicons** | Component library is `@nuxt/ui` v2. Icons come from `heroicons` set. `lucide-vue-next` is also installed but secondary. |
-| 3 | **Web → local Supabase, APK → cloud Supabase** | Web dev reads from local Supabase (all seasons). APK ships against cloud Supabase (current season only). Both hit the same schema. |
+| 3 | ~~**Web → local Supabase, APK → cloud Supabase**~~ **SUPERSEDED 2026-08-20** | The cloud project is parked (root CD #34). Local Supabase (`127.0.0.1:54321`, all seasons) is the only backend. The APK's cloud path points at a database nothing writes to — establish which half is live before building on it. |
 | 4 | **Custom JWT (HS256) + bcrypt** | Custom `users`/`sessions` tables. Web uses Nitro endpoints + httpOnly cookie. APK uses Edge Functions + Bearer JWT in localStorage. Same JWT contract (`iss:'protero'`, `role:'authenticated'`, `user_id`). Shared HS256 secret (`JWT_SECRET` on Nitro, `APP_JWT_SECRET` on Edge Functions). |
 | 5 | **Dark mode only** | Color mode preference is `dark`. UI is designed exclusively for dark backgrounds. `tailwind.config.cjs` has custom dark surface/edge colors. |
 | 6 | **No icons in new components** | Do not use inline `<svg>`, emoji, or symbol characters as icons in component templates. Text labels only. If an icon is truly needed, use `<UIcon>` from Nuxt UI — but prefer plain text. |
-| 7 | **Schema changes go through migrations only** | Schema edits live in `supabase-local/supabase/migrations/`. Apply to cloud by pasting the migration into the Dashboard SQL Editor. Never click-edit columns in the Studio UI on either side. |
+| 7 | **Schema changes go through migrations only** | Schema edits live in `supabase-local/supabase/migrations/`. Never click-edit columns in the Studio UI. (The old "apply to cloud via the Dashboard SQL Editor" step is dead — the cloud is parked.) |
 
 ## Unified Frontend Architecture (Web + APK)
 
-Single Nuxt codebase ships two products:
+Single Nuxt codebase ships two products. **The APK row is historical** — its backend is the
+parked cloud project (see the banner above), so an APK built today talks to a database nothing
+writes to. The Web row is the live path.
 
 | Target | Data backend | Auth transport | Build command |
 |---|---|---|---|
@@ -146,7 +163,7 @@ protero-frontend/
     stats: { totalBets, settledBets, wonBets, lostBets, pendingBets, totalStaked, totalProfit, roi, winRate, currentBalance }
   }
   ```
-- **Broken endpoint:** `GET /api/wallet/status` — uses `.execute()` Turso pattern. **Do not use.**
+- **Broken endpoint:** `GET /api/wallet/status` — uses the legacy `.execute()` SQL pattern. **Do not use.**
 - **Display components:** `DashboardWalletCard.vue` (compact horizontal card above calendar) and `DashboardToolbar.vue` (wallet dropdown button on left).
 
 ## Dashboard Component Map
@@ -210,7 +227,7 @@ supabase secrets set APP_JWT_SECRET='<base64 HS256 secret>' --project-ref twkhma
 
 ## Agent Failure Modes
 
-**The `.execute()` trap.** ~20 API routes (wallet/*, predictions/round, admin/recalculate-standings, admin/scrape-bulk, admin/scrape-complete, admin/fix-match-statuses, user/leagues, analytics/correlations) call `getSupabase().execute({sql:..., args:...})` — a Turso-style SQL API. But `getSupabase()` returns a `SupabaseClient` which has NO `.execute()` method. These routes are **broken at runtime**. They need to be rewritten to use the Supabase query builder (`.from().select()`, `.from().insert()`, etc.). This is a known tech debt item.
+**The `.execute()` trap.** ~20 API routes (wallet/*, predictions/round, admin/recalculate-standings, admin/scrape-bulk, admin/scrape-complete, admin/fix-match-statuses, user/leagues, analytics/correlations) call `getSupabase().execute({sql:..., args:...})` — a legacy raw-SQL API pattern. But `getSupabase()` returns a `SupabaseClient` which has NO `.execute()` method. These routes are **broken at runtime**. They need to be rewritten to use the Supabase query builder (`.from().select()`, `.from().insert()`, etc.). This is a known tech debt item.
 
 **The SSR assumption.** `ssr: false` means there is no server-side rendering. Pages are client-rendered SPAs. The Nitro server only serves API routes under `server/api/`. Don't add SSR-specific features (server components, `useAsyncData` with server-only logic, etc.).
 
@@ -220,7 +237,7 @@ supabase secrets set APP_JWT_SECRET='<base64 HS256 secret>' --project-ref twkhma
 
 **The custom auth trap.** This app does NOT use Supabase Auth. It has custom `users`/`sessions` tables and bcrypt password hashing. Don't try to integrate `@supabase/auth-helpers-nuxt` or call `supabase.auth.*` methods — they won't work.
 
-**The archive black hole.** `archive/` has 50+ old docs and dead components from the Turso/OCR era. Don't reference these for current architecture. They document abandoned approaches.
+**The archive black hole.** `archive/` has 50+ old docs and dead components from the legacy-SQL/OCR era. Don't reference these for current architecture. They document abandoned approaches.
 
 **The icon trap.** Do not use inline `<svg>` icons, emoji (💰 🏀 ⚽), or Unicode symbols (▼ ✓) as icons in component templates. Use plain text labels only. If an icon is truly needed, use `<UIcon name="..." />` from Nuxt UI. This rule came from multiple crashes caused by inline SVGs and user preference against emoji in UI.
 
@@ -252,7 +269,7 @@ When schema changes happen in Supabase, update this file to keep types in sync.
 - Mobile layout tested (responsive, no overflow, safe areas respected)
 - Types match current Supabase schema
 - No dead imports or unused legacy code
-- No references to Turso/legacy DB in new code
+- No references to the legacy raw-SQL DB in new code
 
 **Needs another pass means:**
 - New API route without error handling

@@ -37,19 +37,9 @@
                 <span class="text-sm font-medium">Account</span>
               </NuxtLink>
 
-              <NuxtLink to="/preferences" class="flex items-center gap-3 px-4 py-3 text-zinc-300 hover:text-white hover:bg-surface-light transition-colors" @click="menuOpen = false">
-                <UIcon name="i-heroicons-adjustments-horizontal" class="w-[18px] h-[18px] shrink-0" />
-                <span class="text-sm font-medium">Preferences</span>
-              </NuxtLink>
-
-              <NuxtLink to="/credits" class="flex items-center gap-3 px-4 py-3 text-zinc-300 hover:text-white hover:bg-surface-light transition-colors" @click="menuOpen = false">
-                <UIcon name="i-heroicons-sparkles" class="w-[18px] h-[18px] shrink-0" />
-                <span class="text-sm font-medium">Credits</span>
-              </NuxtLink>
-
-              <NuxtLink to="/notifications" class="flex items-center gap-3 px-4 py-3 text-zinc-300 hover:text-white hover:bg-surface-light transition-colors" @click="menuOpen = false">
-                <UIcon name="i-heroicons-bell" class="w-[18px] h-[18px] shrink-0" />
-                <span class="text-sm font-medium">Notifications</span>
+              <NuxtLink to="/my-real-bets" class="flex items-center gap-3 px-4 py-3 text-zinc-300 hover:text-white hover:bg-surface-light transition-colors" @click="menuOpen = false">
+                <UIcon name="i-heroicons-banknotes" class="w-[18px] h-[18px] shrink-0" />
+                <span class="text-sm font-medium">My Real Bets</span>
               </NuxtLink>
 
               <NuxtLink v-if="isAdmin" to="/admin" class="flex items-center gap-3 px-4 py-3 text-zinc-300 hover:text-white hover:bg-surface-light transition-colors" @click="menuOpen = false">

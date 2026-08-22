@@ -25,7 +25,6 @@ export const useAuth = () => {
   const { getToken, setToken } = useAuthToken()
   const isAuthenticated = computed(() => !!user.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
-  const needsOnboarding = computed(() => !!user.value && !user.value.onboarding_completed && user.value.role !== 'admin')
 
   /**
    * Login with email and password
@@ -96,41 +95,13 @@ export const useAuth = () => {
     }
   }
 
-  /**
-   * Complete onboarding via server endpoint
-   */
-  const completeOnboarding = async (onboardingData: {
-    display_name: string
-    preferred_sports: string[]
-    league_subscriptions: string[]
-    preferred_wallet_id?: number | null
-    timezone?: string
-    notification_prefs?: Record<string, boolean>
-  }) => {
-    try {
-      if (!user.value) return { success: false, error: 'Not authenticated' }
-
-      const data = await $fetch<{ user: UserData }>('/api/user/onboarding', {
-        method: 'POST',
-        body: onboardingData
-      })
-      if (data.user) user.value = data.user
-      return { success: true }
-    } catch (err: any) {
-      const msg = err?.data?.statusMessage || err?.message || 'Failed to save preferences'
-      return { success: false, error: msg }
-    }
-  }
-
   return {
     user,
     isAuthenticated,
     isAdmin,
-    needsOnboarding,
     login,
     logout,
     register,
-    checkAuth,
-    completeOnboarding
+    checkAuth
   }
 }

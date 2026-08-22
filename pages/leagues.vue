@@ -84,15 +84,11 @@ const selectedSeason = currentSeason()
 const allLeagues = ref([])
 const leagueStats = ref({})
 const selectedSport = ref('all')
-const accessibleKeys = ref<Set<string>>(new Set())
 
-// Only leagues the user has access to (free + subscribed + unlocked) with games
+// The operator sees every league with games — the subscription/credit gate
+// was removed with the consumer surface (2026-08-22).
 const activeLeagues = computed(() => {
-  return allLeagues.value.filter(l => {
-    const hasAccess = accessibleKeys.value.size === 0 || accessibleKeys.value.has(l.key)
-    const hasGames = (leagueStats.value[l.key]?.total || 0) > 0
-    return hasAccess && hasGames
-  })
+  return allLeagues.value.filter(l => (leagueStats.value[l.key]?.total || 0) > 0)
 })
 
 // Sports that actually have accessible leagues
@@ -113,20 +109,10 @@ const leagueLogo = (key) => `/data/leagues/${key}.png`
 const loadLeagues = async () => {
   loading.value = true
   try {
-    const [sportsData, leaguesApi, subsData] = await Promise.all([
+    const [sportsData, leaguesApi] = await Promise.all([
       api.fetchSports(),
       api.fetchLeagues(selectedSeason).catch(() => null),
-      api.fetchSubscriptions().catch(() => ({ subscriptions: [], active_unlocks: [], free_league_key: null }))
     ])
-
-    // Build the set of league keys this user can access
-    const keys = new Set<string>()
-    if (subsData.free_league_key) keys.add(subsData.free_league_key)
-    for (const u of (subsData.active_unlocks || [])) keys.add(u.league_key)
-    for (const s of (subsData.subscriptions || [])) {
-      if (s.is_active !== false) keys.add(s.league_key)
-    }
-    accessibleKeys.value = keys
 
     const leagues = []
     for (const sport of (sportsData.sports || [])) {

@@ -30,18 +30,6 @@
           Member since {{ formatJoinDate(user.created_at) }}
         </p>
       </div>
-
-      <!-- Edit button -->
-      <UButton
-        size="xs"
-        color="white"
-        variant="soft"
-        icon="i-heroicons-pencil-square"
-        :to="'/preferences'"
-        class="flex-shrink-0"
-      >
-        Edit
-      </UButton>
     </div>
   </div>
 </template>

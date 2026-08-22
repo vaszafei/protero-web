@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs'
 import { getSupabase } from '~/server/utils/supabase'
-import { initializeUserCredits } from '~/server/utils/credits'
 import { signUserToken } from '~/server/utils/jwt'
 
 export default defineEventHandler(async (event) => {
@@ -114,14 +113,6 @@ export default defineEventHandler(async (event) => {
       }
     } catch (walletErr) {
       console.error('Failed to create user wallet (non-fatal):', walletErr)
-    }
-
-    // Initialize credit balance with signup bonus
-    try {
-      const signupBonus = await initializeUserCredits(user.id)
-      console.log(`Awarded ${signupBonus} signup credits to user ${user.id}`)
-    } catch (creditErr) {
-      console.error('Failed to initialize credits (non-fatal):', creditErr)
     }
 
     // Supabase-RLS-compatible JWT (see comments in login.post.ts)

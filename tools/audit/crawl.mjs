@@ -18,10 +18,7 @@ const ROUTES = [
   { name: 'entities',          path: '/entities' },
   { name: 'team',              path: '/team/342' },
   { name: 'my-real-bets',      path: '/my-real-bets' },
-  { name: 'credits',           path: '/credits' },
   { name: 'account',           path: '/account' },
-  { name: 'preferences',       path: '/preferences' },
-  { name: 'notifications',     path: '/notifications' },
   { name: 'admin',             path: '/admin' },
   { name: 'player',            path: '/player/1627750?league=nba' },
 ]

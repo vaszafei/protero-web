@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <DashboardDataProvider v-else :leagues="leagues" :user-league-keys="userLeagueKeys" :wallet-id="selectedWalletId" :user-id="user?.id" v-slot="{ games, predictions, bets, parlays, walletStats, loading: dataLoading, refresh, hasLeagueGames }">
+    <DashboardDataProvider v-else :leagues="leagues" :wallet-id="selectedWalletId" :user-id="user?.id" v-slot="{ games, predictions, bets, parlays, walletStats, loading: dataLoading, refresh, hasLeagueGames }">
       <!-- Sync slot-prop games into reactive ref (needed for computed filteredGames/availableSports) -->
       {{ captureGames(games) }}
       <div class="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
@@ -97,10 +97,9 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { isAdmin, user } = useAuth()
+const { user } = useAuth()
 const api = useApi()
 const leagues = ref([])
-const userLeagueKeys = ref([])
 const selectedDay = ref(null)
 const subsLoaded = ref(false)
 const selectedSport = ref('all')
@@ -175,10 +174,9 @@ const autoSelectToday = (games) => {
 
 onMounted(async () => {
   try {
-    // Load leagues, user subscriptions, and wallet list in parallel
-    const [leaguesData, subsData, walletsData] = await Promise.all([
+    // Load leagues and wallet list in parallel
+    const [leaguesData, walletsData] = await Promise.all([
       api.fetchLeagues().catch(() => ({ leagues: [] })),
-      api.fetchSubscriptions().catch(() => ({ subscriptions: [] })),
       user.value?.id
         ? api.fetchWallets().catch(() => ({ wallets: [] }))
         : Promise.resolve({ wallets: [] })
@@ -204,15 +202,10 @@ onMounted(async () => {
           : (wallets.value.find(w => w.lifecycle === 'trader') || wallets.value[0]).id
       }
     }
-
-    // For admin users, show all leagues; for regular users, only subscribed ones
-    if (subsData?.subscriptions?.length > 0 && !isAdmin.value) {
-      userLeagueKeys.value = subsData.subscriptions.map(s => s.league_key)
-    }
   } catch (error) {
     console.error('Error loading leagues:', error)
   } finally {
-    // Signal that subscriptions are ready — provider can now mount and fetch
+    // Signal that data is ready — provider can now mount and fetch
     subsLoaded.value = true
   }
 })
