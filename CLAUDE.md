@@ -12,12 +12,11 @@ Read the root `../CLAUDE.md` before any cross-cutting work.
 > work, dual-write, or Edge Function deploys against the parked project.
 
 > **Open question — is this still a consumer product?** The Nuxt app was built to ship web + APK
-> from one codebase (root CD #17). The current intent is that it becomes our **admin console**,
-> which is what the `.env` relabel reflects. That pivot is **not a closed decision** and the
-> consumer surface has not been retired. `docs/plans/admin-frontend-examination.md` records what a
-> survey found and what to examine — including whether `server/api/admin/*` re-verifies the admin
-> claim server-side or trusts a client-side boolean, and whether Capacitor stays. Ask the owner
-> before building on either reading.
+> from one codebase (root CD #17). **Resolved 2026-08-22: this is an operator console, not a
+> consumer product.** The credit/subscription/paywall/onboarding surface was removed
+> (`refactor: remove the consumer scaffolding`, 2026-08-22) — see the brief at
+> `docs/plans/frontend-operator-console-deepseek.md`. Capacitor's fate is documented in
+> `docs/plans/capacitor-decision.md` (pending owner call). Do not re-add consumer surface.
 
 ## Closed Decisions
 
@@ -44,9 +43,9 @@ writes to. The Web row is the live path.
 
 - `useAuthEndpoint(action)` routes auth calls: returns `/api/auth/${action}` in web mode, `${supabaseUrl}/functions/v1/auth-${action}` when `runtimeConfig.public.capacitor` is true (set by the `CAPACITOR_BUILD=true` env var).
 - `useSupabaseClient()` attaches the stored JWT (from `useAuthToken()` → `localStorage['protero.access_token']`) on every Supabase call via the `accessToken` callback.
-- All data reads go through `useApi` composable helpers (`fetchWallets`, `fetchWalletBets`, `fetchWalletStats`, `fetchParlays`, `fetchPredictionsAccuracy`) — direct Supabase queries, gated by RLS.
-- Edge Functions live in `supabase-local/supabase/functions/auth-{login,register,logout,me}/` + `_shared/{jwt.ts,util.ts}`. Deployed to cloud via `supabase functions deploy <name> --project-ref twkhmatgjeiribbjxkis --no-verify-jwt`.
-- APK artifacts: `protero-debug.apk` (18MB) + `protero-release.apk` (17MB, signed with `android/protero-release.keystore`, alias `protero`, pass `protero2026`).
+- All data reads go through `useApi` composable helpers — direct Supabase queries, gated by RLS.
+- Edge Function sources live in `supabase-local/supabase/functions/auth-{login,register,logout,me}/` + `_shared/{jwt.ts,util.ts}`. Not deployed — the cloud project they target is parked (CD #34).
+- APK artifacts: `protero-debug.apk` (18MB) + `protero-release.apk` (17MB, signed with `android/protero-release.keystore`). Git-ignored; see `docs/plans/capacitor-decision.md`.
 
 ## Project Map
 
@@ -59,28 +58,35 @@ protero-frontend/
 ├── capacitor.config.json   Android app: com.protero.app
 │
 ├── pages/                  13 routes (see Routes section)
-├── components/             48 components organized by domain
-│   ├── admin/              9 — admin panel components
-│   ├── dashboard/          13 — home page cards, calendar, stats (incl. DashboardWalletCard, DashboardToolbar)
-│   ├── game/               14 — match detail views, stats, predictions
-│   ├── league/             11 + predictions/6 — league detail tabs
-│   └── ui/                 5 — shared primitives (Card, EmptyState, LoadingSpinner, etc.)
-│
-├── composables/            3 — useAuth, useCredits, useLeagueStats
+├── components/             66 components organized by domain
+│   ├── admin/              6 — admin panel components
+│   ├── dashboard/          12 — home page cards, calendar, stats (incl. DashboardWalletCard, DashboardToolbar)
+│   ├── game/               17 — match detail views, stats, predictions
+│   ├── league/             18 (incl. predictions/) — league detail tabs
+│   ├── twin/               1 — entity/blind-spot layer
+│   ├── wallet/             6 — roster, hero, bet rows
+│   ├── ui/                 5 — shared primitives (Card, EmptyState, LoadingSpinner, etc.)
+│   └── (root)              7 — Sidebar, BottomNav, etc.
+
+├── composables/            13 — useApi, useAuth, useAuthEndpoint, useAuthToken,
+│                           useSupabaseClient, useCapacitor, useSwr, useTwins,
+│                           useLeagueStats, useStoiximanOcr, useStoiximanParser
 ├── layouts/                1 — default (sidebar + bottom nav)
-├── middleware/             1 — auth (login + onboarding redirect)
+├── middleware/             1 — auth (redirects to /login when unauthenticated)
 ├── plugins/                2 — auth.client, capacitor.client
-├── types/                  1 — database.ts (630 lines, Supabase schema types)
-├── utils/                  1 — design-tokens.ts (colors, spacing, typography)
+├── types/                  1 — database.ts (Supabase schema types)
+├── utils/                  9 — cache, constants, dateTime, design-tokens,
+│                           formatters, season, teamLogo, wallet-meta, bet-label
 │
 ├── server/
-│   ├── api/                57 endpoints (auth, admin, games, predictions, user, wallet, credits)
-│   └── utils/              5 — supabase, cache, credits, elo, operations
+│   ├── api/                37 endpoints (auth, admin, game, leagues, predictions, wallet, user-real-bets, gates)
+│   └── utils/              7 — supabase, cache, auth, jwt, elo, operations, wallet-models
 │
 ├── database/migrations/    20 SQL files (schema history, not actively run)
-├── supabase/functions/     3 edge functions (fetch-games, league-stats, trigger-scraper)
-├── public/data/            Team logos (NBA SVGs, EuroLeague WebPs), league logos, manifest
+├── supabase/functions/     Edge Function sources live in supabase-local/ (repo root)
+├── public/data/            Team logos (basketball only), league logos, manifest
 ├── assets/css/             tailwind.css with Capacitor mobile overrides
+├── tools/audit/            Playwright page-audit harness (crawl.mjs, check.mjs)
 └── archive/                Old OCR components, scraping tools, 50+ legacy docs
 ```
 
@@ -88,53 +94,64 @@ protero-frontend/
 
 | Path | Page | Purpose |
 |------|------|---------|
-| `/` | `index.vue` (~210L) | Dashboard — toolbar (sport/wallet dropdowns), wallet card, calendar/date-bar, games, predictions, bets, sport filter |
-| `/login` | `login.vue` (19L) | Login form (no layout) |
-| `/leagues` | `leagues.vue` (125L) | Grid of all leagues with game counts |
-| `/league/[slug]` | `league/[slug].vue` (1082L) | **Largest page** — tabs: Overview, Analysis, Predictions, Rounds |
-| `/game/[id]` | `game/[id].vue` (347L) | Game detail — timeline/stats/players (completed) or analysis/h2h/prediction (scheduled) |
-| `/picks` | `picks.vue` (185L) | Admin picks for subscribed leagues |
-| `/my-bets` | `my-bets.vue` (291L) | User's personal bet tracker |
-| `/credits` | `credits.vue` (120L) | Credits balance, unlocks, transactions |
-| `/contribute` | `contribute.vue` (307L) | Earn credits by submitting match data |
-| `/onboarding` | `onboarding.vue` (501L) | Multi-step wizard: profile → sports → leagues → wallet |
-| `/preferences` | `preferences.vue` (54L) | League preferences editor |
-| `/account` | `account.vue` (144L) | Account info + quick actions |
-| `/admin` | `admin.vue` (561L) | Admin panel — operations, scraping, scoring, wallet management |
+| `/` | `index.vue` (~221L) | Dashboard — toolbar (sport/wallet dropdowns), wallet card, calendar/date-bar, games, predictions, bets, sport filter |
+| `/login` | `login.vue` (18L) | Login form (no layout) |
+| `/leagues` | `leagues.vue` (~165L) | Grid of all leagues with game counts |
+| `/league/[slug]` | `league/[slug].vue` (659L) | League detail — tabs: Overview, Analysis, Predictions |
+| `/game/[id]` | `game/[id].vue` (~467L) | Game detail — timeline/stats/players (completed) or analysis/h2h/prediction (scheduled) |
+| `/player/[id]` | `player/[id].vue` (~467L) | Player season page |
+| `/team/[id]` | `team/[id].vue` (~225L) | Digital-twin team page |
+| `/wallet` | `wallet.vue` (~308L) | Operator wallet console — roster + per-wallet performance |
+| `/entities` | `entities.vue` (~321L) | Twin entity layer — clubs with no history in their division |
+| `/gates` | `gates.vue` (~129L) | Pipeline health + CLI-gate status (honest, no fabricated greens) |
+| `/my-real-bets` | `my-real-bets.vue` (~518L) | Operator real-money slip log (`user_real_bets`, CD #31) |
+| `/account` | `account.vue` (17L) | Profile card |
+| `/admin` | `admin.vue` (~531L) | Admin panel — operations, scraping, scoring, wallet management |
 
-## Server API (59 endpoints)
+## Server API (37 endpoints)
 
 | Group | Endpoints | Key routes |
 |-------|-----------|------------|
 | **auth/** | 5 | `login.post`, `logout.post`, `register.post`, `me.get`, `cleanup-sessions.post` |
-| **admin/** | 13 | `fetch-scheduled.post`, `fetch-scores.post`, `generate-predictions-batch.post`, `init-wallet.post`, `scrape-bulk.post`, `system-status.get` |
-| **analytics/** | 2 | `correlations.post`, `predictive-insights.post` |
-| **credits/** | 4 | `config.get`, `leagues.get`, `tasks.get`, `tasks/contribute.post` |
-| **game/** | 1 | `[id].get` |
+| **admin/** | 6 | `bets.get`, `fetch-scheduled.post`, `fetch-scores.post`, `games/[id].delete/patch`, `operation-logs.get` |
+| **analytics/** | 1 | `predictive-insights.post` |
+| **game/** | 3 | `[id].get`, `[id]/player-props.get/post` |
 | **games/** | 1 | `all.ts` |
+| **gates** | 1 | `gates.get` — pipeline health + CLI-gate status |
 | **h2h/** | 1 | `[homeTeam]/[awayTeam].get` |
 | **leagues/** | 2 | `index.get`, `[slug].get` |
-| **predictions/** | 6 | `[gameId].get`, `accuracy.get`, `league/[key].get`, `round/[round].get`, `validate.post`, `bulk-regenerate.post` |
-| **user/** | 10+ | `bets.get/post`, `credits.get`, `credits/unlock-league.post`, `picks.get`, `onboarding.post`, `subscriptions.get/post` |
-| **wallet/** | 6 | `auto-place-bets.post`, `auto-place-v2-bets.post`, `place-bet.post`, `settle-bets.post`, `stats.get`, `status.get` |
+| **predictions/** | 3 | `[gameId].get`, `accuracy.get`, `bulk-regenerate.post` |
+| **user-real-bets/** | 4 | `index.get/post`, `[id].patch/delete` |
+| **wallet/** | 5 | `bets.get`, `list.get`, `settle-bets.post`, `stats.get`, `status.get` |
+| **misc** | 4 | `parlays.get`, `player/[id]/season.get`, `seasons/[leagueKey].get`, `sports.get`, `update-match.post` |
+
+> The credit/subscription/picks/user-bets routes were removed 2026-08-22 with the
+> consumer scaffolding. `operation_logs` does not exist as a table — see `gates.get.ts`.
 
 ## Server Utils
 
 | File | Purpose |
 |------|---------|
-| `supabase.ts` (372L) | **Primary DB layer.** `getSupabase()` singleton, `executeQuery()`, `getGamesWithTeams()`, `getPredictionsWithGames()`, `getWalletWithStats()`, `upsertPrediction()`, `placeBet()`, `settleBet()` |
-| `cache.ts` | In-memory TTL cache. `getCached(key)`, `setCache(key, data, ttl)`. Auto-cleanup every 5 min. |
-| `credits.ts` | Credits economy. `getCreditsConfig()`, `awardCredits()`, `spendCredits()`, `initializeUserCredits()`, `getAuthenticatedUserId()` |
-| `elo.ts` | Elo ratings. K=30, home advantage=100. `updateEloRatings()`, `predictByElo()`, `getEloAnalysis()` |
-| `operations.ts` | `logOperation()` + `getRecentOperations()` — writes to `operation_logs` table |
+| `supabase.ts` | **Primary DB layer.** `getSupabase()` singleton (service-role client). |
+| `cache.ts` | In-memory TTL cache. `getCached(key)`, `setCache(key, data, ttl)`. |
+| `auth.ts` | `getOptionalUserId()` / `requireUserId()` — dual-mode (Bearer JWT + session cookie). |
+| `jwt.ts` | HS256 `signUserToken` / `verifyUserToken` (supabase-compatible, `iss:'protero'`). |
+| `elo.ts` | Elo ratings. K=30, home advantage=100. |
+| `operations.ts` | `logOperation()` + `getRecentOperations()` — note: `operation_logs` table does not exist. |
+| `wallet-models.ts` | `WALLET_MODEL_MAP` + `pickBestPrediction()` — prediction gating. Admin passes `null` for "all models". |
 
 ## Composables
 
 | Composable | Key exports |
 |------------|------------|
-| `useAuth()` | `user`, `isAuthenticated`, `isAdmin`, `login()`, `logout()`, `register()`, `checkAuth()`, `completeOnboarding()`. Session stored as httpOnly cookie. |
-| `useCredits()` | `credits`, `transactions`, `activeUnlocks`, `fetchCredits()`, `isLeagueAccessible()`, `unlockLeague()` |
-| `useLeagueStats()` | `computedStandings`, `roundStatistics`, `overallStats`. Pure computation from games array (299L). |
+| `useApi()` | **The single data layer.** All client-side Supabase queries — `fetchWallets`, `fetchWalletPerformance`, `fetchGames`, `fetchLeague`, `fetchWalletStats`, etc. Numeric wallet figures come from `get_wallet_performance` RPC only. |
+| `useAuth()` | `user`, `isAuthenticated`, `isAdmin`, `login()`, `logout()`, `register()`, `checkAuth()`. Session stored as httpOnly cookie. |
+| `useAuthEndpoint()` | Routes auth calls: `/api/auth/*` on web, `${supabaseUrl}/functions/v1/auth-*` when `CAPACITOR_BUILD=true`. |
+| `useAuthToken()` | JWT storage in `localStorage['protero.access_token']`. |
+| `useSupabaseClient()` | Supabase client with the stored JWT attached via `accessToken` callback. |
+| `useLeagueStats()` | `computedStandings`, `roundStatistics`, `overallStats`. Pure computation from games array. |
+| `useSwr()` | SWR cache (memory + `@capacitor/preferences` persist). |
+| `useTwins()` | Entity-layer fetchers for `twin_*`. |
 
 ## Key Patterns
 
@@ -144,27 +161,19 @@ protero-frontend/
 
 **In-memory server cache.** TTL-based cache in `server/utils/cache.ts`. Used for leagues, games lists, etc. Default 5-min expiry.
 
-**Credits economy.** Users earn credits by contributing match data → spend credits to unlock league predictions. Config stored in `credits_config` DB table.
-
-**Dual bet system.** Admin wallet auto-places bets from ML predictions (`auto-place-bets.post`). Users can either follow admin picks or track their own bets.
+**Operator-first.** The owner is the only user. No subscription gate, no credits — the operator sees everything. Optimise for information density, not onboarding.
 
 **Mobile-first.** Capacitor wraps the SPA for Android. Safe-area CSS, bottom nav on mobile, sidebar on desktop, no-scroll-bounce, viewport-locked.
 
-**Sport filtering (client-side).** `games/all.ts` has no sport filter. Use the `capturedGames` + `selectedSport` pattern in `pages/index.vue` — games are captured from the slot into a reactive ref, then `filteredGames` computed filters by sport. Sport is detected via `game.sport` field or derived: `league_key IN ['nba', 'euroleague'] → 'basketball'`, everything else → `'football'`.
+**Sport filtering (client-side).** Use `sportOf()` from `utils/constants.ts`, not ad-hoc `league_key IN [...]` checks.
 
-**Component splitting rule.** Pages over 200 lines should be split into domain components. Each component should have a single responsibility. Session refactors should look for repeated template blocks and extract them. Examples: `DashboardWalletCard.vue` (wallet mini-card), `DashboardToolbar.vue` (sport + wallet dropdowns). Do this continuously; it is not optional.
+**Component splitting rule.** Each component should have a single responsibility. The two former giants (`PredictionsView.vue` 1,539L, `BasketballPlayerStats.vue` 1,012L) were split 2026-08-22 into `BasketballPredictions`, `FootballMatchCard`, `PlayerSeasonModal` + slim orchestrators. Keep doing this.
 
 ## Wallet Stats
 
-- **Working endpoint:** `GET /api/wallet/stats` — uses Supabase query builder, hardcoded wallet ID 2. Returns:
-  ```ts
-  {
-    wallet: { id, balance, initial_balance, season },
-    stats: { totalBets, settledBets, wonBets, lostBets, pendingBets, totalStaked, totalProfit, roi, winRate, currentBalance }
-  }
-  ```
-- **Broken endpoint:** `GET /api/wallet/status` — uses the legacy `.execute()` SQL pattern. **Do not use.**
-- **Display components:** `DashboardWalletCard.vue` (compact horizontal card above calendar) and `DashboardToolbar.vue` (wallet dropdown button on left).
+- **Never compute ROI in the client.** `get_wallet_performance(p_wallet_id)` RPC reproduces `common.wallet_significance.py` exactly (profit/turnover, parlay = one wager). `(balance − initial_balance) / initial_balance` is bankroll return — it rendered W7 as +69.7% where its ROI is +11.5%. This was the single most-bitten bug in the app.
+- `fetchWalletStats` / `fetchWalletPerformance` in `useApi.ts` are the only read paths. Render `p_luck` + `verdict` beside ROI, never ROI alone.
+- `GET /api/wallet/status` is dead (no caller); it reads the stale `wallets.roi`/`total_bets` columns. Do not use.
 
 ## Dashboard Component Map
 
@@ -172,8 +181,7 @@ protero-frontend/
 |-----------|---------|
 | `DashboardDataProvider.vue` | Data fetcher — exposes games, predictions, bets, walletStats via scoped slot |
 | `DashboardToolbar.vue` | Top bar: wallet dropdown (left), sport filter dropdown (right, only when multi-sport) |
-| `DashboardWalletCard.vue` | Compact wallet card showing balance, ROI, W/L, win-rate bar |
-| `StatsOverview.vue` | Admin stats panels (predictions, accuracy, parlays) |
+| `DashboardWalletCard.vue` | Compact wallet card — balance, ROI, W/L, win-rate bar, verdict + p(luck) |
 | `GamesCalendar.vue` | Desktop calendar grid |
 | `MobileDateBar.vue` | Mobile horizontal date scroller |
 | `DashboardGameCard.vue` | Individual game row — O/U chips, stake badges, prediction chip |
@@ -182,21 +190,20 @@ protero-frontend/
 
 ## Auth Flow
 
-1. `POST /api/auth/login` — verify email/password against `users` table (bcrypt, auto-upgrades legacy SHA256)
+1. `POST /api/auth/login` — verify email/password against `users` table (bcrypt)
 2. Server creates `sessions` row with 30-day token, sets `session_id` httpOnly cookie
 3. Client `useAuth().checkAuth()` calls `GET /api/auth/me` to hydrate user state
-4. `auth` middleware runs on every protected route — redirects to `/login` or `/onboarding`
+4. `auth` middleware runs on every protected route — redirects to `/login` when unauthenticated
 5. Admin check: `user.role === 'admin'`
 
 ## Environment
 
 ```bash
-# Required
-SUPABASE_URL=https://twkhmatgjeiribbjxkis.supabase.co
+# Required — LOCAL Supabase (the cloud project is parked, root CD #34)
+SUPABASE_URL=http://127.0.0.1:54321
 SUPABASE_ANON_KEY=<anon key>
 SUPABASE_SERVICE_ROLE_KEY=<service role key>
-ADMIN_PASSWORD=<admin panel password>
-JWT_SECRET=<openssl rand -base64 32>
+SUPABASE_JWT_SECRET=<openssl rand -base64 32>
 ```
 
 ## Commands
@@ -217,31 +224,29 @@ npm run apk:open           # opens Android Studio
 npm run apk:build:debug    # gradlew assembleDebug  → app-debug.apk (~18MB)
 npm run apk:build:release  # gradlew assembleRelease → app-release.apk (~17MB, signed)
 
-# Edge Functions (cloud auth for APK)
-# Requires: supabase login + SUPABASE_ACCESS_TOKEN env var
-cd supabase-local && supabase functions deploy auth-login auth-register auth-logout auth-me \
-    --project-ref twkhmatgjeiribbjxkis --no-verify-jwt
-# Set shared JWT secret (must match Nitro's JWT_SECRET):
-supabase secrets set APP_JWT_SECRET='<base64 HS256 secret>' --project-ref twkhmatgjeiribbjxkis
+# Edge Functions (cloud auth for APK) — DEAD while the cloud is parked (CD #34).
+# The cloud project is inactive; do not deploy. See docs/plans/capacitor-decision.md.
 ```
 
 ## Agent Failure Modes
 
-**The `.execute()` trap.** ~20 API routes (wallet/*, predictions/round, admin/recalculate-standings, admin/scrape-bulk, admin/scrape-complete, admin/fix-match-statuses, user/leagues, analytics/correlations) call `getSupabase().execute({sql:..., args:...})` — a legacy raw-SQL API pattern. But `getSupabase()` returns a `SupabaseClient` which has NO `.execute()` method. These routes are **broken at runtime**. They need to be rewritten to use the Supabase query builder (`.from().select()`, `.from().insert()`, etc.). This is a known tech debt item.
+**The fabricated-ROI trap (the big one).** Five sites computed `(balance − initial_balance) / initial_balance` and labelled it ROI — that is bankroll return. W7 rendered +69.7% where its ROI is +11.5%. All five are gone as of 2026-08-22; the only read path is `get_wallet_performance` RPC (profit/turnover, parlay = one wager). If you are about to divide by `initial_balance`, stop.
 
-**The SSR assumption.** `ssr: false` means there is no server-side rendering. Pages are client-rendered SPAs. The Nitro server only serves API routes under `server/api/`. Don't add SSR-specific features (server components, `useAsyncData` with server-only logic, etc.).
+**The silent-failure pattern.** The league route swallowed a PostgREST error into `games: []` for months — a select referencing `home_possession` (the column is `home_possession_pct`). Fail loud: throw on `.error`, never fall through to an empty array.
 
-**The scraping deps in frontend.** `puppeteer`, `cheerio`, `jsdom`, `tesseract.js` are in `package.json` because some admin API routes do server-side scraping. These are NOT used in client components. If `npm install` fails on puppeteer/chromium, it's a system dependency issue, not a frontend bug.
+**The auto-import naming trap.** `components/foo/Bar.vue` registers as `<FooBar>`, not `<Bar>`, unless the filename already starts with the folder name. This broke two pages and one modal during the 2026-08-22 session.
 
-**The 1082-line league page.** `pages/league/[slug].vue` is the largest and most complex page. It has 4 tabs (Overview, Analysis, Predictions, Rounds) each with substantial logic. When modifying league features, changes often touch both this page and multiple `components/league/` files. Read the whole page before editing.
+**The SSR assumption.** `ssr: false` — no server-side rendering. The Nitro server only serves API routes. Don't add SSR-specific features.
 
-**The custom auth trap.** This app does NOT use Supabase Auth. It has custom `users`/`sessions` tables and bcrypt password hashing. Don't try to integrate `@supabase/auth-helpers-nuxt` or call `supabase.auth.*` methods — they won't work.
+**The scraping deps in frontend.** `puppeteer`, `cheerio`, `jsdom`, `tesseract.js` are in `package.json` because some admin API routes do server-side scraping. NOT used in client components.
 
-**The archive black hole.** `archive/` has 50+ old docs and dead components from the legacy-SQL/OCR era. Don't reference these for current architecture. They document abandoned approaches.
+**The custom auth trap.** No Supabase Auth — custom `users`/`sessions` tables + bcrypt. Don't call `supabase.auth.*` methods.
 
-**The icon trap.** Do not use inline `<svg>` icons, emoji (💰 🏀 ⚽), or Unicode symbols (▼ ✓) as icons in component templates. Use plain text labels only. If an icon is truly needed, use `<UIcon name="..." />` from Nuxt UI. This rule came from multiple crashes caused by inline SVGs and user preference against emoji in UI.
+**The archive black hole.** `archive/` has 50+ old docs and dead components. Don't reference them for current architecture.
 
-**The string-from-API trap.** API endpoints may return numeric fields as strings (e.g. `roi: "12.5"` instead of `roi: 12.5`). Always wrap with `Number(val)` before calling `.toFixed()`, comparison operators, or arithmetic. Use a `toNum()` helper: `function toNum(val: any): number { const n = Number(val); return isNaN(n) ? 0 : n }`.
+**The icon trap.** No inline `<svg>`, no emoji, no Unicode symbol icons. Plain text, or `<UIcon>` if truly needed.
+
+**The string-from-API trap.** Numeric fields may arrive as strings. Wrap with `Number(val)` / a `toNum()` helper before arithmetic.
 
 ## Design System
 
@@ -279,36 +284,27 @@ When schema changes happen in Supabase, update this file to keep types in sync.
 
 ---
 
-## Wallet Subscription System (live since Apr 2026)
+## Wallet Console (operator surface, 2026-08-22)
 
-Users spend credits to subscribe to AI strategy wallets and follow their picks. Full build log with RPC contracts and component inventory: [docs/mobile-redesign-log.md](docs/mobile-redesign-log.md).
+`pages/wallet.vue` is an operator roster backed by `get_wallet_performance` — not a
+discovery/subscribe flow (that was deleted). Key facts:
 
-- **RPCs:** `subscribe_to_wallet(p_wallet_id)` (atomic, SECURITY DEFINER, extends active subs), `unsubscribe_from_wallet` (soft, no refund). Pricing rows in `credits_config` (`wallet_subscription_cost`, `wallet_subscription_duration_days`).
-- **Components:** `components/wallet/` (WalletDiscovery, WalletHero, WalletPerformanceChart, WalletBetFilterBar, WalletBetRow, WalletSubscribeModal). `pages/wallet.vue` is a discovery/subscribed state machine.
-- **Prediction gating:** `server/utils/wallet-models.ts` — `WALLET_MODEL_MAP` (wallet → model_versions) + `pickBestPrediction()` (V6 hybrid > V18 > V20 football; V6 AIF > V5 TS > V4 RL basketball). Anonymous users see games but **no AI predictions**.
+- **Prediction gating:** `server/utils/wallet-models.ts` — `WALLET_MODEL_MAP` (wallet → model_versions) + `pickBestPrediction()` (V6 hybrid > V18 > V20 football; V6 AIF > V5 TS > V4 RL basketball). **Admin passes `null` for "all models"** — an empty subscription set must never strip the operator's predictions (the 2026-08-22 bug).
 - **Auth helpers:** `server/utils/auth.ts` — `getOptionalUserId()` / `requireUserId()` (dual-mode: Bearer JWT + session cookie).
 
 ## Standing Constraints (learned from redesign sessions)
 
 - Never `.single()` for nullable lookups — always `.maybeSingle()`.
-- Nuxt auto-imports composables/components — don't add explicit imports for them.
-- New fetchers use `useSwr` ([composables/useSwr.ts](composables/useSwr.ts)) from day one — the SWR layer (memory + `@capacitor/preferences` persist) is the production caching strategy.
+- Nuxt auto-imports composables/components — don't add explicit imports for app code. Nitro does NOT auto-import `utils/` in `server/` — use `import { … } from '~/utils/…'` there.
+- New fetchers use `useSwr` ([composables/useSwr.ts](composables/useSwr.ts)).
 - `WALLET_MODEL_MAP` (server) and `utils/wallet-meta.ts` (client) must stay in sync — adding a wallet means updating both.
-- Wallets 19 + 20 are **parlay-only** (root CD #22): their bets never render as standalone chips — `DayMatchesPanel.vue` + `DashboardGameCard.vue` filter via `PARLAY_ONLY_WALLETS = new Set([19, 20])`; they surface only under the per-date `Parlays (N)` toggle. `fetchGames` also strips parlay-leg bets (`notes.parlay_id` / `pick_type='prop_parlay_leg'` / `leg_number`).
-- Cache keys for subscription-gated payloads must include the user's sub-set (see `league:${slug}:...:${subKey}` pattern) so users with different wallets don't pollute each other's payloads.
 - Use `python3` (never `python`) in any spawned processes/shebangs.
+- Match football prediction families on **suffix**, never equality (`matchesFamily()` in `server/utils/wallet-models.ts`).
 
 ## Pending Work
 
 | Item | Status | Notes |
 |---|---|---|
-| Phase 5 Analysis redesign | next | 7 sections; likely needs RPC `get_league_analysis(league_key, season)` |
-| Phase 6 Account | queued | 5-section card stack; migration: `user_prefs.notification_prefs JSONB`; new `pages/notifications.vue` |
-| Phase 1 Dashboard redesign | queued | Sport dropdown, date-strip swipe + haptics, pick chips (`betLabelShort`), PullToRefresh |
-| Phase 2 Game detail redesign | queued | Includes **basketball predictions UI**: `PredictionsView.vue` still shows the stale "No ML predictions" disclaimer — the server already delivers V4/V5/V6 via the subscription gate; render an AI prediction block when `isBball && match.prediction`, keep projected-score panel as fallback |
-| Phase 0.3 Dashboard request budget | queued | RPC `get_dashboard_bundle(...)` — today's dashboard fires 5–15 requests, target ≤3 |
-| Phases 0.5 / 4 / 7 / 8 | queued | PullToRefresh, My Bets redesign, Picks reuse of wallet components, 2-step onboarding |
-| APK safe-area / notch clipping | known bug | `pt-[env(safe-area-inset-top)]` missing on top bar in `layouts/default.vue`; logo clips because `overlaysWebView: true` |
-
-Pending migrations: `notification_prefs` column, `get_league_analysis`, `get_dashboard_bundle`, `get_game_detail` RPCs. (Applied: `20260423000004_wallet_subscriptions_credits.sql` — local + cloud.)
+| APK safe-area / notch clipping | known bug | `pt-[env(safe-area-inset-top)]` missing on top bar in `layouts/default.vue`; logo clips because `overlaysWebView: true` — only relevant if mobile is revived (see `docs/plans/capacitor-decision.md`) |
+| Dashboard request budget | queued | RPC `get_dashboard_bundle(...)` — today's dashboard fires several requests |
 
