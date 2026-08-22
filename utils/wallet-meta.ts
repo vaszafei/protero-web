@@ -1,8 +1,20 @@
 /**
- * Wallet metadata — strategy descriptions, sport assignments, badges.
- * Single source of truth for what each admin wallet is.
+ * Wallet presentation metadata.
  *
- * Update this when a new wallet/strategy goes live. Keep in sync with:
+ * This file used to be "the single source of truth for what each admin wallet
+ * is", as a hand-maintained map. It stopped at wallet 20, so after the
+ * 2026-07-28 trader cutover (CD #34/#35) every wallet the pipelines actually
+ * write to — W26-W32, and the W33-36 external tipsters — fell through to
+ * FALLBACK. The wallet page rendered five identical cards reading
+ * "Strategy wallet · +0.0% · 0 bets".
+ *
+ * A hand-written registry beside a live one is the defect, not the entries it
+ * was missing. So identity now comes from the `wallets` row itself, which
+ * already carries `persona_name`, `bio`, `archetype` and `lifecycle`; the map
+ * below survives only as the fallback for legacy wallets predating those
+ * columns. Pass the DB row wherever you have one.
+ *
+ * Still hand-maintained, and still needing a look when a wallet goes live:
  *   - server/utils/wallet-models.ts (model_version mapping)
  *   - composables/useApi.ts          (WALLET_LEAGUE_MAP — league access gate)
  */
@@ -10,6 +22,7 @@
 export type WalletKind = 'singles' | 'parlays' | 'props'
 
 export type WalletBadge =
+  // Model-lineage badges — how legacy wallets were labelled.
   | 'V4-RL'
   | 'V5-TS'
   | 'V6-AIF'
@@ -19,6 +32,17 @@ export type WalletBadge =
   | 'Parlays'
   | 'Props-AIF'
   | 'Props-Manual'
+  // Archetype badges — how a trader persona is labelled (CD #34 vocabulary,
+  // mirrored from `wallets.archetype`). See ARCHETYPE_BADGE below.
+  | 'Value'
+  | 'Masked'
+  | 'Niche'
+  | 'Manual'
+  | 'Sniper'
+  | 'Banker'
+  | 'Meta'
+  | 'Tipster'
+  | 'Wallet'
 
 export interface WalletMeta {
   id: number
@@ -246,4 +270,62 @@ export function getWalletMeta(walletId: number): WalletMeta {
 
 export function listAllWalletMeta(): WalletMeta[] {
   return Object.values(WALLET_META)
+}
+
+/** The subset of a `wallets` row this module needs. */
+export interface WalletRow {
+  id: number
+  name?: string | null
+  persona_name?: string | null
+  bio?: string | null
+  archetype?: string | null
+  lifecycle?: string | null
+}
+
+/** `wallets.archetype` (CD #34 vocabulary) → the badge shown on a card. */
+const ARCHETYPE_BADGE: Record<string, WalletBadge> = {
+  value_volume: 'Value',
+  constrained_volume: 'Masked',
+  niche_volume: 'Niche',
+  parlay_concentration: 'Parlays',
+  manual_overlay: 'Manual',
+  sniper: 'Sniper',
+  banker_low_odds: 'Banker',
+  meta_allocator: 'Meta',
+  external_tipster: 'Tipster',
+}
+
+const ARCHETYPE_KIND: Record<string, WalletKind> = {
+  parlay_concentration: 'parlays',
+  manual_overlay: 'props',
+}
+
+/**
+ * Resolve what a wallet IS from its DB row, falling back to the static map for
+ * legacy wallets with no persona columns. Prefer this over getWalletMeta(id) —
+ * it cannot go stale when a wallet is added.
+ */
+export function resolveWalletMeta(row: WalletRow): WalletMeta {
+  const stat = WALLET_META[row.id]
+  const persona = row.persona_name?.trim() || null
+  const archetype = row.archetype?.trim() || null
+
+  return {
+    id: row.id,
+    sport: stat?.sport ?? 'football',
+    league: stat?.league ?? 'unknown',
+    // A trader persona is named by its persona; a legacy wallet by the static
+    // map, and only then by its raw DB name (which carries a season suffix).
+    shortName: persona ?? stat?.shortName ?? row.name ?? `Wallet ${row.id}`,
+    longName: persona ?? stat?.longName ?? row.name ?? `Wallet ${row.id}`,
+    blurb: row.bio?.trim() || stat?.blurb || 'Strategy wallet.',
+    seedAmount: stat?.seedAmount ?? 0,
+    badge: (archetype && ARCHETYPE_BADGE[archetype]) ?? stat?.badge ?? 'Wallet',
+    kind: (archetype && ARCHETYPE_KIND[archetype]) ?? stat?.kind ?? 'singles',
+  }
+}
+
+/** True when nothing writes to this wallet any more — render it as history. */
+export function isFrozenWallet(row: WalletRow): boolean {
+  return row.lifecycle === 'legacy'
 }

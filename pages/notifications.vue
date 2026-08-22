@@ -10,7 +10,7 @@
       />
       <h1 class="text-base font-bold text-zinc-100">Notifications</h1>
     </div>
-    <NotificationsCard />
+    <AccountNotificationsCard />
   </div>
 </template>
 

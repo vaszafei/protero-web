@@ -1,9 +1,36 @@
 /**
  * Client-side API composable — replaces all /api/ server routes.
  * Queries Supabase directly from the client using the anon key + RLS.
- * 
+ *
  * Every function here mirrors a former server/api/ route.
  */
+
+// Identity + bankroll columns for a wallet row. `persona_name`/`bio`/
+// `archetype`/`lifecycle` are what utils/wallet-meta.ts resolves a wallet's
+// identity from; omitting them is why every trader persona rendered as
+// "Strategy wallet".
+//
+// `roi`, `total_bets` and `win_rate` are deliberately NOT selected. They are
+// bankroll-return columns, unmaintained since the `update_wallet_stats` trigger
+// was dropped 2026-08-10. Use fetchWalletPerformance() for anything numeric.
+const WALLET_IDENTITY_COLUMNS =
+  'id, name, persona_name, bio, archetype, lifecycle, balance, initial_balance, is_active, is_public'
+
+/** One row of `get_wallet_performance` — see the RPC migration for semantics. */
+export interface WalletPerformance {
+  wallet_id: number
+  n_wagers: number
+  n_won: number
+  n_pending: number
+  turnover: number
+  pnl: number
+  roi_pct: number | null
+  win_rate_pct: number | null
+  /** One-sided p against a zero-edge null. Null below n=10. */
+  p_luck: number | null
+  /** 'EDGE' (p<0.05) · 'hint' (p<0.20) · 'LUCK' · 'n<10' */
+  verdict: 'EDGE' | 'hint' | 'LUCK' | 'n<10'
+}
 
 // All football league_keys we have ML wallets for. Wallets that bet across
 // many football leagues (V18, V20, Football V6 AIF, V18 Revival, Football V6
@@ -52,10 +79,15 @@ export const useApi = () => {
    * GET /api/sports — sports with grouped leagues + wallets
    */
   const fetchSports = async () => {
-    const [sportsRes, leaguesRes, walletsRes] = await Promise.all([
+    // No wallets query here. This used to also return a `wallets` array whose
+    // `roi` was (balance - initial_balance) / initial_balance — bankroll return
+    // mislabelled as ROI. Nothing consumed it (both callers read only
+    // `.sports`), so it was a wrong number and a third round-trip on the
+    // leagues page for nobody. Wallet numbers come from
+    // fetchWalletPerformance().
+    const [sportsRes, leaguesRes] = await Promise.all([
       supabase.from('sports').select('key, name, is_active').eq('is_active', true).order('name'),
       supabase.from('leagues').select('key, name, sport, country, flag').order('country').order('name'),
-      supabase.from('wallets').select('id, name, balance, initial_balance, total_bets, win_rate, is_active').eq('is_active', true).order('name'),
     ])
 
     const sportLeagues: Record<string, Record<string, any[]>> = {}
@@ -80,14 +112,6 @@ export const useApi = () => {
           leagues: sportLeagues[s.key] || {}
         }))
         .filter(s => Object.keys(s.leagues).length > 0),
-      wallets: (walletsRes.data || []).map((w: any) => ({
-        id: w.id,
-        name: w.name,
-        roi: w.initial_balance > 0 ? Math.round(((w.balance - w.initial_balance) / w.initial_balance) * 10000) / 100 : 0,
-        win_rate: w.win_rate,
-        total_bets: w.total_bets,
-        is_active: w.is_active
-      }))
     }
   }
 
@@ -302,7 +326,7 @@ export const useApi = () => {
         .select('*')
         .eq('league_key', slug)
         .eq('season', season)
-        .order('position', { ascending: true })
+        .order('pts', { ascending: false })
     ])
 
     const games = (gamesRes.data || []).map((g: any) => ({
@@ -872,10 +896,12 @@ export const useApi = () => {
     const isAdminRole = me.role === 'admin'
 
     if (isAdminRole) {
+      // Operators see the whole roster, frozen wallets included — a wallet that
+      // stopped writing is history an operator still needs to read. `lifecycle`
+      // ('trader' | 'legacy') is what tells the two apart, not `is_active`.
       const { data, error } = await supabase
         .from('wallets')
-        .select('id, name, balance, initial_balance, is_active, total_bets, win_rate, roi, total_profit')
-        .eq('is_active', true)
+        .select(WALLET_IDENTITY_COLUMNS)
         .order('id', { ascending: true })
       if (error) throw error
       return { wallets: data || [] }
@@ -896,12 +922,32 @@ export const useApi = () => {
 
     const { data, error } = await supabase
       .from('wallets')
-      .select('id, name, balance, initial_balance, is_active, total_bets, win_rate, roi, total_profit')
+      .select(WALLET_IDENTITY_COLUMNS)
       .in('id', ids)
       .eq('is_active', true)
       .order('id', { ascending: true })
     if (error) throw error
     return { wallets: data || [] }
+  }
+
+  /**
+   * Wager-level performance via the `get_wallet_performance` RPC.
+   *
+   * Do NOT compute this in the client. `wallets.roi` / `total_bets` / `win_rate`
+   * are bankroll-return columns that stopped being maintained when the
+   * `update_wallet_stats` trigger was dropped on 2026-08-10, and deriving ROI
+   * from (balance - initial_balance) reports W7 as +69.7% where it is +11.5%.
+   *
+   * The RPC counts a parlay as ONE wager at `parlay_odds`, never its legs —
+   * the rule that separates W21's real -50.2% from the -2.1% leg-counting once
+   * reported. Returns `p_luck` beside `roi_pct`; render them together, never
+   * ROI alone.
+   */
+  const fetchWalletPerformance = async (walletId?: number) => {
+    const { data, error } = await supabase.rpc('get_wallet_performance',
+      walletId == null ? {} : { p_wallet_id: walletId })
+    if (error) throw error
+    return (data || []) as WalletPerformance[]
   }
 
   /**
@@ -978,7 +1024,7 @@ export const useApi = () => {
       .from('parlays')
       .select(`
         id, wallet_id, num_legs, total_stake, parlay_odds, final_probability,
-        expected_value, kelly_fraction, strategy, status, profit, created_at,
+        expected_value, kelly_fraction, strategy, status, actual_payout, created_at,
         parlay_legs (
           id, leg_number,
           bets (
@@ -1040,9 +1086,16 @@ export const useApi = () => {
         })
         .sort((a: any, b: any) => (a.leg_number || 0) - (b.leg_number || 0))
 
+      // `parlays` stores gross return in `actual_payout` (a lost parlay is 0.00),
+      // never a `profit` column. Wager-level profit is payout minus the stake the
+      // parlay actually risked — and stays null while the parlay is pending.
+      const payout = p.actual_payout == null ? null : Number(p.actual_payout)
+      const profit = payout == null ? null : payout - Number(p.total_stake || 0)
+
       return {
         ...p,
         legs,
+        profit,
         // Convenience: latest leg date so the row sorts beside singles by recency
         date: legs[0]?.game_date || p.created_at,
       }
@@ -1429,6 +1482,7 @@ export const useApi = () => {
     fetchWalletBets,
     fetchWalletParlays,
     fetchWalletStats,
+    fetchWalletPerformance,
     fetchWalletSubscriptions,
     subscribeToWallet,
     unsubscribeFromWallet,
