@@ -42,13 +42,13 @@
       </NuxtLink>
 
       <NuxtLink 
-        to="/my-bets" 
+        to="/entities" 
         class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
         active-class="bg-surface-light text-white"
         @click="$emit('navigate')"
       >
-        <ClipboardList :size="18" />
-        <span class="text-sm font-medium">My Bets</span>
+        <Network :size="18" />
+        <span class="text-sm font-medium">Entities</span>
       </NuxtLink>
     </div>
 
@@ -93,7 +93,7 @@
 </template>
 
 <script setup>
-import { LayoutGrid, User, LogOut, Shield, Trophy, Wallet, ClipboardList } from 'lucide-vue-next'
+import { LayoutGrid, User, LogOut, Shield, Trophy, Wallet, Network } from 'lucide-vue-next'
 
 defineEmits(['navigate'])
 
