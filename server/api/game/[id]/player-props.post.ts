@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { recentSeasons } from '~/utils/season'
 
 interface PropInput {
   player_name: string
@@ -412,7 +413,7 @@ export default defineEventHandler(async (event) => {
     .from('games')
     .select('id, date, sport_stats, home_team:teams!home_team_id(name), away_team:teams!away_team_id(name)')
     .eq('league_key', league_key)
-    .in('season', ['2025-2026', '2024-2025', '2023-2024'])
+    .in('season', recentSeasons(3, league_key))
     .eq('status', 'completed')
     .not('sport_stats', 'is', null)
     .order('date', { ascending: false })

@@ -6,6 +6,7 @@ import {
   modelVersionsForWallets,
   pickBestPrediction,
 } from '~/server/utils/wallet-models'
+import { currentSeason } from '~/utils/season'
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
@@ -32,7 +33,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Season can come from URL; fall back to current season
-    const targetSeason = (season as string) || '2025-2026'
+    const targetSeason = (season as string) || currentSeason(slug)
 
     // ── Round 1: fire league + games + standings in PARALLEL ──────────────
     let gamesQuery = supabase
@@ -176,7 +177,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Cache 10 min for past seasons, 3 min for current
-    const ttl = targetSeason < '2025-2026' ? 600 : 180
+    const ttl = targetSeason < currentSeason(slug) ? 600 : 180
     setCache(cacheKey, response, ttl)
 
     return response

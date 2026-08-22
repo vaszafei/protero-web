@@ -235,8 +235,8 @@ const api = useApi()
 // SWR — 5 min memory TTL is enough; analysis only changes when new completed
 // games land. Pull-to-refresh (Phase 0.5) will invalidate.
 const { data, pending, error } = useSwr(
-  computed(() => `league_analysis:${props.leagueKey}:${props.season || '2025-2026'}`),
-  () => api.fetchLeagueAnalysis(props.leagueKey, props.season || '2025-2026'),
+  computed(() => `league_analysis:${props.leagueKey}:${props.season || currentSeason(props.leagueKey)}`),
+  () => api.fetchLeagueAnalysis(props.leagueKey, props.season || currentSeason(props.leagueKey)),
   { memoryTtl: 5 * 60_000 },
 )
 

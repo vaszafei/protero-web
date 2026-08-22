@@ -32,7 +32,31 @@ export const BET_TYPE_LABELS: Record<string, string> = {
 export const SPORTS = ['football', 'basketball'] as const
 export type Sport = (typeof SPORTS)[number]
 
-export const BASKETBALL_LEAGUES = ['nba', 'euroleague', 'eurocup', 'basketball_cl', 'greek_basket_league', 'spanish_acb'] as const
+/**
+ * Every basketball league_key that appears in `games`.
+ *
+ * Two of these were wrong until 2026-08-22: the list said 'spanish_acb' and
+ * 'basketball_cl', keys that exist nowhere in the database — the real ones are
+ * 'acb' and 'bcl'. That is the same key mismatch that left W14 with three
+ * lifetime bets. The constant happened to be unused, so nothing broke; the
+ * three places that actually detect sport had each hardcoded
+ * `nba || euroleague` instead, which classified ACB, BCL, EuroCup and Greek
+ * Basket League games as football. Use sportOf() below, not a literal list.
+ */
+export const BASKETBALL_LEAGUES = [
+  'nba', 'euroleague', 'eurocup', 'bcl', 'greek_basket_league', 'acb',
+] as const
+
+const BASKETBALL_LEAGUE_SET: ReadonlySet<string> = new Set(BASKETBALL_LEAGUES)
+
+/**
+ * The sport of a game. Trusts the `sport` column when present and falls back to
+ * the league key, which is what rows written before the column existed carry.
+ */
+export function sportOf(game: { sport?: string | null; league_key?: string | null }): Sport {
+  if (game.sport === 'basketball' || game.sport === 'football') return game.sport
+  return game.league_key && BASKETBALL_LEAGUE_SET.has(game.league_key) ? 'basketball' : 'football'
+}
 
 export const STATUS_FILTERS = [
   { label: 'All', value: '' },

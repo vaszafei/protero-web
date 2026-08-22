@@ -1,10 +1,11 @@
 import { getSupabase } from '~/server/utils/supabase'
 import { getCached, setCache } from '~/server/utils/cache'
+import { currentSeason } from '~/utils/season'
 
 export default defineEventHandler(async (event) => {
   const supabase = getSupabase()
   const query = getQuery(event)
-  const season = (query.season as string) || '2025-2026'
+  const season = (query.season as string) || currentSeason()
 
   const cacheKey = `leagues:${season}`
   const cached = getCached<any>(cacheKey)

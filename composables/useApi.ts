@@ -118,7 +118,7 @@ export const useApi = () => {
   /**
    * GET /api/leagues — all leagues with game counts
    */
-  const fetchLeagues = async (season = '2025-2026') => {
+  const fetchLeagues = async (season = currentSeason()) => {
     const { data: leagues, error } = await supabase
       .from('leagues')
       .select('*')
@@ -168,7 +168,6 @@ export const useApi = () => {
 
     const fromDate = opts.from || defaultFrom.toISOString().split('T')[0]
     const toDate = opts.to || defaultTo.toISOString().split('T')[0]
-    const season = opts.season || '2025-2026'
 
     const selectCols = `
       id, date, season, league_key, sport, status,
@@ -189,9 +188,18 @@ export const useApi = () => {
     let q = supabase
       .from('games')
       .select(selectCols)
-      .eq('season', season)
       .gte('date', fromDate)
       .lte('date', toDate)
+
+    // A date window spans leagues of BOTH season conventions — European
+    // football is on 2026-2027 while argentina_primera and brazil_serie_a are
+    // on 2026-2026 — so pinning one season here drops the calendar-year
+    // leagues entirely (248 fixtures in the dashboard's own window). Only
+    // constrain the season when the caller asked for a specific one; otherwise
+    // accept either, since `from`/`to` already bound the query.
+    q = opts.season
+      ? q.eq('season', opts.season)
+      : q.in('season', currentSeasons())
 
     if (opts.leagues && opts.leagues.length > 0) {
       q = q.in('league_key', opts.leagues)
@@ -297,7 +305,7 @@ export const useApi = () => {
   /**
    * GET /api/leagues/:slug — single league with games and standings
    */
-  const fetchLeague = async (slug: string, season = '2025-2026') => {
+  const fetchLeague = async (slug: string, season = currentSeason(slug)) => {
     const { data: league, error: lErr } = await supabase
       .from('leagues')
       .select('*')
@@ -1351,7 +1359,7 @@ export const useApi = () => {
    */
   const fetchLeagueAnalysis = async (
     leagueKey: string,
-    season = '2025-2026',
+    season = currentSeason(),
   ) => {
     const { data, error } = await supabase.rpc('get_league_analysis', {
       p_league_key: leagueKey,

@@ -118,7 +118,7 @@ function captureGames(games) {
 const availableSports = computed(() => {
   const sports = new Set(
     capturedGames.value.map(g =>
-      g.sport || (g.league_key === 'nba' || g.league_key === 'euroleague' ? 'basketball' : 'football')
+      sportOf(g)
     )
   )
   return [...sports].filter(Boolean)
@@ -127,8 +127,7 @@ const availableSports = computed(() => {
 const filteredGames = computed(() => {
   if (selectedSport.value === 'all') return capturedGames.value
   return capturedGames.value.filter(g => {
-    const sport = g.sport || (g.league_key === 'nba' || g.league_key === 'euroleague' ? 'basketball' : 'football')
-    return sport === selectedSport.value
+    return sportOf(g) === selectedSport.value
   })
 })
 

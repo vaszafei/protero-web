@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { currentSeason } from '~/utils/season'
 
 export default defineEventHandler(async (event) => {
   const playerId = getRouterParam(event, 'id') || ''
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
   try {
     // Basketball player stats live in sport_stats JSONB, not lineups table.
     // Query completed games and search for the player by ID in home/away players array.
-    const season = '2025-2026'
+    const season = (query.season as string) || currentSeason(leagueKey)
 
     const { data: allGames, error } = await supabase
       .from('games')

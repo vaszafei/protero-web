@@ -80,7 +80,7 @@ definePageMeta({
 
 const loading = ref(true)
 const api = useApi()
-const selectedSeason = '2025-2026'
+const selectedSeason = currentSeason()
 const allLeagues = ref([])
 const leagueStats = ref({})
 const selectedSport = ref('all')

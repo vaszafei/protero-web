@@ -1,5 +1,6 @@
 import { getSupabase } from '~/server/utils/supabase'
 import { getCached, setCache } from '~/server/utils/cache'
+import { currentSeason } from '~/utils/season'
 
 // 3-minute cache — balances freshness with speed
 const CACHE_TTL = 180
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
 
   const fromDate = (query.from as string) || defaultFrom.toISOString().split('T')[0]
   const toDate   = (query.to   as string) || defaultTo.toISOString().split('T')[0]
-  const season   = (query.season as string) || '2025-2026'
+  const season   = (query.season as string) || currentSeason()
   const includeBets = query.bets === 'true'
   const walletId = query.walletId ? Number(query.walletId) : null
 

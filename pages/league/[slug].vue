@@ -89,7 +89,7 @@ import { useLeagueStats } from '~/composables/useLeagueStats'
 const route = useRoute()
 const api = useApi()
 const leagueName = route.params.slug
-const selectedSeason = computed(() => route.query.season || '2025-2026')
+const selectedSeason = computed(() => route.query.season || currentSeason(route.params.slug))
 
 // Fetch league data for the selected season
 const { data: leagueData, refresh: refreshLeague } = await useAsyncData(

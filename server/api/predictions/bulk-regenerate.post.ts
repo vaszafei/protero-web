@@ -1,9 +1,10 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { currentSeason } from '~/utils/season'
 
 export default defineEventHandler(async (event) => {
   const { season, league } = getQuery(event)
   
-  const targetSeason = season || '2025-2026'
+  const targetSeason = season || currentSeason()
   const supabase = getSupabase()
   
   try {

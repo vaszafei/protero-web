@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { currentSeason } from '~/utils/season'
 
 // API-Football Configuration
 const RAPIDAPI_KEY = "a2c93fa021mshda33fad170583f4p146558jsn8ae48020d8ea"
@@ -222,7 +223,7 @@ export default defineEventHandler(async (event) => {
                 away_team_id: awayTeamId,
                 date: game.date,
                 status: 'scheduled',
-                season: '2025-2026'
+                season: currentSeason(leagueKey)
               })
             addedCount++
           }

@@ -327,7 +327,7 @@ function isPredictionCorrect() {
   const homeGoals = props.game.home_goals
   const awayGoals = props.game.away_goals
   const totalGoals = homeGoals + awayGoals
-  const isBball = props.game.sport === 'basketball' || props.game.league_key === 'nba' || props.game.league_key === 'euroleague'
+  const isBball = sportOf(props.game) === 'basketball'
   
   if (pred === 'home' || pred.includes('home_win')) return homeGoals > awayGoals
   if (pred === 'draw') return homeGoals === awayGoals
