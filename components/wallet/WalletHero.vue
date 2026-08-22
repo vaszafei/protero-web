@@ -50,26 +50,47 @@
         </svg>
       </div>
 
-      <!-- Stats grid -->
+      <!-- Stats grid — every figure from get_wallet_performance, never from
+           the wallets stat columns, which are bankroll return and stale. -->
       <div class="grid grid-cols-4 gap-2">
         <div>
-          <p class="text-[9px] text-zinc-500 uppercase">ROI</p>
-          <p class="text-sm font-bold tabular-nums" :class="roi >= 0 ? 'text-emerald-400' : 'text-red-400'">
-            {{ roi >= 0 ? '+' : '' }}{{ roi.toFixed(1) }}%
+          <p class="text-[9px] text-zinc-500 uppercase" title="Profit / turnover">ROI</p>
+          <p class="text-sm font-bold tabular-nums" :class="roi == null ? 'text-zinc-600' : roi >= 0 ? 'text-emerald-400' : 'text-red-400'">
+            {{ roi == null ? '—' : (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%' }}
           </p>
         </div>
         <div>
           <p class="text-[9px] text-zinc-500 uppercase">Win</p>
-          <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ (wallet.win_rate || 0).toFixed(1) }}%</p>
+          <p class="text-sm font-bold text-zinc-100 tabular-nums">
+            {{ winRate == null ? '—' : winRate.toFixed(1) + '%' }}
+          </p>
         </div>
         <div>
-          <p class="text-[9px] text-zinc-500 uppercase">Bets</p>
-          <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ wallet.total_bets || 0 }}</p>
+          <p class="text-[9px] text-zinc-500 uppercase" title="Settled wagers — a parlay counts once, never its legs">Wagers</p>
+          <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ nWagers }}</p>
         </div>
         <div>
           <p class="text-[9px] text-zinc-500 uppercase">Seed</p>
           <p class="text-sm font-bold text-zinc-100 tabular-nums">${{ formatNum(wallet.initial_balance) }}</p>
         </div>
+      </div>
+
+      <!-- ROI never travels alone (performance-claim rule 2). -->
+      <div v-if="performance" class="mt-3 pt-2.5 border-t border-white/5 flex items-center gap-2 flex-wrap">
+        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="verdictClass">
+          {{ performance.verdict }}
+        </span>
+        <span class="text-[10px] text-zinc-500 tabular-nums">
+          <template v-if="performance.p_luck != null">
+            p(luck) = {{ Number(performance.p_luck).toFixed(3) }} · turnover ${{ formatNum(performance.turnover) }}
+          </template>
+          <template v-else>
+            below n=10 — a simulation says nothing useful here
+          </template>
+        </span>
+        <span v-if="performance.n_pending > 0" class="text-[10px] text-amber-400 tabular-nums">
+          {{ performance.n_pending }} open
+        </span>
       </div>
     </div>
   </div>
@@ -77,24 +98,40 @@
 
 <script setup>
 import { computed } from 'vue'
-import { getWalletMeta } from '~/utils/wallet-meta'
+import { resolveWalletMeta } from '~/utils/wallet-meta'
 
 const props = defineProps({
   wallet:           { type: Object, required: true },
+  /** One `get_wallet_performance` row. Null renders the stats as unknown. */
+  performance:      { type: Object, default: null },
   subscription:     { type: Object, default: null }, // { expires_at, ... }
   sparklinePoints:  { type: Array, default: () => [] }, // [{ts, balance}, ...]
 })
 
-const meta = computed(() => getWalletMeta(props.wallet?.id))
+const meta = computed(() => resolveWalletMeta(props.wallet || { id: 0 }))
 
-const pl = computed(() => {
-  return parseFloat(props.wallet?.balance || 0) - parseFloat(props.wallet?.initial_balance || 0)
-})
+/**
+ * Balance movement — this one IS a bankroll figure and is labelled as such
+ * beside the balance. It is not ROI, and must not be relabelled as ROI: for W7
+ * this reads +69.71 where the ROI is +11.5%.
+ */
+const pl = computed(() =>
+  parseFloat(props.wallet?.balance || 0) - parseFloat(props.wallet?.initial_balance || 0))
 
-const roi = computed(() => {
-  const init = parseFloat(props.wallet?.initial_balance) || 1
-  return ((parseFloat(props.wallet?.balance || 0) - init) / init) * 100
-})
+const roi = computed(() =>
+  props.performance?.roi_pct == null ? null : Number(props.performance.roi_pct))
+
+const winRate = computed(() =>
+  props.performance?.win_rate_pct == null ? null : Number(props.performance.win_rate_pct))
+
+const nWagers = computed(() => Number(props.performance?.n_wagers ?? 0))
+
+const verdictClass = computed(() => ({
+  EDGE:   'bg-emerald-500/15 text-emerald-300',
+  hint:   'bg-amber-500/15 text-amber-300',
+  LUCK:   'bg-zinc-700/40 text-zinc-400',
+  'n<10': 'bg-zinc-800/60 text-zinc-500',
+}[props.performance?.verdict] || 'bg-zinc-800/60 text-zinc-500'))
 
 const expiresInDays = computed(() => {
   const exp = props.subscription?.expires_at

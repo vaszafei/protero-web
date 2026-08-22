@@ -1,16 +1,31 @@
 <template>
-  <div class="p-3 sm:p-6 max-w-5xl mx-auto min-h-screen pb-20 lg:pb-6">
+  <div class="p-3 sm:p-6 max-w-[1600px] mx-auto min-h-screen pb-20 lg:pb-6">
     <!-- Header -->
-    <div class="mb-4 flex items-center justify-between">
+    <div class="mb-4 flex items-end justify-between gap-4 flex-wrap">
       <div>
         <h1 class="text-xl sm:text-2xl font-bold text-white">Wallets</h1>
         <p class="text-zinc-500 text-xs sm:text-sm mt-0.5">
-          {{ mode === 'subscribed' ? 'Your subscribed AI strategies' : 'Subscribe to AI strategies and follow their picks' }}
+          Every wallet in the ledger, scored the way
+          <code class="text-zinc-600">common.wallet_significance</code> scores it.
         </p>
       </div>
-      <div v-if="balance != null" class="text-right">
-        <p class="text-[10px] text-zinc-500 uppercase tracking-wider">Credits</p>
-        <p class="text-base font-bold text-emerald-400 tabular-nums">{{ balance }}</p>
+      <div v-if="fleet" class="flex items-center gap-5 text-xs">
+        <div>
+          <p class="text-[10px] text-zinc-500 uppercase tracking-wider">Settled</p>
+          <p class="text-base font-bold text-zinc-200 tabular-nums">{{ fleet.wagers }}</p>
+        </div>
+        <div>
+          <p class="text-[10px] text-zinc-500 uppercase tracking-wider">Open</p>
+          <p class="text-base font-bold tabular-nums" :class="fleet.pending ? 'text-amber-400' : 'text-zinc-600'">
+            {{ fleet.pending }}
+          </p>
+        </div>
+        <div>
+          <p class="text-[10px] text-zinc-500 uppercase tracking-wider">P&amp;L</p>
+          <p class="text-base font-bold tabular-nums" :class="fleet.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'">
+            {{ fleet.pnl >= 0 ? '+' : '' }}{{ fleet.pnl.toFixed(2) }}
+          </p>
+        </div>
       </div>
     </div>
 
@@ -20,59 +35,39 @@
     </div>
 
     <template v-else>
-      <!-- ════════════════════════════════════════════════════════════════
-           MODE A — DISCOVERY (no subscriptions yet)
-      ═════════════════════════════════════════════════════════════════ -->
-      <WalletDiscovery
-        v-if="mode === 'discovery'"
-        :wallets="catalogueWallets"
-        :pricing="pricing"
-        :busy-wallet-id="busyWalletId"
-        @subscribe="openSubscribeModal"
+      <!-- Roster -->
+      <WalletRoster
+        :wallets="allWallets"
+        :performance="performance"
+        :selected-id="activeWalletId"
+        @select="selectWallet"
+        class="mb-6"
       />
 
-      <!-- ════════════════════════════════════════════════════════════════
-           MODE B — SUBSCRIBED VIEW
-      ═════════════════════════════════════════════════════════════════ -->
-      <template v-else>
-        <!-- Subscribed wallet pill row -->
-        <div class="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-thin">
+      <!-- ── Selected wallet ─────────────────────────────────────── -->
+      <div v-if="activeWallet" class="border-t border-edge pt-5">
+        <div class="flex items-baseline gap-2 mb-3">
+          <h2 class="text-sm font-bold text-zinc-100">{{ activeMeta.longName }}</h2>
+          <span class="text-[11px] text-zinc-600">W{{ activeWallet.id }}</span>
           <button
-            v-for="w in subscribedWallets" :key="w.id"
-            @click="selectWallet(w.id)"
-            class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap border"
-            :class="activeWalletId === w.id
-              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-              : 'bg-surface-light text-zinc-400 border-edge hover:border-zinc-600'"
-          >
-            <span>{{ getWalletMeta(w.id).shortName }}</span>
-            <span class="ml-1.5 tabular-nums" :class="walletROIOf(w) >= 0 ? 'text-emerald-400/70' : 'text-red-400/70'">
-              {{ walletROIOf(w) >= 0 ? '+' : '' }}{{ walletROIOf(w).toFixed(0) }}%
-            </span>
-          </button>
-
-          <!-- Add more button -->
-          <button
-            @click="showDiscoveryModal = true"
-            class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 whitespace-nowrap"
-          >
-            <UIcon name="i-heroicons-plus" class="w-3 h-3 inline -mt-0.5" />
-            Subscribe
-          </button>
+            @click="activeWalletId = null"
+            class="ml-auto text-[11px] text-zinc-500 hover:text-zinc-300"
+          >Close</button>
         </div>
 
-        <!-- Hero -->
-        <div v-if="activeWallet" class="mb-4">
+        <p v-if="activeWallet.bio" class="text-[11px] text-zinc-500 leading-relaxed mb-3 max-w-3xl">
+          {{ activeWallet.bio }}
+        </p>
+
+        <div class="grid lg:grid-cols-3 gap-4 mb-4">
           <WalletHero
+            class="lg:col-span-1"
             :wallet="activeWallet"
-            :subscription="activeSubscription"
+            :performance="activePerformance"
             :sparkline-points="sparklinePoints"
           />
-        </div>
-
-        <!-- Performance chart -->
-        <div v-if="activeWalletId" class="mb-4">
           <WalletPerformanceChart
+            class="lg:col-span-2"
             :points="historyPoints"
             :model-value="historyDays"
             :loading="historyLoading"
@@ -99,7 +94,6 @@
             </div>
 
             <template v-else>
-              <!-- Parlays section -->
               <div v-if="parlays.length > 0" class="space-y-1.5">
                 <p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-1 mb-1.5">
                   Parlays · {{ parlaysTotal }}
@@ -107,13 +101,11 @@
                 <WalletParlayRow v-for="p in parlays" :key="`p${p.id}`" :parlay="p" />
               </div>
 
-              <!-- Divider -->
               <div
                 v-if="parlays.length > 0 && bets.length > 0"
                 class="border-t border-edge/30 my-3"
               ></div>
 
-              <!-- Singles section -->
               <div v-if="bets.length > 0" class="space-y-1.5">
                 <p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-1 mb-1.5">
                   Singles · {{ betsTotal }}
@@ -140,60 +132,38 @@
             </div>
           </div>
         </div>
-      </template>
-
-      <!-- Discovery modal (Mode B → "Subscribe" pill) -->
-      <UModal v-model="showDiscoveryModal">
-        <div class="p-4 sm:p-5 bg-surface rounded-xl max-h-[85vh] overflow-y-auto">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-base font-bold text-zinc-100">More wallets</h2>
-            <button @click="showDiscoveryModal = false" class="text-zinc-500 hover:text-zinc-300">
-              <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
-            </button>
-          </div>
-          <WalletDiscovery
-            :wallets="unsubscribedWallets"
-            :pricing="pricing"
-            :busy-wallet-id="busyWalletId"
-            @subscribe="(w) => { showDiscoveryModal = false; openSubscribeModal(w) }"
-          />
-          <div v-if="unsubscribedWallets.length === 0" class="text-center py-6">
-            <p class="text-sm text-zinc-500">You're subscribed to every available wallet.</p>
-          </div>
-        </div>
-      </UModal>
-
-      <!-- Subscribe confirm -->
-      <WalletSubscribeModal
-        v-model="showConfirmModal"
-        :wallet="modalWallet"
-        :pricing="pricing"
-        :balance="balance ?? 0"
-        :busy="confirming"
-        @confirm="confirmSubscribe"
-      />
+      </div>
     </template>
   </div>
 </template>
 
 <script setup>
+/**
+ * Operator wallet console.
+ *
+ * Was a consumer subscribe-with-credits flow (discovery mode → 500-credit
+ * subscribe modal → subscribed view). The app is an operator console, so the
+ * roster is simply visible: no pricing, no gating, and frozen wallets are shown
+ * rather than filtered out, because a wallet that stopped writing is history an
+ * operator still needs to read.
+ *
+ * Every number comes from the `get_wallet_performance` RPC. Do not reintroduce
+ * a client-side ROI: the three formulas this page used to carry all computed
+ * bankroll return, which renders W7 as +69.7% where its ROI is +11.5%.
+ */
 import { ref, computed, onMounted } from 'vue'
-import { getWalletMeta } from '~/utils/wallet-meta'
+import { resolveWalletMeta } from '~/utils/wallet-meta'
 
 definePageMeta({ middleware: 'auth' })
 
 const toast = useToast()
 const api = useApi()
 
-// ─── Constants ──────────────────────────────────────────
 const PAGE_SIZE = 50
 
-// ─── State ──────────────────────────────────────────────
 const loading = ref(true)
-const allWallets = ref([])         // every active wallet from `wallets`
-const subscriptions = ref([])      // [{wallet_id, expires_at, ...}]
-const pricing = ref({ cost_credits: 500, duration_days: 30 })
-const balance = ref(null)          // user's credit balance
+const allWallets = ref([])
+const performance = ref([])
 const activeWalletId = ref(null)
 
 // Bets (singles)
@@ -215,56 +185,32 @@ const historyDays = ref(30)
 const historyPoints = ref([])
 const historyLoading = ref(false)
 
-// Modals
-const showDiscoveryModal = ref(false)
-const showConfirmModal = ref(false)
-const modalWallet = ref(null)
-const busyWalletId = ref(null)
-const confirming = ref(false)
-
-// ─── Computed ───────────────────────────────────────────
-const subscribedIds = computed(() => new Set(subscriptions.value.map(s => s.wallet_id)))
-
-const subscribedWallets = computed(() =>
-  allWallets.value.filter(w => subscribedIds.value.has(w.id))
-)
-const unsubscribedWallets = computed(() =>
-  allWallets.value.filter(w => !subscribedIds.value.has(w.id))
-)
-const catalogueWallets = computed(() => allWallets.value)
-
-const mode = computed(() => subscribedWallets.value.length > 0 ? 'subscribed' : 'discovery')
-
 const activeWallet = computed(() => allWallets.value.find(w => w.id === activeWalletId.value) || null)
-const activeSubscription = computed(() => subscriptions.value.find(s => s.wallet_id === activeWalletId.value) || null)
+const activeMeta = computed(() => activeWallet.value ? resolveWalletMeta(activeWallet.value) : null)
+const activePerformance = computed(() =>
+  performance.value.find(p => p.wallet_id === activeWalletId.value) || null)
 
-const sparklinePoints = computed(() => {
-  // Last 30 history points serve double-duty as the hero sparkline.
-  return historyPoints.value.slice(-30)
+const sparklinePoints = computed(() => historyPoints.value.slice(-30))
+
+/** Fleet totals — summed over wagers, so parlays count once. */
+const fleet = computed(() => {
+  if (!performance.value.length) return null
+  return performance.value.reduce((acc, p) => ({
+    wagers: acc.wagers + Number(p.n_wagers || 0),
+    pending: acc.pending + Number(p.n_pending || 0),
+    pnl: acc.pnl + Number(p.pnl || 0),
+  }), { wagers: 0, pending: 0, pnl: 0 })
 })
-
-// ─── Helpers ────────────────────────────────────────────
-function walletROIOf(w) {
-  const init = parseFloat(w.initial_balance) || 1
-  return ((parseFloat(w.balance) - init) / init) * 100
-}
 
 // ─── Data loading ───────────────────────────────────────
 async function loadAll() {
   try {
-    const [subsData, creditsData] = await Promise.all([
-      api.fetchWalletSubscriptions(),
-      api.fetchCredits().catch(() => null),
+    const [walletsData, perf] = await Promise.all([
+      api.fetchWallets(),
+      api.fetchWalletPerformance().catch(() => []),
     ])
-    allWallets.value = subsData.wallets || []
-    subscriptions.value = subsData.subscriptions || []
-    pricing.value = subsData.pricing || pricing.value
-    balance.value = creditsData?.balance ?? creditsData?.credits ?? null
-
-    // Auto-select first subscribed wallet (or first wallet if discovery mode)
-    if (!activeWalletId.value && subscribedWallets.value.length > 0) {
-      activeWalletId.value = subscribedWallets.value[0].id
-    }
+    allWallets.value = walletsData.wallets || []
+    performance.value = perf || []
   } catch (e) {
     console.error('Failed to load wallet data:', e)
     toast.add({ title: 'Failed to load wallets', color: 'red' })
@@ -348,52 +294,15 @@ function setHistoryDays(d) {
 function prevPage() { betsPage.value--; loadBets() }
 function nextPage() { betsPage.value++; loadBets() }
 
-// ─── Subscribe flow ─────────────────────────────────────
-function openSubscribeModal(w) {
-  modalWallet.value = { ...w, meta: getWalletMeta(w.id) }
-  showConfirmModal.value = true
-}
-
-async function confirmSubscribe(w) {
-  if (!w) return
-  confirming.value = true
-  busyWalletId.value = w.id
-  try {
-    const res = await api.subscribeToWallet(w.id)
-    if (res?.success) {
-      toast.add({ title: 'Subscribed', description: `Active until ${new Date(res.expires_at).toLocaleDateString()}` })
-      balance.value = res.balance_after ?? balance.value
-      showConfirmModal.value = false
-      // Refresh subscriptions and select the new wallet
-      await loadAll()
-      activeWalletId.value = w.id
-      betsPage.value = 0
-      betFilter.value = ''
-      await Promise.all([loadBets(), loadParlays(), loadHistory()])
-    } else {
-      toast.add({
-        title: 'Could not subscribe',
-        description: res?.error === 'insufficient_credits'
-          ? `Need ${res.required} credits, have ${res.balance}`
-          : (res?.error || 'unknown error'),
-        color: 'red',
-      })
-    }
-  } catch (e) {
-    console.error('Subscribe failed:', e)
-    toast.add({ title: 'Subscribe failed', description: e.message || String(e), color: 'red' })
-  } finally {
-    confirming.value = false
-    busyWalletId.value = null
-  }
-}
-
-// ─── Init ───────────────────────────────────────────────
 onMounted(async () => {
   await loadAll()
   loading.value = false
-  if (activeWalletId.value) {
-    await Promise.all([loadBets(), loadParlays(), loadHistory()])
-  }
+  // Open the wallet actually carrying exposure — the one an operator checks first.
+  const withOpen = performance.value
+    .filter(p => Number(p.n_pending) > 0)
+    .sort((a, b) => Number(b.n_pending) - Number(a.n_pending))[0]
+  if (withOpen) selectWallet(withOpen.wallet_id)
 })
+
+useHead({ title: 'Wallets · Protero' })
 </script>
