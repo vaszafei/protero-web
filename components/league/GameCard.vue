@@ -27,10 +27,11 @@
         <div v-else class="w-6 h-6 rounded-full bg-[#0848a8]/20 flex items-center justify-center">
           <span class="text-[8px] text-zinc-400 font-bold">H</span>
         </div>
+        <span class="text-[9px] text-zinc-300 font-medium leading-tight text-center line-clamp-1 max-w-[52px]" :title="game.home_name">{{ game.home_name }}</span>
       </div>
 
       <!-- Score or VS -->
-      <div class="flex flex-col items-center">
+      <div class="flex flex-col items-center flex-shrink-0">
         <span v-if="game.home_goals !== null" class="text-sm font-bold text-primary-400 leading-none tabular-nums">
           {{ game.home_goals }}-{{ game.away_goals }}
         </span>
@@ -43,6 +44,7 @@
         <div v-else class="w-6 h-6 rounded-full bg-[#f82828]/15 flex items-center justify-center">
           <span class="text-[8px] text-zinc-400 font-bold">A</span>
         </div>
+        <span class="text-[9px] text-zinc-300 font-medium leading-tight text-center line-clamp-1 max-w-[52px]" :title="game.away_name">{{ game.away_name }}</span>
       </div>
     </div>
 

@@ -6,7 +6,7 @@
     </div>
 
     <!-- Main Content -->
-    <div v-else-if="data" class="max-w-7xl mx-auto p-2.5 sm:p-6">
+    <div v-else-if="data" class="max-w-[1600px] mx-auto p-2.5 sm:p-6">
       <!-- Back Button -->
       <button
         type="button"
