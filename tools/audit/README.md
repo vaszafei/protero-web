@@ -35,7 +35,7 @@ User 1 is `admin@protero.com`. Delete the row when done, or let it expire.
 npm run dev                                  # must be running
 
 node tools/audit/crawl.mjs                   # every route, mobile + desktop
-node tools/audit/check.mjs /wallet /entities # just these, desktop only
+node tools/audit/check.mjs /wallet /leagues  # just these, desktop only
 ```
 
 `crawl.mjs` writes `results.json` and `shots/<route>-<viewport>.png` into the working

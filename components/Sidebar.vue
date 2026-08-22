@@ -20,6 +20,16 @@
         <LayoutGrid :size="18" />
         <span class="text-sm font-medium">Dashboard</span>
       </NuxtLink>
+
+      <NuxtLink 
+        to="/calendar" 
+        class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
+        active-class="bg-surface-light text-white"
+        @click="$emit('navigate')"
+      >
+        <CalendarDays :size="18" />
+        <span class="text-sm font-medium">Calendar</span>
+      </NuxtLink>
       
       <NuxtLink 
         to="/leagues" 
@@ -41,15 +51,6 @@
         <span class="text-sm font-medium">Wallet</span>
       </NuxtLink>
 
-      <NuxtLink 
-        to="/entities" 
-        class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
-        active-class="bg-surface-light text-white"
-        @click="$emit('navigate')"
-      >
-        <Network :size="18" />
-        <span class="text-sm font-medium">Entities</span>
-      </NuxtLink>
 
       <NuxtLink 
         v-if="isAdmin"
@@ -104,7 +105,7 @@
 </template>
 
 <script setup>
-import { LayoutGrid, User, LogOut, Shield, ShieldCheck, Trophy, Wallet, Network } from 'lucide-vue-next'
+import { LayoutGrid, CalendarDays, User, LogOut, Shield, ShieldCheck, Trophy, Wallet } from 'lucide-vue-next'
 
 defineEmits(['navigate'])
 

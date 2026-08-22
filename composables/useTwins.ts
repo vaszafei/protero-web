@@ -145,6 +145,33 @@ export const useTwins = () => {
     return (data || []) as TwinLeague[]
   }
 
+  /** One competition's twin row. Null for anything the layer has not fitted. */
+  const fetchTwinLeague = async (leagueKey: string): Promise<TwinLeague | null> => {
+    const { data, error } = await supabase
+      .from('twin_league')
+      .select('*')
+      .eq('league_key', leagueKey)
+      .maybeSingle()
+    if (error) throw error
+    return (data as TwinLeague) || null
+  }
+
+  /**
+   * Clubs moving INTO or OUT OF one competition. Both directions matter on a
+   * league page: who arrived carrying a rating from elsewhere (the blind spot),
+   * and who left.
+   */
+  const fetchLeagueTransitions = async (leagueKey: string, limit = 60): Promise<TwinTransition[]> => {
+    const { data, error } = await supabase
+      .from('twin_league_transitions')
+      .select('*')
+      .or(`to_league.eq.${leagueKey},from_league.eq.${leagueKey}`)
+      .order('to_season', { ascending: false })
+      .limit(Math.min(limit, 300))
+    if (error) throw error
+    return (data || []) as TwinTransition[]
+  }
+
   const fetchTwinTeam = async (teamId: number): Promise<TwinTeam | null> => {
     const { data, error } = await supabase
       .from('twin_team')
@@ -242,6 +269,8 @@ export const useTwins = () => {
 
   return {
     fetchTwinLeagues,
+    fetchTwinLeague,
+    fetchLeagueTransitions,
     fetchTwinTeam,
     fetchTwinTeamHistory,
     fetchTwinTeams,

@@ -44,6 +44,14 @@
         class="mb-6"
       />
 
+      <!-- External tipster sources — why W33–W36 read zero -->
+      <TipsterSources
+        v-if="tipsters"
+        :sources="tipsters.sources"
+        :unit-stake="tipsters.unit_stake"
+        class="mb-6"
+      />
+
       <!-- ── Selected wallet ─────────────────────────────────────── -->
       <div v-if="activeWallet" class="border-t border-edge pt-5">
         <div class="flex items-baseline gap-2 mb-3">
@@ -153,6 +161,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
+import TipsterSources from '~/components/wallet/TipsterSources.vue'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -165,6 +174,7 @@ const loading = ref(true)
 const allWallets = ref([])
 const performance = ref([])
 const activeWalletId = ref(null)
+const tipsters = ref(null)
 
 // Bets (singles)
 const bets = ref([])
@@ -205,12 +215,14 @@ const fleet = computed(() => {
 // ─── Data loading ───────────────────────────────────────
 async function loadAll() {
   try {
-    const [walletsData, perf] = await Promise.all([
+    const [walletsData, perf, tips] = await Promise.all([
       api.fetchWallets(),
       api.fetchWalletPerformance().catch(() => []),
+      $fetch('/api/wallet/tipsters').catch(() => null),
     ])
     allWallets.value = walletsData.wallets || []
     performance.value = perf || []
+    tipsters.value = tips
   } catch (e) {
     console.error('Failed to load wallet data:', e)
     toast.add({ title: 'Failed to load wallets', color: 'red' })

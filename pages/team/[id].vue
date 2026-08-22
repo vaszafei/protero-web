@@ -7,16 +7,19 @@
     <div v-else-if="!twin" class="py-20 text-center">
       <p class="text-sm text-zinc-400">No twin for team #{{ teamId }}.</p>
       <p class="text-[11px] text-zinc-600 mt-1">
-        The entity layer covers football clubs. Run
+        The entity layer covers European football clubs. Run
         <code>python3 -m ml.twins.build --persist</code> if this club is new.
       </p>
-      <NuxtLink to="/entities" class="text-xs text-blue-400 hover:underline mt-3 inline-block">Back to Entities</NuxtLink>
+      <NuxtLink to="/leagues" class="text-xs text-blue-400 hover:underline mt-3 inline-block">Back to Competitions</NuxtLink>
     </div>
 
     <template v-else>
       <!-- Identity -->
       <div class="mb-5">
-        <NuxtLink to="/entities" class="text-[11px] text-zinc-500 hover:text-zinc-300">← Entities</NuxtLink>
+        <NuxtLink
+          :to="twin.current_league ? `/league/${twin.current_league}` : '/leagues'"
+          class="text-[11px] text-zinc-500 hover:text-zinc-300"
+        >← {{ twin.current_league ? leagueName(twin.current_league) : 'Competitions' }}</NuxtLink>
         <div class="flex items-baseline gap-2 flex-wrap mt-1">
           <h1 class="text-xl sm:text-2xl font-bold text-white">{{ twin.name }}</h1>
           <span class="text-[11px] text-zinc-600">#{{ twin.team_id }}</span>

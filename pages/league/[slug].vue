@@ -1,11 +1,23 @@
 <template>
   <div class="min-h-screen bg-surface-base">
    <div class="max-w-[1600px] mx-auto p-3 sm:p-6">
-    <!-- Back Button -->
-    <NuxtLink to="/leagues" class="inline-flex items-center gap-1.5 sm:gap-2 text-zinc-400 hover:text-zinc-200 mb-4 sm:mb-6 transition-colors">
-      <ChevronLeft :size="18" />
-      <span class="text-sm font-medium">{{ data?.name || leagueName }}</span>
-    </NuxtLink>
+    <!-- Identity -->
+    <div class="mb-4">
+      <NuxtLink to="/leagues" class="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors">
+        <ChevronLeft :size="14" />
+        <span class="text-[11px] font-medium">Competitions</span>
+      </NuxtLink>
+      <div class="flex items-baseline gap-2 flex-wrap mt-1">
+        <h1 class="text-xl sm:text-2xl font-bold text-white">{{ data?.name || leagueName }}</h1>
+        <span v-if="twin?.is_cup" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-zinc-700/40 text-zinc-400">CUP</span>
+        <span v-else-if="twin?.tier" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-zinc-700/40 text-zinc-400">TIER {{ twin.tier }}</span>
+        <span v-if="data?.sport === 'basketball'" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-500/15 text-orange-400">BASKETBALL</span>
+      </div>
+      <p class="text-xs text-zinc-500 mt-0.5">
+        The digital twin of this competition — its fitted level, its clubs, and who moved in or out.
+        Fixtures and model output are below.
+      </p>
+    </div>
 
     <!-- Loading State -->
     <div v-if="loading || !data" class="flex justify-center items-center py-16">
@@ -17,6 +29,22 @@
     
     <!-- Main Content -->
     <div v-else>
+      <!-- ═══ THE TWIN — the primary identity of a competition ═══ -->
+      <LeagueTwin
+        :league-key="data.key"
+        :twin="twin"
+        :clubs="twinClubs"
+        :transitions="twinTransitions"
+        :peers="twinPeers"
+        :leagues="allLeagues"
+        class="mb-6"
+      />
+
+      <!-- ═══ Fixtures and model output — secondary ═══════════════ -->
+      <div class="border-t border-edge pt-5">
+        <h2 class="text-sm font-bold text-zinc-100 mb-3">Fixtures &amp; models</h2>
+      </div>
+
       <!-- Tab Navigation -->
       <TabNavigation 
         v-model:activeTab="activeTab"
@@ -83,6 +111,7 @@ import OverviewView from '~/components/league/OverviewView.vue'
 import AnalysisView from '~/components/league/AnalysisView.vue'
 import PredictionsView from '~/components/league/PredictionsView.vue'
 import ParlayGenerator from '~/components/league/ParlayGenerator.vue'
+import LeagueTwin from '~/components/league/LeagueTwin.vue'
 import { useLeagueStats } from '~/composables/useLeagueStats'
 
 // Route and initial data
@@ -105,6 +134,37 @@ const data = computed(() => leagueData.value ? {
   standings: leagueData.value.standings
 } : null)
 const loading = ref(false)
+
+/**
+ * The twin layer for this competition. Loaded alongside the fixture data
+ * rather than behind a tab, because the twin is what a competition IS — the
+ * games are what happened in it. Absent for anything outside the European
+ * football corpus (basketball, LATAM), which LeagueTwin renders explicitly
+ * rather than as an empty panel.
+ */
+const twins = useTwins()
+const twin = ref(null)
+const twinClubs = ref([])
+const twinTransitions = ref([])
+const twinPeers = ref([])
+const allLeagues = ref([])
+
+onMounted(async () => {
+  const key = String(route.params.slug)
+  const [t, clubs, trans, peers, lgs] = await Promise.all([
+    twins.fetchTwinLeague(key).catch(() => null),
+    twins.fetchTwinTeams({ league: key, limit: 100 }).catch(() => []),
+    twins.fetchLeagueTransitions(key).catch(() => []),
+    twins.fetchTwinLeagues().catch(() => []),
+    api.fetchLeagues().then(d => d.leagues || []).catch(() => []),
+  ])
+  twin.value = t
+  // Strongest attack first — the ordering an operator reads a league in.
+  twinClubs.value = [...clubs].sort((a, b) => (b.attack ?? -99) - (a.attack ?? -99))
+  twinTransitions.value = trans
+  twinPeers.value = peers
+  allLeagues.value = lgs
+})
 
 // Is this a basketball league?
 const isBball = computed(() => data.value?.sport === 'basketball')

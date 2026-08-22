@@ -33,3 +33,7 @@ supabase/.temp/
 
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
+
+# Page-audit harness output (tools/audit)
+results.json
+shots/

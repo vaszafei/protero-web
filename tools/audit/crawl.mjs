@@ -8,6 +8,7 @@ if (!TOKEN) { console.error('set PROTERO_SESSION — see tools/audit/README.md')
 const ROUTES = [
   { name: 'login',             path: '/login' },
   { name: 'dashboard',         path: '/' },
+  { name: 'calendar',          path: '/calendar' },
   { name: 'leagues',           path: '/leagues' },
   { name: 'league-football',   path: '/league/premier_league' },
   { name: 'league-basketball', path: '/league/nba' },
@@ -15,7 +16,6 @@ const ROUTES = [
   { name: 'game-completed-fb', path: '/game/52002' },
   { name: 'game-completed-bb', path: '/game/48382' },
   { name: 'wallet',            path: '/wallet' },
-  { name: 'entities',          path: '/entities' },
   { name: 'team',              path: '/team/342' },
   { name: 'my-real-bets',      path: '/my-real-bets' },
   { name: 'account',           path: '/account' },

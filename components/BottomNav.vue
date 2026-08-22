@@ -25,15 +25,15 @@
 </template>
 
 <script setup>
-import { LayoutGrid, Trophy, Wallet, Network } from 'lucide-vue-next'
+import { LayoutGrid, CalendarDays, Trophy, Wallet } from 'lucide-vue-next'
 
 const route = useRoute()
 
 const navItems = [
   { to: '/', label: 'Home', icon: LayoutGrid },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/leagues', label: 'Leagues', icon: Trophy },
   { to: '/wallet', label: 'Wallet', icon: Wallet },
-  { to: '/entities', label: 'Entities', icon: Network },
 ]
 
 const isActive = (to) => {

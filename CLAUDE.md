@@ -94,15 +94,15 @@ protero-frontend/
 
 | Path | Page | Purpose |
 |------|------|---------|
-| `/` | `index.vue` (~221L) | Dashboard — toolbar (sport/wallet dropdowns), wallet card, calendar/date-bar, games, predictions, bets, sport filter |
+| `/` | `index.vue` (~105L) | **Control room** — open exposure, live slate, fleet health, pipeline status, blind spots. All aggregation in `/api/dashboard`. |
+| `/calendar` | `calendar.vue` (~221L) | Month calendar — toolbar (sport/wallet dropdowns), wallet card, calendar/date-bar, games, predictions, bets. **This was `/` until 2026-08-22.** |
 | `/login` | `login.vue` (18L) | Login form (no layout) |
-| `/leagues` | `leagues.vue` (~165L) | Grid of all leagues with game counts |
-| `/league/[slug]` | `league/[slug].vue` (659L) | League detail — tabs: Overview, Analysis, Predictions |
+| `/leagues` | `leagues.vue` (~235L) | **Competitions** — every competition in `games` (37, not the registry's 22), grouped Leagues / Cups / Not fitted, ranked by twin `level`. |
+| `/league/[slug]` | `league/[slug].vue` (~700L) | **Twin-led league page** — fitted level/home/spread, club ratings (→ `/team/[id]`), transitions in-out; then Overview / Analysis / Predictions tabs. |
 | `/game/[id]` | `game/[id].vue` (~467L) | Game detail — timeline/stats/players (completed) or analysis/h2h/prediction (scheduled) |
 | `/player/[id]` | `player/[id].vue` (~467L) | Player season page |
-| `/team/[id]` | `team/[id].vue` (~225L) | Digital-twin team page |
+| `/team/[id]` | `team/[id].vue` (~225L) | Digital-twin club page — ratings, season history, squad continuity |
 | `/wallet` | `wallet.vue` (~308L) | Operator wallet console — roster + per-wallet performance |
-| `/entities` | `entities.vue` (~321L) | Twin entity layer — clubs with no history in their division |
 | `/gates` | `gates.vue` (~129L) | Pipeline health + CLI-gate status (honest, no fabricated greens) |
 | `/my-real-bets` | `my-real-bets.vue` (~518L) | Operator real-money slip log (`user_real_bets`, CD #31) |
 | `/account` | `account.vue` (17L) | Profile card |
@@ -118,11 +118,12 @@ protero-frontend/
 | **game/** | 3 | `[id].get`, `[id]/player-props.get/post` |
 | **games/** | 1 | `all.ts` |
 | **gates** | 1 | `gates.get` — pipeline health + CLI-gate status |
+| **dashboard** | 1 | `dashboard.get` — control-room aggregate (exposure, slate, fleet, pipelines, blind spots) |
 | **h2h/** | 1 | `[homeTeam]/[awayTeam].get` |
-| **leagues/** | 2 | `index.get`, `[slug].get` |
+| **leagues/** | 3 | `index.get`, `[slug].get`, `overview.get` — every competition + twin + role |
 | **predictions/** | 3 | `[gameId].get`, `accuracy.get`, `bulk-regenerate.post` |
 | **user-real-bets/** | 4 | `index.get/post`, `[id].patch/delete` |
-| **wallet/** | 5 | `bets.get`, `list.get`, `settle-bets.post`, `stats.get`, `status.get` |
+| **wallet/** | 6 | `bets.get`, `list.get`, `settle-bets.post`, `stats.get`, `status.get`, `tipsters.get` |
 | **misc** | 4 | `parlays.get`, `player/[id]/season.get`, `seasons/[leagueKey].get`, `sports.get`, `update-match.post` |
 
 > The credit/subscription/picks/user-bets routes were removed 2026-08-22 with the
@@ -151,7 +152,7 @@ protero-frontend/
 | `useSupabaseClient()` | Supabase client with the stored JWT attached via `accessToken` callback. |
 | `useLeagueStats()` | `computedStandings`, `roundStatistics`, `overallStats`. Pure computation from games array. |
 | `useSwr()` | SWR cache (memory + `@capacitor/preferences` persist). |
-| `useTwins()` | Entity-layer fetchers for `twin_*`. |
+| `useTwins()` | Entity-layer fetchers for `twin_*` — incl. `fetchTwinLeague(key)` and `fetchLeagueTransitions(key)` for the league twin. |
 
 ## Key Patterns
 
