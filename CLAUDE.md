@@ -58,25 +58,27 @@ protero-frontend/
 ├── capacitor.config.json   Android app: com.protero.app
 │
 ├── pages/                  13 routes (see Routes section)
-├── components/             66 components organized by domain
+├── components/             67 components organized by domain
 │   ├── admin/              6 — admin panel components
 │   ├── dashboard/          12 — home page cards, calendar, stats (incl. DashboardWalletCard, DashboardToolbar)
-│   ├── game/               17 — match detail views, stats, predictions
+│   ├── game/               16 — match detail views, stats, predictions, markets (incl. GameTabs, MomentumChart, PossessionDonut, OddsLadder)
 │   ├── league/             18 (incl. predictions/) — league detail tabs
 │   ├── twin/               1 — entity/blind-spot layer
 │   ├── wallet/             8 — roster, hero, breakdown, provenance, bet/parlay rows
-│   ├── ui/                 5 — shared primitives (Card, EmptyState, LoadingSpinner, etc.)
+│   ├── ui/                 7 — shared primitives (Card, Reveal, CountUp, EmptyState, LoadingSpinner, PageHeader, StatCard)
 │   └── (root)              7 — Sidebar, BottomNav, etc.
 
-├── composables/            13 — useApi, useAuth, useAuthEndpoint, useAuthToken,
+├── composables/            14 — useApi, useAuth, useAuthEndpoint, useAuthToken,
 │                           useSupabaseClient, useCapacitor, useSwr, useTwins,
-│                           useLeagueStats, useStoiximanOcr, useStoiximanParser
+│                           useLeagueStats, useStoiximanOcr, useStoiximanParser,
+│                           useCountUp (motion count-up)
 ├── layouts/                1 — default (sidebar + bottom nav)
 ├── middleware/             1 — auth (redirects to /login when unauthenticated)
 ├── plugins/                2 — auth.client, capacitor.client
 ├── types/                  1 — database.ts (Supabase schema types)
-├── utils/                  9 — cache, constants, dateTime, design-tokens,
-│                           formatters, season, teamLogo, wallet-meta, bet-label
+├── utils/                  10 — cache, constants, dateTime, design-tokens,
+│                           formatters, season, teamLogo, wallet-meta, bet-label,
+│                           viz (chart palette), motion (animation tokens)
 │
 ├── server/
 │   ├── api/                37 endpoints (auth, admin, game, leagues, predictions, wallet, user-real-bets, gates)

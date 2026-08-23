@@ -1,0 +1,40 @@
+/*
+ * Shared panel system — the single definition for game, player and league
+ * pages. Extracted from the league-twin panel language (LeagueOverview.vue).
+ * Imported once in app.vue so the three pages share one definition.
+ */
+
+.panel {
+  border-radius: 0.5rem;
+  background: #1c1f27;
+  border: 1px solid #2a2f3a;
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid #2a2f3a;
+  background: rgba(37, 40, 48, 0.3);
+}
+
+.panel-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(212, 212, 216);
+}
+
+.pill {
+  padding: 0.06rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill-blue { background: rgba(57, 135, 229, 0.18); color: #8fbdf5; }
+.pill-amber { background: rgba(250, 178, 25, 0.16); color: #f0c469; }
+.pill-dim { background: rgba(255, 255, 255, 0.06); color: rgb(140, 143, 152); }

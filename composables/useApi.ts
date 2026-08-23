@@ -231,6 +231,19 @@ export const useApi = () => {
     const homeLineups = (lineups || []).filter((l: any) => l.team_id === game.home_team_id)
     const awayLineups = (lineups || []).filter((l: any) => l.team_id === game.away_team_id)
 
+    // `match_events` is stored as text in the DB (not jsonb), so Supabase returns
+    // it as a raw string. Components call `.map()`/`.length` on it — parse here.
+    let matchEvents: any[] | null = null
+    if (typeof game.match_events === 'string' && game.match_events.trim()) {
+      try {
+        matchEvents = JSON.parse(game.match_events)
+      } catch {
+        matchEvents = null
+      }
+    } else if (Array.isArray(game.match_events)) {
+      matchEvents = game.match_events
+    }
+
     return {
       game: {
         ...game,
@@ -238,6 +251,11 @@ export const useApi = () => {
         away_name: game.away_team?.name || 'Unknown',
         home_key: game.home_team?.team_key || null,
         away_key: game.away_team?.team_key || null,
+        // DB stores these as `*_possession_pct`; normalize so components read
+        // `home_possession` / `away_possession` uniformly.
+        home_possession: game.home_possession_pct ?? null,
+        away_possession: game.away_possession_pct ?? null,
+        match_events: matchEvents,
       },
       lineups: { home: homeLineups, away: awayLineups },
       prediction: game.predictions?.[0] || null

@@ -78,8 +78,8 @@ export default defineEventHandler(async (event) => {
         away_goals: game.away_goals,
         away_formation: game.away_formation,
         // Stats
-        home_possession: game.home_possession,
-        away_possession: game.away_possession,
+        home_possession: game.home_possession_pct,
+        away_possession: game.away_possession_pct,
         home_shots: game.home_shots,
         away_shots: game.away_shots,
         home_shots_on_target: game.home_shots_on_target,
@@ -111,6 +111,8 @@ export default defineEventHandler(async (event) => {
         odds_away: game.odds_away,
         odds_over: game.odds_over,
         odds_under: game.odds_under,
+        // Full raw odds JSONB — 1x2 / dc / btts / ou_ladder (0.5→9.5).
+        odds_raw: game.odds_raw || null,
         // Referee
         referee: game.referee_name ? {
           name: game.referee_name,

@@ -1,5 +1,6 @@
 export default defineNuxtConfig({
   modules: ['@nuxt/ui'],
+  css: ['~/assets/css/panels.css'],
   app: {
     head: {
       title: 'ΠροΤερο Admin',

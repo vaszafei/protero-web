@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-2.5 sm:space-y-4">
     <!-- ===== ODDS SECTION ===== -->
-    <div v-if="hasOdds" class="space-y-2.5 sm:space-y-3">
+    <div v-if="showOdds && hasOdds" class="space-y-2.5 sm:space-y-3">
       <div class="flex items-center justify-between">
         <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Betting Odds</h4>
         <span v-if="recommendedMarket" class="text-[9px] font-bold text-amber-400 uppercase tracking-wider">AI Pick highlighted</span>
@@ -84,7 +84,7 @@
     </div>
 
     <!-- No odds message -->
-    <div v-else class="text-center py-6">
+    <div v-else-if="showOdds" class="text-center py-6">
       <p class="text-sm text-zinc-500">No odds available for this game</p>
     </div>
 
@@ -237,7 +237,10 @@ const props = defineProps({
   sport: { type: String, default: 'football' },
   h2h: { type: Object, default: null },
   h2hLoading: { type: Boolean, default: false },
-  prediction: { type: Object, default: null }
+  prediction: { type: Object, default: null },
+  // Football's odds now live in the dedicated Market tab (OddsLadder), so the
+  // odds section here renders only for basketball.
+  showOdds: { type: Boolean, default: true }
 })
 
 const isBball = computed(() => props.sport === 'basketball')

@@ -1,6 +1,32 @@
 <template>
   <div>
-    <div class="space-y-4">
+    <div class="space-y-2">
+      <!-- Football hero: possession donut + momentum chart above the stat stack -->
+      <template v-if="isFootball">
+        <div
+          v-if="game.home_possession != null && game.away_possession != null"
+          class="rounded-lg bg-surface/40 border border-edge/50 p-2"
+        >
+          <PossessionDonut
+            :home="Number(game.home_possession)"
+            :away="Number(game.away_possession)"
+            :home-label="game.home_name"
+            :away-label="game.away_name"
+          />
+        </div>
+
+        <div
+          v-if="game.match_events && game.match_events.length > 0"
+          class="rounded-lg bg-surface/40 border border-edge/50 p-2"
+        >
+          <MomentumChart
+            :events="game.match_events"
+            :home-label="game.home_name"
+            :away-label="game.away_name"
+          />
+        </div>
+      </template>
+
       <!-- Possession (football only) -->
       <StatBar 
         v-if="isFootball && game.home_possession != null && game.away_possession != null"
@@ -209,7 +235,7 @@
       </div>
 
       <!-- Additional Stats Section (football only) -->
-      <div v-if="isFootball && (hasShootingStats || hasPassingStats)" class="mt-6 pt-6 border-t border-edge space-y-3">
+      <div v-if="isFootball && (hasShootingStats || hasPassingStats)" class="mt-4 pt-4 border-t border-edge space-y-2">
         <!-- Shot Accuracy -->
         <div v-if="hasShootingStats">
           <div class="flex items-center justify-between text-sm mb-2">
@@ -241,6 +267,8 @@
 <script setup>
 import { computed } from 'vue'
 import StatBar from './StatBar.vue'
+import PossessionDonut from './PossessionDonut.vue'
+import MomentumChart from './MomentumChart.vue'
 
 const props = defineProps({
   game: {

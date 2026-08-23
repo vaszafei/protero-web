@@ -1,133 +1,94 @@
 <template>
-  <div class="p-4 bg-surface-light rounded-lg hover:bg-surface-light transition-colors">
-    <!-- Main Player Info -->
-    <div class="flex items-start justify-between mb-3">
-      <div class="flex items-center gap-3">
-        <!-- Jersey Number -->
-        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center font-bold">
-          {{ player.jersey_number }}
-        </div>
-        
-        <!-- Name & Position -->
-        <div>
-          <h4 class="font-semibold text-zinc-100">{{ player.player_name }}</h4>
-          <p class="text-xs text-zinc-400">{{ player.position || 'Unknown' }}</p>
-        </div>
+  <tr
+    class="border-b border-edge/50 hover:bg-surface-hover transition-colors"
+    :class="{ 'opacity-60': !isStarter }"
+  >
+    <td class="py-2 px-2">
+      <div
+        class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
+        :class="isStarter ? 'bg-primary-600 text-white' : 'bg-zinc-600 text-white'"
+      >
+        {{ player.jersey_number || '-' }}
       </div>
-
-      <!-- Rating Badge -->
-      <div v-if="player.rating" class="flex-shrink-0">
-        <div 
-          class="px-3 py-1 rounded-full font-bold text-sm"
-          :class="getRatingClass(player.rating)"
-        >
-          {{ player.rating }}
-        </div>
-      </div>
-    </div>
-
-    <!-- Player Stats Grid -->
-    <div v-if="hasStats" class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-edge">
-      <!-- Goals -->
-      <div v-if="player.goals" class="text-center">
-        <div class="text-xs text-zinc-400 mb-1">Goals</div>
-        <div class="font-bold text-green-400">{{ player.goals }}</div>
-      </div>
-
-      <!-- Assists -->
-      <div v-if="player.assists" class="text-center">
-        <div class="text-xs text-zinc-400 mb-1">Assists</div>
-        <div class="font-bold text-blue-400">{{ player.assists }}</div>
-      </div>
-
-      <!-- xG -->
-      <div v-if="player.xg !== null" class="text-center">
-        <div class="text-xs text-zinc-400 mb-1">xG</div>
-        <div class="font-bold text-purple-600">{{ player.xg }}</div>
-      </div>
-
-      <!-- Shots -->
-      <div v-if="player.shots_total !== null" class="text-center">
-        <div class="text-xs text-zinc-400 mb-1">Shots</div>
-        <div class="font-bold text-zinc-300">{{ player.shots_total }}</div>
-      </div>
-
-      <!-- Passes -->
-      <div v-if="player.passes !== null" class="text-center">
-        <div class="text-xs text-zinc-400 mb-1">Passes</div>
-        <div class="font-bold text-zinc-300">
-          {{ player.passes }}
-          <span v-if="player.pass_accuracy" class="text-xs text-zinc-500">
-            ({{ player.pass_accuracy }}%)
-          </span>
-        </div>
-      </div>
-
-      <!-- Touches -->
-      <div v-if="player.touches !== null" class="text-center">
-        <div class="text-xs text-zinc-400 mb-1">Touches</div>
-        <div class="font-bold text-zinc-300">{{ player.touches }}</div>
-      </div>
-
-      <!-- Dribbles -->
-      <div v-if="player.dribbles_successful !== null" class="text-center">
-        <div class="text-xs text-zinc-400 mb-1">Dribbles</div>
-        <div class="font-bold text-orange-600">
-          {{ player.dribbles_successful }}
-          <span v-if="player.dribbles_attempted" class="text-xs text-zinc-500">
-            /{{ player.dribbles_attempted }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Duels -->
-      <div v-if="player.duels !== null" class="text-center">
-        <div class="text-xs text-zinc-400 mb-1">Duels</div>
-        <div class="font-bold text-zinc-300">{{ player.duels }}</div>
-      </div>
-
-      <!-- Fouls -->
-      <div v-if="player.fouls_committed || player.was_fouled" class="text-center">
-        <div class="text-xs text-zinc-400 mb-1">Fouls</div>
-        <div class="text-xs">
-          <span v-if="player.fouls_committed" class="text-red-400">{{ player.fouls_committed }} ⚠️</span>
-          <span v-if="player.was_fouled" class="text-blue-400 ml-1">{{ player.was_fouled }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Minutes Played -->
-    <div v-if="player.minutes_played" class="mt-3 pt-3 border-t border-edge">
-      <div class="flex items-center gap-2 text-xs text-zinc-400">
-        <UIcon name="i-heroicons-clock" class="w-4 h-4" />
-        <span>{{ player.minutes_played }}' played</span>
-      </div>
-    </div>
-  </div>
+    </td>
+    <td class="py-2 px-2">
+      <!-- Deep-link only when a player entity id exists (player-twin plan). -->
+      <NuxtLink
+        v-if="playerLink"
+        :to="playerLink"
+        class="block font-medium text-zinc-100 text-sm hover:text-[#4d8fff] hover:underline transition-colors"
+      >
+        {{ player.player_name }}
+      </NuxtLink>
+      <div v-else class="block font-medium text-zinc-100 text-sm">{{ player.player_name }}</div>
+      <div class="text-[11px] text-zinc-500">{{ player.position || 'Unknown' }}</div>
+    </td>
+    <td class="py-2 px-2 text-center">
+      <span
+        v-if="player.rating != null"
+        class="inline-block px-1.5 py-0.5 rounded text-xs font-bold"
+        :class="getRatingClass(player.rating)"
+      >{{ Number(player.rating).toFixed(1) }}</span>
+      <span v-else class="text-zinc-600">-</span>
+    </td>
+    <td class="py-2 px-2 text-center text-xs tabular-nums text-purple-400">
+      {{ cell(player.xg) }}
+    </td>
+    <td class="py-2 px-2 text-center text-xs tabular-nums">
+      {{ cell(player.shots_total) }}
+    </td>
+    <td class="py-2 px-2 text-center text-xs tabular-nums">
+      {{ cell(player.shots_on_target) }}
+    </td>
+    <td class="py-2 px-2 text-center text-xs tabular-nums">
+      {{ cell(player.passes) }}
+    </td>
+    <td class="py-2 px-2 text-center text-xs tabular-nums">
+      {{ cell(player.touches) }}
+    </td>
+    <td class="py-2 px-2 text-center text-xs tabular-nums">
+      {{ cell(player.dribbles_successful) }}
+    </td>
+    <td class="py-2 px-2 text-center text-xs tabular-nums">
+      {{ cell(player.tackles) }}
+    </td>
+  </tr>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps({
-  player: {
-    type: Object,
-    required: true
+const props = defineProps<{
+  player: Record<string, any>
+  isStarter: boolean
+  leagueKey?: string | null
+}>()
+
+// The player page is keyed on a player entity id (player-twin plan). Until
+// `lineups.player_id` ships, no row has one and the name renders as plain text.
+const playerLink = computed(() => {
+  const pid = props.player?.player_id
+  if (pid == null || pid === '') return null
+  const league = props.leagueKey || props.player?.league_key
+  return {
+    path: `/player/${pid}`,
+    query: {
+      ...(league ? { league } : {}),
+      ...(props.player?.player_name ? { name: props.player.player_name } : {}),
+    },
   }
 })
 
-const hasStats = computed(() => {
-  const p = props.player
-  return p.goals || p.assists || p.xg !== null || p.shots_total !== null || 
-         p.passes !== null || p.touches !== null || p.dribbles_successful !== null || 
-         p.duels !== null || p.fouls_committed || p.was_fouled
-})
+function cell(v: any): string {
+  return v !== null && v !== undefined ? String(v) : '-'
+}
 
-const getRatingClass = (rating) => {
+function getRatingClass(rating: any): string {
   const r = parseFloat(rating)
   if (r >= 8.5) return 'bg-green-500/20 text-green-400'
-  if (r >= 7.5) return 'bg-blue-100 text-blue-400'
-  if (r >= 6.5) return 'bg-surface-light text-zinc-300'
+  if (r >= 7.5) return 'bg-blue-500/20 text-blue-400'
+  if (r >= 6.5) return 'bg-zinc-700 text-zinc-300'
   return 'bg-orange-500/20 text-orange-400'
 }
 </script>
+

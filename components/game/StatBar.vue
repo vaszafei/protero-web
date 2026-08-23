@@ -1,26 +1,26 @@
 <template>
-  <div class="stat-bar-row py-1.5">
+  <div class="stat-bar-row py-0.5">
     <!-- Centered label -->
-    <div class="text-center text-[10px] uppercase tracking-wider text-zinc-500 font-medium mb-1">
+    <div class="text-center text-[9px] uppercase tracking-wider text-zinc-500 font-medium mb-0.5">
       {{ label }}
     </div>
 
     <!-- One-line: [home_val] [bar] [away_val] -->
-    <div class="grid grid-cols-[44px_1fr_44px] items-center gap-2">
-      <span class="text-right text-[13px] font-semibold text-[#e8a0a0] tabular-nums">{{ homeValue }}{{ suffix }}</span>
+    <div class="grid grid-cols-[40px_1fr_40px] items-center gap-2">
+      <span class="text-right text-[12px] font-semibold text-[#e8a0a0] tabular-nums">{{ homeValue }}{{ suffix }}</span>
 
       <div class="flex items-center gap-0">
         <!-- Home bar: grows RIGHT-TO-LEFT from center -->
-        <div class="flex-1 h-[5px] bg-surface-light/60 rounded-l-full overflow-hidden flex justify-end">
+        <div class="flex-1 h-[3px] bg-surface-light/60 rounded-l-full overflow-hidden flex justify-end">
           <div
             class="h-full rounded-l-full bar-fill"
             :class="homeBarClass"
             :style="{ width: `${homePercentage}%` }"
           />
         </div>
-        <div class="w-px h-3 bg-zinc-600/60 flex-shrink-0" />
+        <div class="w-px h-2.5 bg-zinc-600/60 flex-shrink-0" />
         <!-- Away bar: grows LEFT-TO-RIGHT from center -->
-        <div class="flex-1 h-[5px] bg-surface-light/60 rounded-r-full overflow-hidden">
+        <div class="flex-1 h-[3px] bg-surface-light/60 rounded-r-full overflow-hidden">
           <div
             class="h-full rounded-r-full bar-fill"
             :class="awayBarClass"
@@ -29,7 +29,7 @@
         </div>
       </div>
 
-      <span class="text-left text-[13px] font-semibold text-[#a0b8e8] tabular-nums">{{ awayValue }}{{ suffix }}</span>
+      <span class="text-left text-[12px] font-semibold text-[#a0b8e8] tabular-nums">{{ awayValue }}{{ suffix }}</span>
     </div>
   </div>
 </template>
@@ -92,7 +92,7 @@ const awayBarClass = computed(() => {
 
 <style scoped>
 .stat-bar-row {
-  animation: statFadeIn 0.4s ease-out both;
+  animation: statFadeIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .stat-bar-row:nth-child(1) { animation-delay: 0s; }
@@ -118,14 +118,21 @@ const awayBarClass = computed(() => {
 }
 
 .bar-fill {
-  transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--bar-delay, 0ms);
 }
 
 .home-bar {
-  background: linear-gradient(90deg, rgba(248, 40, 40, 0.35) 0%, rgba(248, 40, 40, 0.18) 100%);
+  background: #3987e5;
 }
 
 .away-bar {
-  background: linear-gradient(270deg, rgba(8, 72, 168, 0.35) 0%, rgba(8, 72, 168, 0.18) 100%);
+  background: #d95926;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-fill {
+    transition: none;
+  }
 }
 </style>
