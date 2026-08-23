@@ -39,6 +39,15 @@
           class="league-header flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors"
           @click="toggleLeague(league)"
         >
+          <img
+            v-if="getLeagueLogoUrl(league)"
+            :src="getLeagueLogoUrl(league)"
+            loading="lazy"
+            width="16" height="16"
+            class="w-4 h-4 object-contain flex-shrink-0"
+            :alt="getLeagueName(league)"
+            @error="($event.target as HTMLImageElement).style.display='none'"
+          />
           <span class="font-semibold text-zinc-200 text-[13px] flex-1 truncate">{{ getLeagueName(league) }}</span>
           <!-- Quick stats chips -->
           <span 
@@ -84,14 +93,14 @@
                 <div class="flex flex-col justify-center gap-0.5 flex-1 min-w-0">
                   <!-- Home -->
                   <div class="flex items-center gap-1.5">
-                    <img v-if="getTeamLogoUrl(game.home_key, league)" :src="getTeamLogoUrl(game.home_key, league)" loading="lazy" width="14" height="14" class="w-3.5 h-3.5 object-contain flex-shrink-0" :alt="game.home_name" @error="($event.target as HTMLImageElement).style.display='none'" />
+                    <img v-if="getTeamLogoUrl(game.home_key)" :src="getTeamLogoUrl(game.home_key)" loading="lazy" width="14" height="14" class="w-3.5 h-3.5 object-contain flex-shrink-0" :alt="game.home_name" @error="($event.target as HTMLImageElement).style.display='none'" />
                     <div v-else class="w-3.5 h-3.5 rounded-full bg-[#0848a8]/20 flex-shrink-0"></div>
                     <span class="text-[11px] font-semibold text-zinc-200 truncate flex-1">{{ game.home_name }}</span>
                     <span v-if="game.home_goals !== null" class="text-[13px] font-bold text-zinc-100 tabular-nums w-6 text-right">{{ game.home_goals }}</span>
                   </div>
                   <!-- Away -->
                   <div class="flex items-center gap-1.5">
-                    <img v-if="getTeamLogoUrl(game.away_key, league)" :src="getTeamLogoUrl(game.away_key, league)" loading="lazy" width="14" height="14" class="w-3.5 h-3.5 object-contain flex-shrink-0" :alt="game.away_name" @error="($event.target as HTMLImageElement).style.display='none'" />
+                    <img v-if="getTeamLogoUrl(game.away_key)" :src="getTeamLogoUrl(game.away_key)" loading="lazy" width="14" height="14" class="w-3.5 h-3.5 object-contain flex-shrink-0" :alt="game.away_name" @error="($event.target as HTMLImageElement).style.display='none'" />
                     <div v-else class="w-3.5 h-3.5 rounded-full bg-[#f82828]/15 flex-shrink-0"></div>
                     <span class="text-[11px] font-semibold text-zinc-200 truncate flex-1">{{ game.away_name }}</span>
                     <span v-if="game.away_goals !== null" class="text-[13px] font-bold text-zinc-100 tabular-nums w-6 text-right">{{ game.away_goals }}</span>
@@ -314,7 +323,7 @@ const formatTime = (dateStr: string) => {
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-import { getTeamLogoUrl } from '~/utils/teamLogo'
+import { getTeamLogoUrl, getLeagueLogoUrl } from '~/utils/teamLogo'
 
 // Sport stats odds
 function getOdds(game: any) {

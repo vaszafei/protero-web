@@ -271,8 +271,8 @@ watch(() => props.game?.id, () => {
 
 import { getTeamLogoUrl, teamAbbreviation } from '~/utils/teamLogo'
 
-const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key, props.game.league_key))
-const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key, props.game.league_key))
+const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key))
+const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key))
 
 const homeAbbr = computed(() => teamAbbreviation(props.game.home_name))
 const awayAbbr = computed(() => teamAbbreviation(props.game.away_name))

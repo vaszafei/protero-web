@@ -3,7 +3,7 @@
     <div class="flex items-start gap-2">
       <span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold mt-0.5"
             :class="risk.blind_side === 'both' ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-300'">
-        {{ risk.blind_side === 'both' ? 'BOTH BLIND' : 'BLIND SIDE' }}
+        {{ risk.blind_side === 'both' ? 'BOTH CARRIED' : 'CARRIED RATING' }}
       </span>
       <div class="min-w-0">
         <p class="text-xs text-amber-200 font-medium">{{ headline }}</p>
@@ -17,8 +17,9 @@
           </span>
         </p>
         <p class="text-[10px] text-amber-200/50 mt-1">
-          Context from the twin layer, not a price — read the model's number here with less
-          confidence, don't replace it.
+          Context from the twin layer, not a price. The rating exists — it is the carry across the
+          move that is over-confident. Dixon-Coles scores these fixtures better than unflagged ones,
+          so read this as lower confidence in the twin, not as a reason to skip the market.
         </p>
       </div>
     </div>
@@ -56,8 +57,8 @@ const sides = computed(() => {
 
 const headline = computed(() =>
   props.risk?.blind_side === 'both'
-    ? 'Neither club has history in this division.'
-    : 'One club has no history in this division.')
+    ? 'Neither club is playing in the division its rating was learned in.'
+    : 'One club is playing outside the division its rating was learned in.')
 
 function pretty(key) {
   return key ? key.replace(/_/g, ' ') : 'an unknown division'

@@ -124,8 +124,8 @@ const props = defineProps({
 
 import { getTeamLogoUrl } from '~/utils/teamLogo'
 
-const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key, props.game.league_key))
-const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key, props.game.league_key))
+const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key))
+const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key))
 
 // Odds data — prefer sport_stats.odds (pre-averaged), fall back to odds_raw arrays
 const oddsData = computed(() => {

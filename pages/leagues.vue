@@ -85,6 +85,15 @@
             >
               <td class="px-3 py-2">
                 <div class="flex items-center gap-2">
+                  <img
+                    v-if="getLeagueLogoUrl(l.key)"
+                    :src="getLeagueLogoUrl(l.key)"
+                    loading="lazy"
+                    width="16" height="16"
+                    class="w-4 h-4 object-contain flex-shrink-0"
+                    :alt="l.name"
+                    @error="$event.target.style.display='none'"
+                  />
                   <span class="text-zinc-200">{{ l.name }}</span>
                   <span v-if="l.is_cup" class="px-1 py-0.5 rounded text-[9px] bg-zinc-700/40 text-zinc-400">CUP</span>
                   <span v-else-if="l.tier" class="px-1 py-0.5 rounded text-[9px] bg-zinc-700/40 text-zinc-400">T{{ l.tier }}</span>
@@ -151,6 +160,7 @@
  *   - The twin's numbers lead, because clicking through goes to the twin.
  */
 import { ref, computed, onMounted } from 'vue'
+import { getLeagueLogoUrl } from '~/utils/teamLogo'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 

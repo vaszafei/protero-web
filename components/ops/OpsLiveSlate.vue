@@ -37,8 +37,8 @@
               <span
                 v-if="blind[r.game_id]"
                 class="ml-1.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-amber-500/15 text-amber-300"
-                :title="`A club here has no history in this division (${blind[r.game_id]}). Twin warning, not a price.`"
-              >BLIND {{ blind[r.game_id] }}</span>
+                :title="`A club here is playing outside the division its twin rating was learned in (${blind[r.game_id]}). The twin's carried ratings are least reliable on these fixtures — a warning about our model, not a price, and not a do-not-bet flag.`"
+              >CARRY {{ blind[r.game_id] }}</span>
             </td>
             <td class="px-3 py-2 text-zinc-300">{{ pickLabel(r) }}</td>
             <td class="px-2 py-2 text-right tabular-nums text-zinc-400">{{ Number(r.odds).toFixed(2) }}</td>
@@ -78,7 +78,7 @@ const props = defineProps({
   blindSpots: { type: Array, default: () => [] },
 })
 
-/** game_id → which side the twin is blind on. */
+/** game_id → which side carries a rating from another division. */
 const blind = computed(() => {
   const m = {}
   for (const b of props.blindSpots) m[b.game_id] = b.blind_side

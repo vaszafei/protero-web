@@ -1,67 +1,88 @@
 <template>
-  <!-- ========== BASKETBALL PREDICTIONS ========== -->
+  <!-- ========== BASKETBALL ========== -->
   <BasketballPredictions
     v-if="isBball"
     :matches="bballMatches"
     :loading="loadingPredictions"
   />
 
-  <!-- ========== FOOTBALL PREDICTIONS ========== -->
-  <Card v-else padding="3">
-    <!-- Header -->
-    <div class="mb-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-xl font-bold text-zinc-100">Round {{ nextRound }} Match Analysis</h2>
-        <div class="bg-blue-500/20 text-blue-400 text-xs font-semibold px-2 py-1 rounded-full">
-          <span class="font-bold">{{ enrichedPredictions.length }}</span> matches
-        </div>
-      </div>
+  <!-- ========== FOOTBALL ========== -->
+  <div v-else class="space-y-3 sm:space-y-4">
+    <!-- An archived season has no unplayed fixture to predict. The tab is
+         disabled upstream; this is the guard for a direct hit on the route. -->
+    <div v-if="!isCurrentSeason" class="panel px-4 py-10 text-center">
+      <p class="text-sm text-zinc-300 font-medium">{{ seasonLabel }} is finished.</p>
+      <p class="text-xs text-zinc-500 mt-1 max-w-md mx-auto leading-relaxed">
+        Predictions are a claim about fixtures that have not been played. Switch to
+        {{ currentSeasonLabel }} to see them; what happened in {{ seasonLabel }} is on the
+        Analysis tab.
+      </p>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="loadingPredictions" class="text-center py-12">
-      <div class="text-zinc-500 mb-4">
-        <UIcon name="i-heroicons-arrow-path" class="w-16 h-16 mx-auto animate-spin" />
+    <template v-else>
+      <div v-if="loadingPredictions" class="panel px-4 py-12 text-center text-zinc-500">
+        <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 mx-auto animate-spin mb-3" />
+        <p class="text-sm">Loading predictions…</p>
       </div>
-      <p class="text-zinc-500">Loading predictions...</p>
-    </div>
 
-    <!-- No Matches State -->
-    <div v-else-if="enrichedPredictions.length === 0" class="text-center py-12">
-      <div class="text-zinc-500 mb-4">
-        <UIcon name="i-heroicons-check-circle" class="w-16 h-16 mx-auto" />
+      <div v-else-if="enrichedPredictions.length === 0" class="panel px-4 py-12 text-center">
+        <p class="text-sm text-zinc-300 font-medium">No fixture ahead.</p>
+        <p class="text-xs text-zinc-500 mt-1">Every round in this season has been played.</p>
       </div>
-      <p class="text-zinc-500">All rounds have been played. No predictions available.</p>
-    </div>
 
-    <!-- Match Cards -->
-    <div v-else class="space-y-4">
-      <FootballMatchCard
-        v-for="match in enrichedPredictions"
-        :key="match.id"
-        :match="match"
-        :games="games"
-      />
+      <template v-else>
+        <!-- Modelled matches — full analysis card -->
+        <section v-if="modelled.length" class="space-y-3">
+          <header class="flex items-baseline gap-2 px-0.5">
+            <h2 class="text-sm font-bold text-zinc-100 uppercase tracking-wider">Round {{ nextRound }}</h2>
+            <span class="pill pill-blue">{{ modelled.length }} {{ modelled.length === 1 ? 'match' : 'matches' }}</span>
+            <span class="ml-auto text-[10px] text-zinc-600">{{ currentSeasonLabel }}</span>
+          </header>
 
-      <!-- Disclaimer -->
-      <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 mt-6">
-        <div class="flex items-start gap-2">
-          <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
-          <div class="text-xs text-amber-300/80">
-            <p class="font-semibold mb-1">Disclaimer</p>
-            <p>These predictions are based on statistical analysis. Past performance does not guarantee future results. Gamble responsibly.</p>
+          <FootballMatchCard
+            v-for="match in modelled"
+            :key="match.id"
+            :match="match"
+            :games="games"
+          />
+        </section>
+
+        <!-- Fixtures whose sides have not played yet this season. The analysis
+             card renders these as a wall of 0.00 — every input it averages is
+             an empty list — so they get the fixture, the price and the model
+             call, and nothing that pretends to be a form read. -->
+        <section v-if="unformed.length" class="panel">
+          <header class="panel-head">
+            <h3 class="panel-title">Awaiting form</h3>
+            <span class="pill pill-dim">{{ unformed.length }}</span>
+            <span class="ml-auto text-[10px] text-zinc-600 hidden sm:inline">no completed fixture for either side yet</span>
+          </header>
+          <div class="p-2.5 grid gap-2.5 unformed-grid">
+            <LeagueFixtureCard v-for="m in unformed" :key="m.id" :game="m" />
           </div>
+          <p class="px-3 py-2 border-t border-white/5 text-[10px] text-zinc-600 leading-relaxed">
+            Season-to-date averages need played fixtures. These cards carry the market price and the
+            stored model call only.
+          </p>
+        </section>
+
+        <div class="disclaimer">
+          <span class="disclaimer-dot" />
+          <p>
+            Model output, not advice. Nothing on this page is evidence of edge — no wallet in this
+            project reaches p&lt;0.05. Sizing and settlement live on the wallet console.
+          </p>
         </div>
-      </div>
-    </div>
-  </Card>
+      </template>
+    </template>
+  </div>
 </template>
 
 <script setup>
 import { computed, watch, ref, onMounted } from 'vue'
-import Card from '~/components/ui/Card.vue'
 import BasketballPredictions from './BasketballPredictions.vue'
 import FootballMatchCard from './FootballMatchCard.vue'
+import LeagueFixtureCard from './LeagueFixtureCard.vue'
 
 const props = defineProps({
   nextRound: {
@@ -100,7 +121,6 @@ const props = defineProps({
 
 const emit = defineEmits(['predictions-updated'])
 
-const isFootball = computed(() => props.sport === 'football')
 const isBball = computed(() => props.sport === 'basketball')
 
 // Basketball: lookup team from liveStandings by name
@@ -412,6 +432,44 @@ const enrichedPredictions = computed(() => {
     })
 })
 
+/**
+ * Has either side played a fixture this season?
+ *
+ * `calcFilteredStats` returns its `empty` shape — '-' and '0.0' across the
+ * board — when the team has no played match, and FootballMatchCard renders that
+ * as "Expected goals 0.0 / Ball possession -% / 0% confidence" for every row.
+ * On 2026-08-23 that was the whole Ligue 1 predictions tab: eight cards of
+ * zeroes on matchday two of a season with one completed game.
+ */
+const modelled = computed(() =>
+  enrichedPredictions.value.filter(m => playedSample(m) > 0)
+)
+const unformed = computed(() =>
+  enrichedPredictions.value.filter(m => playedSample(m) === 0)
+)
+
+function playedSample(match) {
+  const count = (name) => {
+    const team = props.teamStats?.[name]
+    if (!team?.matches) return 0
+    return team.matches.filter(m => m.goalsFor !== null && m.goalsAgainst !== null).length
+  }
+  return count(match.home_name) + count(match.away_name)
+}
+
+/* ── Season framing ─────────────────────────────────────────────────────── */
+
+const isCurrentSeason = computed(
+  () => String(props.season) === currentSeason(props.leagueKey)
+)
+const seasonLabel = computed(() => fmtSeason(props.season))
+const currentSeasonLabel = computed(() => fmtSeason(currentSeason(props.leagueKey)))
+
+function fmtSeason(s) {
+  const m = String(s || '').match(/^(\d{4})-(\d{4})$/)
+  return m ? `${m[1]}/${m[2].slice(2)}` : String(s || '')
+}
+
 function findH2H(home, away) {
   const cacheKey = `${home}-${away}`
   const data = h2hCache.value[cacheKey]
@@ -445,3 +503,57 @@ watch(enrichedPredictions, (newPredictions) => {
   emit('predictions-updated', predictionsWithData)
 }, { immediate: true })
 </script>
+
+<style scoped>
+.panel {
+  border-radius: 0.7rem;
+  background: linear-gradient(180deg, rgba(37, 40, 48, 0.4), rgba(28, 31, 39, 0.8));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.panel-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgb(212, 212, 216);
+}
+.pill {
+  padding: 0.06rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pill-blue { background: rgba(57, 135, 229, 0.18); color: #8fbdf5; }
+.pill-dim { background: rgba(255, 255, 255, 0.06); color: rgb(140, 143, 152); }
+
+.unformed-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); }
+
+.disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.7rem;
+  background: rgba(250, 178, 25, 0.06);
+  border: 1px solid rgba(250, 178, 25, 0.18);
+  font-size: 0.68rem;
+  line-height: 1.55;
+  color: rgb(180, 168, 145);
+}
+.disclaimer-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-top: 0.4rem;
+  border-radius: 999px;
+  background: #fab219;
+  flex-shrink: 0;
+}
+</style>

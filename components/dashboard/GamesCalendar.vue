@@ -99,7 +99,18 @@
                 'bg-surface-light': leagueCount.predictions === 0
               }"
             >
-              <span class="text-zinc-300 truncate flex-1 hidden sm:inline">{{ leagueCount.name }}</span>
+              <span class="hidden sm:flex items-center gap-1 truncate flex-1">
+                <img
+                  v-if="getLeagueLogoUrl(leagueCount.key)"
+                  :src="getLeagueLogoUrl(leagueCount.key)"
+                  loading="lazy"
+                  width="12" height="12"
+                  class="w-3 h-3 object-contain flex-shrink-0"
+                  :alt="leagueCount.name"
+                  @error="($event.target as HTMLImageElement).style.display='none'"
+                />
+                <span class="text-zinc-300 truncate">{{ leagueCount.name }}</span>
+              </span>
               <span class="font-semibold text-zinc-200 ml-0 sm:ml-1 text-[11px] sm:text-xs">{{ leagueCount.count }}</span>
             </div>
             <div
@@ -141,6 +152,8 @@ const props = defineProps<{
   parlays?: any[]
   showBets?: boolean
 }>()
+
+import { getLeagueLogoUrl } from '~/utils/teamLogo'
 
 const emit = defineEmits<{
   'select-game': [game: any]

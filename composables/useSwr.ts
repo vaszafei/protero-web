@@ -15,7 +15,7 @@
  * over cache layers and we're SPA (ssr:false), so useAsyncData's SSR hydration
  * path adds cost without benefit.
  */
-import { ref, shallowRef, onBeforeUnmount } from 'vue'
+import { ref, shallowRef, computed, watch, isRef, onBeforeUnmount, type Ref } from 'vue'
 import {
   getMem, setMem, getPersist, setPersist, dedupFetch, invalidate as cacheInvalidate,
 } from '~/utils/cache'
@@ -36,12 +36,16 @@ export interface UseSwrOptions {
 const DEFAULT_MEM_TTL = 60_000
 
 export function useSwr<T>(
-  key: string,
+  key: string | Ref<string>,
   fetcher: () => Promise<T>,
   opts: UseSwrOptions = {},
 ) {
   const memTtl = opts.memoryTtl ?? DEFAULT_MEM_TTL
   const persistTtl = opts.persistTtl ?? 0
+
+  // The key identifies the payload. Accept a computed/ref so callers can hand
+  // a season- or league-scoped key; watch it below so a new key refetches.
+  const keyRef = isRef(key) ? key : computed(() => key)
 
   const data = shallowRef<T | null>(null)
   const pending = ref(false)
@@ -51,13 +55,13 @@ export function useSwr<T>(
   let disposed = false
 
   async function readCache(): Promise<{ data: T; stale: boolean } | null> {
-    const mem = getMem<T>(key)
+    const mem = getMem<T>(keyRef.value)
     if (mem) return { data: mem.data, stale: false }
     if (persistTtl > 0) {
-      const persist = await getPersist<T>(key)
+      const persist = await getPersist<T>(keyRef.value)
       if (persist) {
         // Promote to memory with its own short TTL so we don't re-hit persistent storage.
-        setMem(key, persist.data, memTtl)
+        setMem(keyRef.value, persist.data, memTtl)
         return { data: persist.data, stale: false }
       }
     }
@@ -69,12 +73,12 @@ export function useSwr<T>(
     pending.value = true
     error.value = null
     try {
-      const fresh = await dedupFetch(key, fetcher)
+      const fresh = await dedupFetch(keyRef.value, fetcher)
       if (disposed) return
       data.value = fresh
       stale.value = false
-      setMem(key, fresh, memTtl)
-      if (persistTtl > 0) await setPersist(key, fresh, persistTtl)
+      setMem(keyRef.value, fresh, memTtl)
+      if (persistTtl > 0) await setPersist(keyRef.value, fresh, persistTtl)
     } catch (e: any) {
       if (disposed) return
       error.value = e instanceof Error ? e : new Error(String(e))
@@ -104,13 +108,23 @@ export function useSwr<T>(
   }
 
   async function invalidate(): Promise<void> {
-    await cacheInvalidate(key)
+    await cacheInvalidate(keyRef.value)
     await revalidate()
   }
 
   if (!opts.lazy) {
     // Fire-and-track; do not block setup.
     load().catch(() => { /* error is already captured */ })
+    // A different key is a different dataset. Without this, a season switch
+    // kept rendering the old season's payload under the new heading — the
+    // Analysis tab is season-scoped and must follow the picker.
+    watch(keyRef, (next, prev) => {
+      if (next === prev) return
+      data.value = null
+      error.value = null
+      stale.value = false
+      load().catch(() => {})
+    })
   }
 
   onBeforeUnmount(() => { disposed = true })

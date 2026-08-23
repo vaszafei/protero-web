@@ -1,22 +1,56 @@
 <template>
   <div class="min-h-screen bg-surface-base">
    <div class="max-w-[1600px] mx-auto p-3 sm:p-6">
-    <!-- Identity -->
+    <!-- ═══ Identity ══════════════════════════════════════════════════════ -->
     <div class="mb-4">
       <NuxtLink to="/leagues" class="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors">
         <ChevronLeft :size="14" />
         <span class="text-[11px] font-medium">Competitions</span>
       </NuxtLink>
-      <div class="flex items-baseline gap-2 flex-wrap mt-1">
-        <h1 class="text-xl sm:text-2xl font-bold text-white">{{ data?.name || leagueName }}</h1>
-        <span v-if="twin?.is_cup" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-zinc-700/40 text-zinc-400">CUP</span>
-        <span v-else-if="twin?.tier" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-zinc-700/40 text-zinc-400">TIER {{ twin.tier }}</span>
-        <span v-if="data?.sport === 'basketball'" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-500/15 text-orange-400">BASKETBALL</span>
+
+      <div class="flex items-center gap-3 mt-1.5">
+        <img
+          v-if="leagueLogo"
+          :src="leagueLogo"
+          class="w-9 h-9 sm:w-11 sm:h-11 object-contain flex-shrink-0"
+          :alt="data?.name || leagueName"
+          @error="($event.target).style.display = 'none'"
+        />
+        <div class="min-w-0">
+          <div class="flex items-baseline gap-2 flex-wrap">
+            <h1 class="text-xl sm:text-2xl font-bold text-white">{{ data?.name || leagueName }}</h1>
+            <span v-if="twin?.is_cup" class="idchip">CUP</span>
+            <span v-else-if="twin?.tier" class="idchip">TIER {{ twin.tier }}</span>
+            <span v-if="data?.sport === 'basketball'" class="idchip idchip-orange">BASKETBALL</span>
+            <span v-if="!twin && !twinPending" class="idchip idchip-dim">NOT FITTED</span>
+          </div>
+          <p class="text-xs text-zinc-500 mt-0.5">
+            The digital twin of this competition — its fitted level, its clubs, who moved in or out,
+            and the model output for every fixture.
+          </p>
+        </div>
       </div>
-      <p class="text-xs text-zinc-500 mt-0.5">
-        The digital twin of this competition — its fitted level, its clubs, and who moved in or out.
-        Fixtures and model output are below.
-      </p>
+
+      <!-- Season, round and how far the season has actually got. One control
+           for the table and the fixtures below. -->
+      <div class="mt-4">
+        <LeagueSeasonBar
+          :season="selectedSeason"
+          :seasons="availableSeasons"
+          :is-current-season="isCurrentSeason"
+          :round="selectedRound"
+          :max-round="maxRound"
+          :round-label="roundLabel"
+          :live-round="liveRound"
+          :rounds="roundProgress"
+          :unrounded="unroundedCount"
+          :total="totalCount"
+          :completed="completedCount"
+          :by-date="byDate"
+          @update:season="selectedSeason = $event"
+          @update:round="changeRound"
+        />
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -26,58 +60,59 @@
         <span class="text-sm">Loading league data...</span>
       </div>
     </div>
-    
+
     <!-- Main Content -->
     <div v-else>
-      <!-- ═══ THE TWIN — the primary identity of a competition ═══ -->
-      <LeagueTwin
-        :league-key="data.key"
-        :twin="twin"
-        :clubs="twinClubs"
-        :transitions="twinTransitions"
-        :peers="twinPeers"
-        :leagues="allLeagues"
-        class="mb-6"
-      />
-
-      <!-- ═══ Fixtures and model output — secondary ═══════════════ -->
-      <div class="border-t border-edge pt-5">
-        <h2 class="text-sm font-bold text-zinc-100 mb-3">Fixtures &amp; models</h2>
-      </div>
-
-      <!-- Tab Navigation -->
-      <TabNavigation 
+      <TabNavigation
         v-model:activeTab="activeTab"
+        :fixture-count="roundGames.length"
+        :analysis-count="completedCount"
+        :prediction-count="nextUnplayedMatches.length"
+        :predictions-disabled="!isCurrentSeason"
+        :predictions-hint="isCurrentSeason ? '' : 'Predictions exist only for the season being played'"
       />
 
-      <!-- Overview Tab (Games + Standings merged) -->
-      <div v-show="activeTab === 'overview'">
-        <OverviewView
-          :selectedRound="selectedRound"
-          :maxRound="maxRound"
-          :roundGames="roundGames"
-          :standings="filteredStandings"
-          :sport="data.sport"
-          :selectedDate="selectedRoundDate"
-          :allGames="data.games"
-          :leagueKey="data.key"
-          v-model:filter="standingsFilter"
-          @previousRound="previousRound"
-          @nextRound="nextRound"
-          @changeRound="changeRound"
-        />
+      <!-- Overview — the twin and the fixtures it is fitted on, one pane -->
+      <div v-show="activeTab === 'overview'" class="tab-anim">
+        <LeagueOverview
+          :league-key="data.key"
+          :twin="twin"
+          :pending="twinPending"
+          :clubs="twinClubs"
+          :standings="standingsAsOfRound"
+          :round="roundLabel"
+          :round-games="roundGames"
+          :all-games="data.games"
+          :transitions="twinTransitions"
+          :peers="twinPeers"
+          :leagues="allLeagues"
+          :by-date="byDate"
+          :is-current-season="isCurrentSeason"
+        >
+          <!-- Competitions outside the fitted corpus keep their own table -
+               basketball's ORtg / DRtg / pace columns have no twin equivalent. -->
+          <template #standings>
+            <LeagueStandingsTable
+              :standings="filteredStandings"
+              :sport="data.sport"
+              :allGames="data.games"
+              :leagueKey="data.key"
+              v-model:filter="standingsFilter"
+            />
+          </template>
+        </LeagueOverview>
       </div>
 
-      <!-- Statistics Tab -->
-      <div v-show="activeTab === 'analysis'">
+      <!-- Analysis -->
+      <div v-show="activeTab === 'analysis'" class="tab-anim">
         <AnalysisView
           :leagueKey="data.key"
           :season="selectedSeason"
         />
       </div>
 
-      <!-- Predictions Tab -->
-      <div v-show="activeTab === 'predictions'">
+      <!-- Predictions — current season only; the tab is disabled otherwise -->
+      <div v-show="activeTab === 'predictions'" class="tab-anim">
         <PredictionsView
           ref="predictionsViewRef"
           :nextRound="nextUnplayedRound"
@@ -90,8 +125,7 @@
           :sport="data.sport"
           @predictions-updated="onPredictionsUpdated"
         />
-        
-        <!-- Parlay Generator -->
+
         <ParlayGenerator
           v-if="predictionsList.length > 0"
           :predictions="predictionsList"
@@ -103,22 +137,35 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ChevronLeft } from 'lucide-vue-next'
-import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
 import TabNavigation from '~/components/league/TabNavigation.vue'
-import OverviewView from '~/components/league/OverviewView.vue'
+import LeagueSeasonBar from '~/components/league/LeagueSeasonBar.vue'
+import LeagueOverview from '~/components/league/LeagueOverview.vue'
+import LeagueStandingsTable from '~/components/league/LeagueStandingsTable.vue'
 import AnalysisView from '~/components/league/AnalysisView.vue'
 import PredictionsView from '~/components/league/PredictionsView.vue'
 import ParlayGenerator from '~/components/league/ParlayGenerator.vue'
-import LeagueTwin from '~/components/league/LeagueTwin.vue'
 import { useLeagueStats } from '~/composables/useLeagueStats'
+import { getLeagueLogoUrl } from '~/utils/teamLogo'
 
 // Route and initial data
 const route = useRoute()
 const api = useApi()
 const leagueName = route.params.slug
-const selectedSeason = computed(() => route.query.season || currentSeason(route.params.slug))
+
+// Season is a query param, defaulting to the league's current season. Changing
+// it re-runs the useAsyncData below (its key carries the season), which swaps
+// the fixtures and recomputes the table — the "visit an older season" control.
+const selectedSeason = computed({
+  get: () => String(route.query.season || currentSeason(route.params.slug)),
+  set: (v) => {
+    const query = { ...route.query }
+    if (v === currentSeason(route.params.slug)) delete query.season
+    else query.season = v
+    navigateTo({ path: route.path, query })
+  }
+})
 
 // Fetch league data for the selected season
 const { data: leagueData, refresh: refreshLeague } = await useAsyncData(
@@ -138,38 +185,67 @@ const loading = ref(false)
 /**
  * The twin layer for this competition. Loaded alongside the fixture data
  * rather than behind a tab, because the twin is what a competition IS — the
- * games are what happened in it. Absent for anything outside the European
- * football corpus (basketball, LATAM), which LeagueTwin renders explicitly
- * rather than as an empty panel.
+ * games are what happened in it.
+ *
+ * Fetched via useAsyncData (not onMounted) so the page does NOT paint the
+ * fixtures/tabs first and then swap in the twin a second later. The two views
+ * are one page and must appear together — awaiting this in setup holds the
+ * render until both the league data and the twin are ready.
+ *
+ * Absent for anything outside the European football corpus (basketball,
+ * LATAM), which LeagueOverview renders explicitly rather than as an empty panel.
  */
 const twins = useTwins()
-const twin = ref(null)
-const twinClubs = ref([])
-const twinTransitions = ref([])
-const twinPeers = ref([])
-const allLeagues = ref([])
 
-onMounted(async () => {
-  const key = String(route.params.slug)
-  const [t, clubs, trans, peers, lgs] = await Promise.all([
-    twins.fetchTwinLeague(key).catch(() => null),
-    twins.fetchTwinTeams({ league: key, limit: 100 }).catch(() => []),
-    twins.fetchLeagueTransitions(key).catch(() => []),
-    twins.fetchTwinLeagues().catch(() => []),
-    api.fetchLeagues().then(d => d.leagues || []).catch(() => []),
-  ])
-  twin.value = t
-  // Strongest attack first — the ordering an operator reads a league in.
-  twinClubs.value = [...clubs].sort((a, b) => (b.attack ?? -99) - (a.attack ?? -99))
-  twinTransitions.value = trans
-  twinPeers.value = peers
-  allLeagues.value = lgs
-})
+const { data: twinData, pending: twinPending } = await useAsyncData(
+  `twin-${leagueName}`,
+  async () => {
+    const [t, clubs, trans, peers, lgs] = await Promise.all([
+      twins.fetchTwinLeague(leagueName).catch(() => null),
+      twins.fetchTwinTeams({ league: leagueName, limit: 100 }).catch(() => []),
+      twins.fetchLeagueTransitions(leagueName).catch(() => []),
+      twins.fetchTwinLeagues().catch(() => []),
+      api.fetchLeagues().then(d => d.leagues || []).catch(() => []),
+    ])
+    // Strongest attack first — the ordering an operator reads a league in.
+    const twinClubs = [...clubs].sort((a, b) => (b.attack ?? -99) - (a.attack ?? -99))
+    return { twin: t, twinClubs, twinTransitions: trans, twinPeers: peers, allLeagues: lgs }
+  }
+)
+
+const twin = computed(() => twinData.value?.twin ?? null)
+const twinClubs = computed(() => twinData.value?.twinClubs ?? [])
+const twinTransitions = computed(() => twinData.value?.twinTransitions ?? [])
+const twinPeers = computed(() => twinData.value?.twinPeers ?? [])
+const allLeagues = computed(() => twinData.value?.allLeagues ?? [])
+
+// Every season this league has fixtures for — the "visit an older season" picker.
+const { data: seasonsData } = await useAsyncData(
+  `seasons-${leagueName}`,
+  () => $fetch(`/api/seasons/${leagueName}`).catch(() => ({ seasons: [] }))
+)
+const availableSeasons = computed(() => seasonsData.value?.seasons || [])
 
 // Is this a basketball league?
 const isBball = computed(() => data.value?.sport === 'basketball')
 
-// UI State
+/**
+ * How this competition is paged: by round, or by match day.
+ *
+ * Basketball has no rounds and never did. What forced this to become a
+ * question is that FOOTBALL competitions can have none either — `games.round`
+ * is filled by bin/backfill-rounds.js from the FlashScore tournament feed, and
+ * for the UEFA cups and the six domestic cups it fills nothing at all. On
+ * 2026-08-23 champions_league 2026/27 held 90 fixtures, every one with a NULL
+ * round: round paging showed "Rd 1 / 1" containing zero games, and all 90 were
+ * unreachable from the page. Paging those by date makes them visible using the
+ * machinery basketball already uses.
+ */
+const hasRounds = computed(() => (data.value?.games || []).some(g => g.round))
+const byDate = computed(() => isBball.value || !hasRounds.value)
+
+// UI State. "Twin" and "Fixtures" were merged into one Overview on 2026-08-23 —
+// they were two halves of one subject and reading either needed the other.
 const activeTab = ref('overview')
 const selectedRound = ref(1)
 const standingsFilter = ref('overall')
@@ -177,12 +253,12 @@ const standingsFilter = ref('overall')
 // Set initial round - find next upcoming round from today
 // For basketball: date-based (each day = one "page")
 // For football: round-based
-if (data.value?.games) {
+function resetRound() {
+  if (!data.value?.games) return
   const today = new Date()
   const todayStr = today.toISOString().split('T')[0]
-  const sport = leagueData.value?.league?.sport || 'football'
 
-  if (sport === 'basketball') {
+  if (byDate.value) {
     // Build sorted unique dates
     const dates = [...new Set(
       data.value.games
@@ -209,10 +285,17 @@ if (data.value?.games) {
     selectedRound.value = nextUpcomingRound || rounds[rounds.length - 1] || 1
   }
 }
+resetRound()
+
+// Changing the season only updates the route query (same component instance),
+// so useAsyncData will not re-run on its own — refresh the league data when the
+// season changes, then jump to that season's latest round once it lands.
+watch(selectedSeason, () => refreshLeague())
+watch(leagueData, () => resetRound())
 
 // Basketball: sorted unique game dates (used instead of rounds)
-const bballGameDates = computed(() => {
-  if (!isBball.value || !data.value?.games) return []
+const gameDates = computed(() => {
+  if (!byDate.value || !data.value?.games) return []
   return [...new Set(
     data.value.games
       .map(g => g.date ? g.date.split('T')[0] : null)
@@ -222,27 +305,151 @@ const bballGameDates = computed(() => {
 
 // The date string for the currently selected "round" (basketball only)
 const selectedRoundDate = computed(() => {
-  if (!isBball.value) return null
-  return bballGameDates.value[selectedRound.value - 1] || null
+  if (!byDate.value) return null
+  return gameDates.value[selectedRound.value - 1] || null
 })
 
 // Computed: Max round number
 const maxRound = computed(() => {
   if (!data.value?.games) return 1
-  if (isBball.value) return bballGameDates.value.length || 1
+  if (byDate.value) return gameDates.value.length || 1
   return Math.max(...data.value.games.map(g => g.round || 1))
 })
 
 // Computed: Current round games
 const roundGames = computed(() => {
   if (!data.value?.games) return []
-  if (isBball.value) {
+  if (byDate.value) {
     const targetDate = selectedRoundDate.value
     if (!targetDate) return []
     return data.value.games.filter(g => g.date && g.date.startsWith(targetDate))
   }
   return data.value.games.filter(g => g.round === selectedRound.value)
 })
+
+// Human label for the current round — "Rd 12" or "Day 34".
+const roundLabel = computed(() => {
+  if (byDate.value) return `Day ${selectedRound.value}`
+  return `Rd ${selectedRound.value}`
+})
+
+/**
+ * Season progress, per round.
+ *
+ * `games.round` is filled by bin/backfill-rounds.js from the FlashScore
+ * tournament feed, whose first page covers roughly twelve rounds around today —
+ * so a season in progress legitimately holds fixtures with no round yet. Those
+ * belong in NO round and are counted separately rather than silently folded
+ * into round 1, which is what `g.round || 1` did: on 2026-08-23 that would have
+ * put 189 of Ligue 1's 301 fixtures into a round that has nine games.
+ */
+const roundProgress = computed(() => {
+  const games = data.value?.games || []
+  if (!games.length) return []
+
+  if (byDate.value) {
+    return gameDates.value.map((d, i) => {
+      const dayGames = games.filter(g => g.date && g.date.startsWith(d))
+      return {
+        round: i + 1,
+        total: dayGames.length,
+        completed: dayGames.filter(g => g.home_goals != null).length,
+      }
+    })
+  }
+
+  const out = []
+  for (let r = 1; r <= maxRound.value; r++) {
+    const rg = games.filter(g => g.round === r)
+    out.push({ round: r, total: rg.length, completed: rg.filter(g => g.home_goals != null).length })
+  }
+  return out
+})
+
+/** Fixtures carrying no round number — they render in no round below. */
+const unroundedCount = computed(() => {
+  if (byDate.value) return 0
+  return (data.value?.games || []).filter(g => !g.round).length
+})
+
+/** Completed fixtures in the season — what Analysis actually has to work with. */
+const completedCount = computed(() =>
+  (data.value?.games || []).filter(g => g.home_goals != null).length
+)
+
+/** Every fixture in the season, round or no round. */
+const totalCount = computed(() => (data.value?.games || []).length)
+
+/**
+ * The round the calendar is on, for the "go to now" jump. Same rule resetRound
+ * uses, kept as a computed so the button knows whether it is already there.
+ */
+const liveRound = computed(() => {
+  const games = data.value?.games || []
+  if (!games.length) return null
+  const today = new Date()
+
+  if (byDate.value) {
+    const todayStr = today.toISOString().split('T')[0]
+    const idx = gameDates.value.findIndex(d => d >= todayStr)
+    return idx >= 0 ? idx + 1 : gameDates.value.length || null
+  }
+
+  const rounds = [...new Set(games.map(g => g.round).filter(Boolean))].sort((a, b) => a - b)
+  for (const r of rounds) {
+    if (games.some(g => g.round === r && g.date && new Date(g.date) > today)) return r
+  }
+  return rounds[rounds.length - 1] || null
+})
+
+/**
+ * Predictions are a claim about fixtures not yet played. An archived season has
+ * none, and rendering the view against one produced a wall of zeroes — every
+ * form and stat input is empty because the model never ran on it.
+ */
+/**
+ * The newest season this competition actually has fixtures for.
+ *
+ * Not the same thing as `currentSeason()`, which is a calendar rule. A cup that
+ * has not been drawn yet, or a competition we stopped collecting, has no row
+ * for the season the calendar says we are in: on 2026-08-23 `fa_cup` resolved
+ * to 2026-2027, which holds zero fixtures and is not in its own season list —
+ * so the <select> read 2026-2027 while DISPLAYING 2025/26, its first option.
+ */
+const latestSeason = computed(
+  () => availableSeasons.value[0]?.season || currentSeason(route.params.slug)
+)
+
+/**
+ * Predictions are a claim about fixtures not yet played, so they belong to the
+ * season being played and nowhere else. An archived season rendered the view
+ * against empty inputs — a wall of 0.00 for every stat the model averages.
+ */
+const isCurrentSeason = computed(() => selectedSeason.value === latestSeason.value)
+
+// Land on a season that exists. Without this the picker showed one season and
+// the page loaded another.
+watch(availableSeasons, (list) => {
+  if (!list.length) return
+  if (list.some(s => s.season === selectedSeason.value)) return
+  selectedSeason.value = list[0].season
+}, { immediate: true })
+
+// Leaving Predictions selected while switching to an archived season would show
+// a disabled tab's contents.
+watch(isCurrentSeason, (now) => {
+  if (!now && activeTab.value === 'predictions') activeTab.value = 'overview'
+})
+
+const leagueLogo = computed(() => getLeagueLogoUrl(data.value?.key || leagueName))
+
+// '2026-2027' → '2026/27'
+function seasonLabel(season) {
+  const s = String(season || '')
+  const m = s.match(/^(\d{4})-(\d{4})$/)
+  if (m) return `${m[1]}/${m[2].slice(2)}`
+  return s
+}
 
 // Use stats composable for statistics (not standings)
 const games = computed(() => data.value?.games || [])
@@ -267,14 +474,15 @@ function _computeLast10(results) {
   return `${wins}-${losses}`
 }
 
-// Calculate live standings from game results
-const liveStandings = computed(() => {
-  if (!data.value?.games) return []
+// Calculate a standings table from a games array.
+// Used twice: season-to-date (all games) and "as of round N" (games up to N).
+function buildStandings(gamesArr) {
+  if (!gamesArr?.length) return []
   
   const standings = {}
   
   // Get all teams from games
-  data.value.games.forEach(game => {
+  gamesArr.forEach(game => {
     if (!standings[game.home_team_id]) {
       standings[game.home_team_id] = {
         team_id: game.home_team_id,
@@ -358,7 +566,7 @@ const liveStandings = computed(() => {
   })
   
   // Process played games
-  data.value.games
+  gamesArr
     .filter(g => g.home_goals !== null && g.away_goals !== null)
     .forEach(game => {
       const homeTeam = standings[game.home_team_id]
@@ -558,7 +766,27 @@ const liveStandings = computed(() => {
     if (gdB !== gdA) return gdB - gdA
     return b.GF - a.GF
   })
+}
+
+// Season-to-date table — all completed games. Feeds the twin table and
+// PredictionsView (basketball projection needs the full season, not a cut).
+const liveStandings = computed(() => buildStandings(data.value?.games || []))
+
+// "As of round N" table — games up to and including the selected round, so the
+// operator can walk a season backwards and see the table at any point.
+const gamesAsOfRound = computed(() => {
+  if (!data.value?.games) return []
+  if (byDate.value) {
+    // Basketball: one "round" = one day. Include days up to the selected day.
+    const targetIdx = selectedRound.value - 1
+    const dates = gameDates.value
+    const targetDate = dates[targetIdx]
+    if (!targetDate) return data.value.games
+    return data.value.games.filter(g => g.date && g.date.split('T')[0] <= targetDate)
+  }
+  return data.value.games.filter(g => (g.round || 1) <= selectedRound.value)
 })
+const standingsAsOfRound = computed(() => buildStandings(gamesAsOfRound.value))
 
 // Computed: Get the round of the most recent upcoming games
 const nextUnplayedRound = computed(() => {
@@ -702,21 +930,10 @@ const filteredStandings = computed(() => {
 // own components (OverviewView/AnalysisView) and fetch what they need.
 // ────────────────────────────────────────────────────────────────────────
 
-// Round navigation
-function previousRound() {
-  if (selectedRound.value > 1) {
-    selectedRound.value--
-  }
-}
-
-function nextRound() {
-  if (selectedRound.value < maxRound.value) {
-    selectedRound.value++
-  }
-}
-
+// Round navigation. LeagueSeasonBar emits an absolute round for every control
+// it owns — stepper, rail segment and "go to now" — so there is one setter.
 function changeRound(round) {
-  selectedRound.value = round
+  selectedRound.value = Math.min(maxRound.value, Math.max(1, Number(round) || 1))
 }
 
 // Predictions handler for parlay generator
@@ -724,3 +941,31 @@ function onPredictionsUpdated(predictions) {
   predictionsList.value = predictions
 }
 </script>
+
+<style scoped>
+.idchip {
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.3rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgb(161, 161, 170);
+}
+.idchip-orange { background: rgba(217, 89, 38, 0.16); color: #e8905f; }
+.idchip-dim { background: rgba(255, 255, 255, 0.04); color: rgb(113, 113, 122); }
+
+/* Tab panes fade-slide in on every switch. The animation restarts because
+   v-show toggles the element from display:none to block — no remount, so the
+   heavy views keep their fetched state. */
+.tab-anim {
+  animation: pane-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes pane-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-anim { animation: none; }
+}
+</style>

@@ -23,7 +23,7 @@
     <div class="flex items-center justify-center gap-2 pt-5 pb-1.5 px-2">
       <!-- Home -->
       <div class="flex flex-col items-center gap-0.5 min-w-0">
-        <img v-if="getTeamLogoUrl(game.home_key, game.league_key)" :src="getTeamLogoUrl(game.home_key, game.league_key)" loading="lazy" width="24" height="24" class="w-6 h-6 object-contain" :title="game.home_name" />
+        <img v-if="getTeamLogoUrl(game.home_key)" :src="getTeamLogoUrl(game.home_key)" loading="lazy" width="24" height="24" class="w-6 h-6 object-contain" :title="game.home_name" />
         <div v-else class="w-6 h-6 rounded-full bg-[#0848a8]/20 flex items-center justify-center">
           <span class="text-[8px] text-zinc-400 font-bold">H</span>
         </div>
@@ -40,7 +40,7 @@
 
       <!-- Away -->
       <div class="flex flex-col items-center gap-0.5 min-w-0">
-        <img v-if="getTeamLogoUrl(game.away_key, game.league_key)" :src="getTeamLogoUrl(game.away_key, game.league_key)" loading="lazy" width="24" height="24" class="w-6 h-6 object-contain" :title="game.away_name" />
+        <img v-if="getTeamLogoUrl(game.away_key)" :src="getTeamLogoUrl(game.away_key)" loading="lazy" width="24" height="24" class="w-6 h-6 object-contain" :title="game.away_name" />
         <div v-else class="w-6 h-6 rounded-full bg-[#f82828]/15 flex items-center justify-center">
           <span class="text-[8px] text-zinc-400 font-bold">A</span>
         </div>

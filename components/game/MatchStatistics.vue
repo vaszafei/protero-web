@@ -257,8 +257,8 @@ const isFootball = computed(() => props.sport === 'football')
 
 import { getTeamLogoUrl } from '~/utils/teamLogo'
 
-const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key, props.game.league_key))
-const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key, props.game.league_key))
+const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key))
+const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key))
 
 // Aggregate team totals from per-player boxscore data (NBA API format)
 function aggregateFromPlayers(players) {

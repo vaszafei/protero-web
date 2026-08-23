@@ -1,91 +1,5 @@
 <template>
   <div class="space-y-3">
-    <!-- ===== GAMES SECTION ===== -->
-    <div class="overview-card rounded-lg">
-      <div class="p-2 sm:p-4">
-        <!-- Round/Date Navigation -->
-        <div class="flex items-center justify-between mb-3">
-          <!-- Left: Arrow + Day chip -->
-          <div class="flex items-center gap-1 flex-shrink-0">
-            <button
-              @click="$emit('previousRound')"
-              :disabled="selectedRound <= 1"
-              class="p-1 rounded-lg hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronLeft :size="16" class="text-zinc-400" />
-            </button>
-            <span v-if="sport === 'basketball'" class="px-2 py-0.5 bg-zinc-700/80 text-zinc-400 text-[10px] font-medium rounded-full">
-              Day {{ selectedRound }}/{{ maxRound }}
-            </span>
-            <span v-else class="px-2 py-0.5 bg-zinc-700/80 text-zinc-400 text-[10px] font-medium rounded-full">
-              Rd {{ selectedRound }}/{{ maxRound }}
-            </span>
-          </div>
-
-          <!-- Center: Date + Games chip -->
-          <div class="flex items-center gap-1.5">
-            <h2 v-if="sport !== 'basketball'" class="text-sm sm:text-base font-bold text-zinc-100 whitespace-nowrap">Round {{ selectedRound }}</h2>
-            <h2 v-else class="text-sm sm:text-base font-bold text-zinc-100 whitespace-nowrap">{{ formatBballDate(selectedDate) }}</h2>
-
-            <span class="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] font-semibold rounded-full whitespace-nowrap">
-              {{ roundGames.length }} {{ roundGames.length === 1 ? 'game' : 'games' }}
-            </span>
-          </div>
-
-          <!-- Right: Arrow + Predictions/Profit -->
-          <div class="flex items-center gap-1 flex-shrink-0">
-            <span v-if="roundPredictionsCount > 0" class="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] font-semibold rounded-full">
-              {{ roundPredictionsCount }}P
-            </span>
-            <span v-if="roundBetsCount > 0" :class="[
-              'px-1.5 py-0.5 text-[10px] font-semibold rounded-full',
-              roundProfitLoss >= 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-            ]">
-              {{ roundProfitLoss >= 0 ? '+' : '' }}€{{ roundProfitLoss.toFixed(2) }}
-            </span>
-            <button
-              @click="$emit('nextRound')"
-              :disabled="selectedRound >= maxRound"
-              class="p-1 rounded-lg hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronRight :size="16" class="text-zinc-400" />
-            </button>
-          </div>
-        </div>
-
-        <!-- Progress Dots (football only, max ~40 rounds) -->
-        <div v-if="sport !== 'basketball' && maxRound <= 42" class="flex items-center justify-center gap-1 overflow-x-auto scrollbar-hide px-2 py-1 mb-2">
-          <button
-            v-for="round in maxRound"
-            :key="round"
-            @click="$emit('changeRound', round)"
-            :class="[
-              'relative w-2 h-2 rounded-full transition-all',
-              round === selectedRound
-                ? 'bg-primary-600 w-6'
-                : 'bg-zinc-600 hover:bg-zinc-500'
-            ]"
-            :title="`Round ${round}`"
-          />
-        </div>
-
-        <!-- Game Cards (horizontal scroll) -->
-        <div v-if="roundGames.length > 0" class="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2 -mx-2 px-2">
-          <div
-            v-for="game in roundGames"
-            :key="game.id || `${game.home_name}-${game.away_name}`"
-            class="flex-shrink-0 w-[120px] sm:w-[150px] snap-start"
-          >
-            <GameCard :game="game" />
-          </div>
-        </div>
-
-        <div v-else class="py-8 text-center text-zinc-500 text-sm">
-          No matches for this {{ sport === 'basketball' ? 'day' : 'round' }}
-        </div>
-      </div>
-    </div>
-
     <!-- ===== STANDINGS SECTION ===== -->
     <div class="overview-card rounded-lg">
       <div class="p-2 sm:p-4">
@@ -356,22 +270,25 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import GameCard from '~/components/league/GameCard.vue'
-
+/**
+ * The standings table for competitions with NO twin — basketball, LATAM
+ * football, national-team fixtures.
+ *
+ * Was `OverviewView.vue`, and carried the round's fixtures as well; those moved
+ * into `LeagueOverview.vue` on 2026-08-23 when Twin and Fixtures merged into one
+ * tab. What is left is the part `LeagueOverview` has no equivalent for: the
+ * basketball columns (ORtg / DRtg / NRtg / pace / streak / L10) and the team
+ * bottom sheet. A fitted competition renders the twin-merged table instead.
+ */
 const props = defineProps({
-  selectedRound: { type: Number, required: true },
-  maxRound: { type: Number, required: true },
-  roundGames: { type: Array, required: true },
   standings: { type: Array, required: true, default: () => [] },
   filter: { type: String, default: 'overall' },
   sport: { type: String, default: 'football' },
-  selectedDate: { type: String, default: null },
   allGames: { type: Array, default: () => [] },
-  leagueKey: { type: String, default: '' }
+  leagueKey: { type: String, default: '' },
 })
 
-defineEmits(['previousRound', 'nextRound', 'changeRound', 'update:filter'])
+defineEmits(['update:filter'])
 
 const isBball = computed(() => props.sport === 'basketball')
 
@@ -386,19 +303,6 @@ const leagueAvgPace = computed(() => {
   if (!isBball.value || props.standings.length === 0) return 0
   const sum = props.standings.reduce((acc, t) => acc + (t.pace || 0), 0)
   return (sum / props.standings.length).toFixed(1)
-})
-
-// ─── Round stats ────────────────────────────────────────────
-const roundPredictionsCount = computed(() => props.roundGames.filter(g => g.prediction_id).length)
-const roundBetsCount = computed(() => props.roundGames.filter(g => g.bet_id).length)
-const roundProfitLoss = computed(() => {
-  return props.roundGames.filter(g => g.bet_id).reduce((total, g) => {
-    if (g.home_goals === null || g.away_goals === null) return total
-    const pt = g.prediction?.toLowerCase()
-    if (pt && isWinningOdds(g, pt)) return total + (parseFloat(g.stake) * parseFloat(g.bet_odds) - parseFloat(g.stake))
-    else if (pt) return total - parseFloat(g.stake)
-    return total
-  }, 0)
 })
 
 // ─── Team Modal ─────────────────────────────────────────────
@@ -498,36 +402,9 @@ function getPercentageColor(value) {
   return 'text-green-400'
 }
 
-function formatBballDate(dateStr) {
-  if (!dateStr) return 'Loading...'
-  const date = new Date(dateStr + 'T12:00:00')
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-}
 
-function formatDateRange() {
-  const dates = props.roundGames.map(g => g.date ? g.date.split('T')[0] : null).filter(Boolean)
-  const uniqueDates = [...new Set(dates)].sort()
-  if (uniqueDates.length === 0) return 'TBD'
-  if (uniqueDates.length === 1) return formatDateShort(uniqueDates[0])
-  return `${formatDateShort(uniqueDates[0])} - ${formatDateShort(uniqueDates[uniqueDates.length - 1])}`
-}
 
-function formatDateShort(dateStr) {
-  if (dateStr === 'TBD') return 'TBD'
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', { timeZone: 'Europe/Athens', month: 'short', day: 'numeric' })
-}
 
-function isWinningOdds(game, type) {
-  if (game.home_goals === null || game.away_goals === null) return false
-  const h = game.home_goals, a = game.away_goals, t = h + a
-  if (type === 'home') return h > a
-  if (type === 'draw') return h === a
-  if (type === 'away') return a > h
-  if (type === 'over') return t > 2.5
-  if (type === 'under') return t < 2.5
-  return false
-}
 
 import { getTeamLogoUrl } from '~/utils/teamLogo'
 </script>
