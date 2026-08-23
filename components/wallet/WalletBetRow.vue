@@ -11,11 +11,28 @@
     <div class="flex-1 min-w-0">
       <p class="text-[12px] font-medium text-zinc-200 truncate">
         {{ bet.home_name || 'TBD' }} <span class="text-zinc-500">vs</span> {{ bet.away_name || 'TBD' }}
+        <span v-if="score" class="text-zinc-500 tabular-nums"> {{ score }}</span>
       </p>
       <p class="text-[10px] text-zinc-500 truncate">
         <span class="text-emerald-400/80 font-semibold">{{ shortLabel }}</span>
         <span v-if="dateLabel"> · {{ dateLabel }}</span>
         <span v-if="bet.league_key" class="text-zinc-600"> · {{ bet.league_key }}</span>
+      </p>
+
+      <!-- Provenance — only a mirrored tipster bet has one. The published
+           wording is the primary record of what was actually tipped; our
+           `bet_type` is a mapping of it, and the two must stay visible
+           together or a mis-mapped market becomes invisible. -->
+      <p v-if="mirror" class="text-[10px] text-zinc-600 truncate mt-0.5">
+        <span class="text-zinc-500">{{ mirror.author }}</span>
+        <span v-if="mirror.selection_text"> · published as “{{ mirror.selection_text }}”</span>
+        <span v-if="mirror.market_text" class="text-zinc-700"> ({{ mirror.market_text }})</span>
+        <a
+          v-if="mirror.url"
+          :href="mirror.url" target="_blank" rel="noopener noreferrer"
+          class="ml-1 text-zinc-500 underline decoration-dotted hover:text-zinc-300"
+          @click.stop
+        >source</a>
       </p>
     </div>
 
@@ -47,9 +64,29 @@ const shortLabel = computed(() => betLabelShort(props.bet))
 const stake = computed(() => Number(props.bet.stake || 0).toFixed(2))
 const odds  = computed(() => Number(props.bet.odds || 0).toFixed(2))
 
+const score = computed(() => {
+  const { home_goals: h, away_goals: a } = props.bet
+  return h == null || a == null ? '' : `${h}–${a}`
+})
+
+/** `notes` is JSONB server-side and arrives as an object or a string. */
+const notes = computed(() => {
+  let n = props.bet.notes
+  if (typeof n === 'string') {
+    try { n = JSON.parse(n) } catch { return null }
+  }
+  return n && typeof n === 'object' ? n : null
+})
+
+/** Set only for wagers projected from an external tipster slip. */
+const mirror = computed(() => {
+  const n = notes.value
+  return n?.source && n?.url ? n : null
+})
+
 const dateLabel = computed(() => {
   if (!props.bet.date) return ''
-  return new Date(props.bet.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  return new Date(props.bet.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
 })
 
 const dotCls = computed(() => {

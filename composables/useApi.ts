@@ -271,50 +271,89 @@ export const useApi = () => {
    * GET /api/leagues/:slug — single league with games and standings
    */
   const fetchLeague = async (slug: string, season = currentSeason(slug)) => {
-    const { data: league, error: lErr } = await supabase
+    // `.maybeSingle()`, and a synthesised row when the registry has none.
+    //
+    // The `leagues` registry holds 22 rows while `games` carries 15 more league
+    // keys — the six domestic cups ingested 2026-08-20, conference_league, and
+    // the rest. `.single()` answers a zero-row result with a 406, which this
+    // threw, so every one of those competitions dead-ended on "Loading league
+    // data…" forever: 5,000+ fixtures listed on /leagues and unreachable from
+    // it. A competition is defined by having fixtures, not by having a
+    // registry row.
+    const { data: registryRow, error: lErr } = await supabase
       .from('leagues')
       .select('*')
       .eq('key', slug)
-      .single()
+      .maybeSingle()
 
     if (lErr) throw lErr
 
-    const [gamesRes, standingsRes] = await Promise.all([
-      supabase
-        .from('games')
-        .select(`
-          id, date, season, league_key, sport, status, round,
-          home_team_id, away_team_id, home_goals, away_goals,
-          home_xg, away_xg, odds_home, odds_away, sport_stats,
-          home_team:teams!home_team_id(name, team_key),
-          away_team:teams!away_team_id(name, team_key),
-          predictions(id, prediction, confidence, model_version, over_15_prob, over_25_prob, over_35_prob, over_85_corners_prob, over_95_corners_prob, over_105_corners_prob, odds_over_25, odds_under_25, expected_value, result_correct, created_at),
-          bets(id, wallet_id, bet_type, stake, odds, status, profit)
-        `)
-        .eq('league_key', slug)
-        .eq('season', season)
-        .order('date', { ascending: true }),
-      supabase
-        .from('standings')
-        .select('*')
-        .eq('league_key', slug)
-        .eq('season', season)
-        .order('pts', { ascending: false })
-    ])
+    const league = registryRow ?? {
+      key: slug,
+      name: slug.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      flag: null,
+      sport: null, // filled from the fixtures below
+      unregistered: true,
+    }
 
-    if (gamesRes.error) throw gamesRes.error
+    const GAME_COLUMNS = `
+      id, date, season, league_key, sport, status, round,
+      home_team_id, away_team_id, home_goals, away_goals,
+      home_xg, away_xg, odds_home, odds_draw, odds_away, sport_stats,
+      home_team:teams!home_team_id(name, team_key),
+      away_team:teams!away_team_id(name, team_key),
+      predictions(id, prediction, confidence, model_version, over_15_prob, over_25_prob, over_35_prob, over_85_corners_prob, over_95_corners_prob, over_105_corners_prob, odds_over_25, odds_under_25, expected_value, result_correct, created_at),
+      bets(
+        id, wallet_id, bet_type, stake, odds, status, profit,
+        parlay_legs(parlay_id)
+      )
+    `
+
+    // Paged, because PostgREST caps a response at 1,000 rows silently. An NBA
+    // season is ~1,300 fixtures, so a single request dropped the last quarter
+    // of the schedule from the table, the round rail and the picks panel with
+    // no error anywhere.
+    const PAGE = 1000
+    const MAX_PAGES = 20
+    const rawGames: any[] = []
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const { data, error } = await supabase
+        .from('games')
+        .select(GAME_COLUMNS)
+        .eq('league_key', slug)
+        .eq('season', season)
+        .order('date', { ascending: true })
+        .range(page * PAGE, page * PAGE + PAGE - 1)
+
+      if (error) throw error
+      if (!data?.length) break
+      rawGames.push(...data)
+      if (data.length < PAGE) break
+    }
+
+    const standingsRes = await supabase
+      .from('standings')
+      .select('*')
+      .eq('league_key', slug)
+      .eq('season', season)
+      .order('pts', { ascending: false })
+
     if (standingsRes.error) throw standingsRes.error
 
     // Flatten the best prediction onto each game — PredictionsView consumes
     // `prediction_id` / `prediction` / `model_version` / `over_*_prob` at the
     // game level, not a nested `predictions` array. Without this flatten the
     // Predictions tab rendered zero AI predictions even though the rows exist.
-    const games = (gamesRes.data || []).map((g: any) => {
+    const games = rawGames.map((g: any) => {
       const prediction = (g.predictions && g.predictions[0]) || null
       return {
         ...g,
         home_name: g.home_team?.name || 'Unknown',
         away_name: g.away_team?.name || 'Unknown',
+        // Team keys resolve the crest. They were selected but never flattened,
+        // so every fixture card fell through to its text placeholder.
+        home_key: g.home_team?.team_key || null,
+        away_key: g.away_team?.team_key || null,
         prediction_id: prediction?.id,
         prediction: prediction?.prediction,
         confidence: prediction?.confidence,
@@ -330,6 +369,9 @@ export const useApi = () => {
         expected_value: prediction?.expected_value,
       }
     })
+
+    // An unregistered competition's sport comes from its own fixtures.
+    if (!league.sport) league.sport = games[0]?.sport || 'football'
 
     return { league, games, standings: standingsRes.data || [] }
   }
@@ -489,6 +531,32 @@ export const useApi = () => {
       walletId == null ? {} : { p_wallet_id: walletId })
     if (error) throw error
     return (data || []) as WalletPerformance[]
+  }
+
+  /**
+   * Where a wallet's P&L came from: `get_wallet_breakdown(wallet_id)`.
+   *
+   * Three cuts in one round-trip — competition, market family, price band —
+   * computed in SQL for the same reason ROI is: a client-side split invites
+   * someone to divide profit by `initial_balance` again.
+   *
+   * SETTLED SINGLES ONLY, and the payload carries that in `basis`. A parlay
+   * has no single league or market, and attributing one to its legs is the
+   * leg-counting error that once reported W21 at -2.1% against -76.8%.
+   */
+  const fetchWalletBreakdown = async (walletId: number) => {
+    const { data, error } = await supabase.rpc('get_wallet_breakdown', { p_wallet_id: walletId })
+    if (error) throw error
+    return (data || { n: 0, cuts: {} }) as {
+      wallet_id: number
+      basis: string
+      n: number
+      cuts: Record<string, Array<{
+        label: string; n: number; won: number
+        turnover: number; pnl: number
+        roi_pct: number | null; win_rate_pct: number
+      }>>
+    }
   }
 
   /**
@@ -840,6 +908,7 @@ export const useApi = () => {
     // Wallets / parlays / accuracy
     fetchWallets,
     fetchWalletBets,
+    fetchWalletBreakdown,
     fetchWalletParlays,
     fetchWalletStats,
     fetchWalletPerformance,

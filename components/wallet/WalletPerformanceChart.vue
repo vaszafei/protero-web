@@ -62,13 +62,25 @@
         <div class="absolute left-1 bottom-0 text-[9px] text-zinc-600 tabular-nums">${{ formatNum(minV) }}</div>
       </div>
 
-      <!-- Footer summary -->
+      <!-- Footer summary. The percentage is BANKROLL RETURN over the window
+           and is labelled as such — it is not ROI, and the two differ by a
+           factor of six on W7. ROI lives on the hero, from the RPC. -->
       <div class="flex items-center justify-between mt-2 text-[10px] text-zinc-500">
-        <span class="tabular-nums">Start: ${{ formatNum(points[0].balance) }}</span>
+        <span class="tabular-nums">${{ formatNum(points[0].balance) }}</span>
         <span class="tabular-nums" :class="rangePnl >= 0 ? 'text-emerald-400' : 'text-red-400'">
-          {{ rangePnl >= 0 ? '+' : '' }}${{ formatNum(rangePnl) }} ({{ rangePnlPct >= 0 ? '+' : '' }}{{ rangePnlPct.toFixed(1) }}%)
+          {{ rangePnl >= 0 ? '+' : '' }}${{ formatNum(rangePnl) }}
+          <span class="text-zinc-600">({{ rangePnlPct >= 0 ? '+' : '' }}{{ rangePnlPct.toFixed(1) }}% bankroll)</span>
         </span>
-        <span class="tabular-nums">Now: ${{ formatNum(points[points.length - 1].balance) }}</span>
+        <span class="tabular-nums">${{ formatNum(points[points.length - 1].balance) }}</span>
+      </div>
+
+      <!-- The x-axis is the date a wager was STRUCK, not when we graded it.
+           Say so: a backfilled wallet settles 20 months of bets in one run,
+           and the old `settled_at` axis drew all of them on today. -->
+      <div class="flex items-center justify-between mt-0.5 text-[9px] text-zinc-600 tabular-nums">
+        <span>{{ dateLabel(points[0].ts) }}</span>
+        <span class="text-zinc-700">{{ points.length }} wagers, by date placed</span>
+        <span>{{ dateLabel(points[points.length - 1].ts) }}</span>
       </div>
     </div>
   </div>
@@ -146,5 +158,10 @@ const strokeColor = computed(() => rangePnl.value >= 0 ? '#34d399' : '#f87171')
 
 function formatNum(n) {
   return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+
+function dateLabel(ts) {
+  if (!ts) return ''
+  return new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
 }
 </script>

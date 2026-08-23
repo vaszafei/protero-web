@@ -17,6 +17,14 @@ import { getSupabase } from '~/server/utils/supabase'
  *   - Open exposure is the stake sitting on unsettled wagers. Parlay legs are
  *     excluded from the singles sum for the same reason: the money at risk is
  *     the parlay's `total_stake`, counted once.
+ *   - MIRRORED TIPSTER WALLETS ARE NOT OURS. W33-W47 replay an external
+ *     tipster's published picks at a flat 1.00 (`ml/tipsters/project_bets.py`,
+ *     2026-08-23). They are `bets` rows and they settle through the same
+ *     engine, but nobody staked that money. Counting them as exposure, as
+ *     slate, or in the week's P&L makes this readout describe a bankroll that
+ *     does not exist — so every "ours" figure here filters on
+ *     `archetype <> 'external_tipster'`, and the mirrors are surfaced
+ *     separately.
  *   - The three CLI gates persist nothing (there is no operation_logs table),
  *     so they are NOT reported here. /gates renders them honestly as
  *     "not recorded"; a dashboard tick would be a fabricated green.
@@ -86,8 +94,9 @@ export default defineEventHandler(async () => {
       .order('started_at', { ascending: false })
       .limit(50),
 
-    // Blind spots: fixtures in the next 7 days where a club has no history in
-    // the division it is playing in. A warning surface, never a price.
+    // Carried ratings: fixtures in the next 7 days where a club plays outside the division
+    // its twin rating was learned in. A warning about the twin's carry, never a price —
+    // every club here IS rated, and DC scores these fixtures better than unflagged ones.
     supabase
       .from('twin_fixture_risk')
       .select('game_id, date, league_key, home_team, away_team, blind_side, home_evidence_league, away_evidence_league')
@@ -126,18 +135,25 @@ export default defineEventHandler(async () => {
   const walletById = new Map(wallets.map((w: any) => [w.id, w]))
   const perfById = new Map(performance.map((p: any) => [p.wallet_id, p]))
 
-  // ── Open exposure ────────────────────────────────────────────────────
+  /** True for a mirrored external tipster — a wallet nobody actually staked. */
+  const isMirror = (walletId: number) =>
+    walletById.get(walletId)?.archetype === 'external_tipster'
+
+  const ourOpenSingles = openSingleWagers.filter((b: any) => !isMirror(b.wallet_id))
+  const ourOpenParlays = openParlays.filter((p: any) => !isMirror(p.wallet_id))
+
+  // ── Open exposure — OUR money only ───────────────────────────────────
   const exposure = {
-    n_singles: openSingleWagers.length,
-    n_parlays: openParlays.length,
-    stake_singles: round2(sum(openSingleWagers.map((b: any) => Number(b.stake) || 0))),
-    stake_parlays: round2(sum(openParlays.map((p: any) => Number(p.total_stake) || 0))),
+    n_singles: ourOpenSingles.length,
+    n_parlays: ourOpenParlays.length,
+    stake_singles: round2(sum(ourOpenSingles.map((b: any) => Number(b.stake) || 0))),
+    stake_parlays: round2(sum(ourOpenParlays.map((p: any) => Number(p.total_stake) || 0))),
     get n_wagers() { return this.n_singles + this.n_parlays },
     get stake() { return round2(this.stake_singles + this.stake_parlays) },
   }
 
   // ── Live slate: open singles on fixtures that have not kicked off ─────
-  const liveSlate = openSingleWagers
+  const liveSlate = ourOpenSingles
     .filter((b: any) => b.game?.date && new Date(b.game.date) >= new Date(now.getTime() - 3 * 3600_000))
     .sort((a: any, b: any) => new Date(a.game.date).getTime() - new Date(b.game.date).getTime())
     .slice(0, 25)
@@ -172,7 +188,9 @@ export default defineEventHandler(async () => {
     if (legErr) throw createError({ statusCode: 500, message: legErr.message })
     settledLegIds = new Set((legs || []).map((l: any) => l.bet_id))
   }
-  const settledSingles = settled.filter((b: any) => !settledLegIds.has(b.id))
+  const settledSingles = settled
+    .filter((b: any) => !settledLegIds.has(b.id))
+    .filter((b: any) => !isMirror(b.wallet_id))
 
   const { data: settledParlays, error: spErr } = await supabase
     .from('parlays')
@@ -190,7 +208,7 @@ export default defineEventHandler(async () => {
         ? (b.status === 'won' ? Number(b.stake) * (Number(b.odds) - 1) : -Number(b.stake))
         : Number(b.profit),
     })),
-    ...(settledParlays || []).map((p: any) => ({
+    ...(settledParlays || []).filter((p: any) => !isMirror(p.wallet_id)).map((p: any) => ({
       stake: Number(p.total_stake) || 0,
       won: p.status === 'won',
       pnl: p.status === 'won'
@@ -226,7 +244,11 @@ export default defineEventHandler(async () => {
   })
 
   // ── Fleet: wallets that have written something, or are meant to ──────
+  // Mirrors are excluded: 15 of them would swamp a seven-wallet control room
+  // with rows an operator cannot act on. They live on /wallet, where the
+  // coverage that qualifies their numbers is rendered beside them.
   const fleet = wallets
+    .filter((w: any) => w.archetype !== 'external_tipster')
     .map((w: any) => ({
       id: w.id,
       name: w.persona_name || w.name,

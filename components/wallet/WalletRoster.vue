@@ -1,26 +1,37 @@
 <template>
   <div>
-    <!-- Lifecycle groups: what still writes, then what is history. -->
-    <div v-for="group in groups" :key="group.key" class="mb-5 last:mb-0">
-      <div class="flex items-baseline gap-2 mb-2 px-1">
+    <div v-for="group in groups" :key="group.key" class="mb-6 last:mb-0">
+      <div class="flex items-baseline gap-2 mb-1.5 px-1 flex-wrap">
         <h3 class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">{{ group.label }}</h3>
         <span class="text-[10px] text-zinc-600 tabular-nums">{{ group.rows.length }}</span>
         <span class="text-[10px] text-zinc-600">— {{ group.hint }}</span>
+        <span
+          v-if="group.family.k > 1"
+          class="ml-auto text-[10px] text-zinc-600 tabular-nums"
+          :title="`${group.family.k} wallets in this cohort carry a p-value, so a p<0.05 picked out of it is not evidence. Bonferroni threshold shown.`"
+        >
+          k={{ group.family.k }} · needs p&lt;{{ group.family.bonferroni.toFixed(4) }}
+        </span>
       </div>
 
       <!-- Desktop: dense table. An operator reads a roster, not a card wall. -->
-      <div class="hidden md:block rounded-lg border border-edge overflow-hidden">
+      <div class="hidden md:block rounded-lg border border-edge overflow-x-auto">
         <table class="w-full text-xs">
           <thead>
             <tr class="bg-surface-light/40 text-zinc-500">
               <th class="text-left font-medium px-3 py-2">Wallet</th>
               <th class="text-right font-medium px-2 py-2 w-16" title="Settled wagers. A parlay counts once, never its legs.">n</th>
               <th class="text-right font-medium px-2 py-2 w-16" title="Unsettled wagers">Open</th>
+              <th
+                v-if="group.showCoverage"
+                class="text-right font-medium px-2 py-2 w-24"
+                title="Share of this tipster's published slips our resolver could bind to a fixture. The ROI describes only these."
+              >Covered</th>
               <th class="text-right font-medium px-2 py-2 w-24">Turnover</th>
               <th class="text-right font-medium px-2 py-2 w-24">P&amp;L</th>
               <th class="text-right font-medium px-2 py-2 w-20" title="Profit / turnover — not bankroll return">ROI</th>
               <th class="text-right font-medium px-2 py-2 w-20" title="Chance a zero-edge bettor matches this. Lower is better.">p(luck)</th>
-              <th class="text-left font-medium px-3 py-2 w-24">Verdict</th>
+              <th class="text-left font-medium px-3 py-2 w-28">Verdict</th>
             </tr>
           </thead>
           <tbody>
@@ -45,6 +56,13 @@
               <td class="px-2 py-2 text-right tabular-nums" :class="r.perf.n_pending > 0 ? 'text-amber-400' : 'text-zinc-600'">
                 {{ r.perf.n_pending || '—' }}
               </td>
+              <td v-if="group.showCoverage" class="px-2 py-2 text-right tabular-nums">
+                <template v-if="r.coverage">
+                  <span :class="coverageClass(r.coverage.coverage_pct)">{{ r.coverage.coverage_pct.toFixed(1) }}%</span>
+                  <span class="text-zinc-600"> of {{ r.coverage.slips }}</span>
+                </template>
+                <span v-else class="text-zinc-600">—</span>
+              </td>
               <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ money(r.perf.turnover) }}</td>
               <td class="px-2 py-2 text-right tabular-nums" :class="signClass(r.perf.pnl)">{{ signed(r.perf.pnl) }}</td>
               <td class="px-2 py-2 text-right tabular-nums font-semibold" :class="signClass(r.perf.roi_pct)">
@@ -54,9 +72,11 @@
                 {{ r.perf.p_luck == null ? '—' : Number(r.perf.p_luck).toFixed(3) }}
               </td>
               <td class="px-3 py-2">
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="verdictClass(r.perf.verdict)">
-                  {{ r.perf.verdict }}
-                </span>
+                <span
+                  class="px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap"
+                  :class="VERDICT_CLASS[r.verdict]"
+                  :title="VERDICT_TITLE[r.verdict]"
+                >{{ VERDICT_LABEL[r.verdict] }}</span>
               </td>
             </tr>
           </tbody>
@@ -76,11 +96,12 @@
               <div class="text-sm text-zinc-200 font-medium truncate">{{ r.meta.longName }}</div>
               <div class="text-[10px] text-zinc-600">W{{ r.id }} · {{ r.meta.badge }}</div>
             </div>
-            <span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="verdictClass(r.perf.verdict)">
-              {{ r.perf.verdict }}
-            </span>
+            <span
+              class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+              :class="VERDICT_CLASS[r.verdict]"
+            >{{ VERDICT_LABEL[r.verdict] }}</span>
           </div>
-          <div class="flex items-center gap-3 mt-2 text-[11px] tabular-nums">
+          <div class="flex items-center gap-3 mt-2 text-[11px] tabular-nums flex-wrap">
             <span class="text-zinc-500">n <span class="text-zinc-300">{{ r.perf.n_wagers }}</span></span>
             <span v-if="r.perf.n_pending" class="text-amber-400">{{ r.perf.n_pending }} open</span>
             <span :class="signClass(r.perf.roi_pct)">
@@ -88,6 +109,9 @@
             </span>
             <span v-if="r.perf.p_luck != null" :class="pClass(r.perf.p_luck)">
               p={{ Number(r.perf.p_luck).toFixed(2) }}
+            </span>
+            <span v-if="r.coverage" :class="coverageClass(r.coverage.coverage_pct)">
+              {{ r.coverage.coverage_pct.toFixed(0) }}% covered
             </span>
           </div>
         </button>
@@ -97,9 +121,11 @@
     <p class="text-[10px] text-zinc-600 leading-relaxed mt-4 px-1">
       A wager is one settled bet, or one parlay at its parlay price — never a parlay's legs.
       ROI is profit over turnover, not bankroll return. p(luck) is the chance a bettor with no edge
-      matches this P&amp;L, as a normal approximation; run
+      matches this P&amp;L. <span class="text-zinc-500">Verdicts are corrected for the size of the
+      cohort they were picked from</span> — the whole roster is scored at once, so an uncorrected
+      p&lt;0.05 is a selection, not a finding. Run
       <code class="text-zinc-500">python3 -m common.wallet_significance</code> before publishing any
-      of it. Nothing here reaches p&lt;0.05.
+      of it.
     </p>
   </div>
 </template>
@@ -107,10 +133,13 @@
 <script setup>
 import { computed } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
+import { cohortOf, scoreFamily, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE } from '~/utils/wallet-stats'
 
 const props = defineProps({
-  wallets:     { type: Array, required: true },  // rows from `wallets`
-  performance: { type: Array, default: () => [] }, // rows from get_wallet_performance
+  wallets:     { type: Array, required: true },   // rows from `wallets`
+  performance: { type: Array, default: () => [] },// rows from get_wallet_performance
+  /** Rows from v_tipster_wallet_coverage, via /api/wallet/tipsters. */
+  coverage:    { type: Array, default: () => [] },
   selectedId:  { type: Number, default: null },
 })
 
@@ -123,6 +152,7 @@ const EMPTY_PERF = {
 
 const rows = computed(() => {
   const perfById = new Map((props.performance || []).map(p => [p.wallet_id, p]))
+  const covById = new Map((props.coverage || []).map(c => [c.wallet_id, c]))
   return (props.wallets || []).map(w => {
     const blurb = (w.bio || '').trim()
     return {
@@ -130,24 +160,51 @@ const rows = computed(() => {
       raw: w,
       meta: resolveWalletMeta(w),
       perf: perfById.get(w.id) || EMPTY_PERF,
+      coverage: covById.get(w.id) || null,
       blurbShort: blurb.length > 68 ? blurb.slice(0, 68) + '…' : (blurb || '—'),
     }
   })
 })
 
 /**
- * Split by what still writes. `lifecycle` is the DB's own answer ('trader' vs
- * 'legacy'); `is_active` is not — several trader personas are active with no
- * picker built, and several legacy wallets still take writes.
+ * Three cohorts, because there are three kinds of thing in this table and
+ * mixing them corrupts both the reading and the statistics.
+ *
+ *   ours    — strategies we run. `lifecycle='trader'`, not an external mirror.
+ *   mirror  — an external tipster's published picks, replayed at a flat unit
+ *             (`archetype='external_tipster'`). Reference data, never a
+ *             strategy of ours, and never comparable to a wallet we operate:
+ *             its ROI covers only the fraction of the source we could bind.
+ *   legacy  — history, frozen at the 2026-07-28 cutover.
+ *
+ * `lifecycle` is the DB's own answer and `is_active` is not — several trader
+ * personas are active with no picker built, and several legacy wallets still
+ * take writes.
+ *
+ * Each cohort gets its OWN multiplicity correction. Pooling k across them
+ * would let the 15-wallet tipster archive inflate the bar our own strategies
+ * must clear, and vice versa — they are separate searches.
  */
 const groups = computed(() => {
-  const live = rows.value.filter(r => r.raw.lifecycle === 'trader')
-  const legacy = rows.value.filter(r => r.raw.lifecycle !== 'trader')
+  const all = rows.value
+  const inCohort = k => all.filter(r => cohortOf(r.raw) === k)
+  const [ours, mirror, legacy] = ['ours', 'mirror', 'legacy'].map(inCohort)
   const byVolume = (a, b) => (b.perf.n_wagers - a.perf.n_wagers) || (a.id - b.id)
+
   return [
-    { key: 'trader', label: 'Trader personas', hint: 'the live roster (CD #35)', rows: live.sort(byVolume) },
-    { key: 'legacy', label: 'Legacy', hint: 'history; frozen at the cutover', rows: legacy.sort(byVolume) },
-  ].filter(g => g.rows.length > 0)
+    { key: 'trader', label: 'Trader personas', hint: 'the live roster (CD #35)',
+      rows: ours.sort(byVolume), showCoverage: false },
+    { key: 'mirror', label: 'Mirrored tipsters',
+      hint: 'external picks replayed at a flat 1.00 — reference data, not our strategies',
+      rows: mirror.sort(byVolume), showCoverage: true },
+    { key: 'legacy', label: 'Legacy', hint: 'history; frozen at the cutover',
+      rows: legacy.sort(byVolume), showCoverage: false },
+  ]
+    .filter(g => g.rows.length > 0)
+    .map(g => ({ ...g, family: scoreFamily(g.rows.map(r => ({
+      wallet_id: r.id, p_luck: r.perf.p_luck, n_wagers: r.perf.n_wagers,
+    }))) }))
+    .map(g => ({ ...g, rows: g.rows.map(r => ({ ...r, verdict: g.family.verdictById.get(r.id) })) }))
 })
 
 function money(v) {
@@ -175,12 +232,12 @@ function pClass(p) {
   return 'text-zinc-500'
 }
 
-function verdictClass(v) {
-  return {
-    EDGE:   'bg-emerald-500/15 text-emerald-300',
-    hint:   'bg-amber-500/15 text-amber-300',
-    LUCK:   'bg-zinc-700/40 text-zinc-400',
-    'n<10': 'bg-zinc-800/60 text-zinc-600',
-  }[v] || 'bg-zinc-800/60 text-zinc-600'
+// Coverage is a warning, not an achievement: at 5% the ROI describes a
+// twentieth of what the tipster published and the subsample is not random.
+function coverageClass(pct) {
+  const n = Number(pct || 0)
+  if (n >= 25) return 'text-zinc-300'
+  if (n >= 10) return 'text-amber-400'
+  return 'text-red-400'
 }
 </script>

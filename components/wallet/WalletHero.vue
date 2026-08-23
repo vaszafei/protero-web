@@ -7,24 +7,9 @@
     </div>
 
     <div class="relative">
-      <!-- Header -->
-      <div class="flex items-start justify-between gap-3 mb-3">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="text-[9px] font-bold text-emerald-300 uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">
-              {{ meta.badge }}
-            </span>
-            <h2 class="text-sm font-bold text-zinc-100 truncate">{{ meta.longName }}</h2>
-          </div>
-          <p class="text-[10px] text-zinc-500 mt-0.5 truncate">{{ meta.blurb }}</p>
-        </div>
-        <div v-if="expiresInDays != null" class="text-right flex-shrink-0">
-          <p class="text-[9px] text-zinc-500 uppercase tracking-wider">Expires</p>
-          <p class="text-[11px] font-semibold tabular-nums" :class="expiresInDays <= 3 ? 'text-amber-400' : 'text-zinc-300'">
-            {{ expiresInDays > 0 ? `${expiresInDays}d` : 'today' }}
-          </p>
-        </div>
-      </div>
+      <!-- No name or blurb here: the page above the card already carries both,
+           and the truncated copy that used to sit here was the same sentence
+           cut off mid-word. -->
 
       <!-- Balance -->
       <div class="mb-3">
@@ -75,14 +60,20 @@
         </div>
       </div>
 
-      <!-- ROI never travels alone (performance-claim rule 2). -->
+      <!-- ROI never travels alone (performance-claim rule 2). The verdict is
+           the COHORT-corrected one: this wallet was read off a roster scored
+           all at once, so its own p is not the bar it has to clear. -->
       <div v-if="performance" class="mt-3 pt-2.5 border-t border-white/5 flex items-center gap-2 flex-wrap">
-        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="verdictClass">
-          {{ performance.verdict }}
-        </span>
+        <span
+          class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+          :class="VERDICT_CLASS[verdict]"
+          :title="VERDICT_TITLE[verdict]"
+        >{{ VERDICT_LABEL[verdict] }}</span>
         <span class="text-[10px] text-zinc-500 tabular-nums">
           <template v-if="performance.p_luck != null">
-            p(luck) = {{ Number(performance.p_luck).toFixed(3) }} · turnover ${{ formatNum(performance.turnover) }}
+            p(luck) = {{ Number(performance.p_luck).toFixed(3) }}<template v-if="family && family.k > 1">
+              · needs p&lt;{{ family.bonferroni.toFixed(4) }} at k={{ family.k }}</template>
+            · turnover ${{ formatNum(performance.turnover) }}
           </template>
           <template v-else>
             below n=10 — a simulation says nothing useful here
@@ -92,23 +83,51 @@
           {{ performance.n_pending }} open
         </span>
       </div>
+
+      <!-- A mirrored wallet's ROI is a statement about the fraction of the
+           source we could bind, not about the tipster. Never render one
+           without the other. -->
+      <div v-if="coverage" class="mt-2.5 pt-2.5 border-t border-white/5">
+        <p class="text-[10px] text-zinc-400 leading-relaxed">
+          <span class="font-semibold text-zinc-300">Mirror.</span>
+          {{ coverage.slips_in_ledger.toLocaleString() }} of
+          {{ coverage.slips.toLocaleString() }} published slips
+          (<span :class="coverageClass">{{ Number(coverage.coverage_pct).toFixed(1) }}%</span>)
+          bound to a fixture we hold and became a wager. The figures above describe those, not this
+          tipster's record.
+          <template v-if="coverage.verdict_comparable">
+            Our settlement agrees with the source's own verdict on
+            {{ coverage.verdict_agree }}/{{ coverage.verdict_comparable }}.
+          </template>
+          <template v-else>
+            This source publishes no verdict of its own, so there is no cross-check.
+          </template>
+        </p>
+        <p class="text-[10px] text-zinc-600 mt-1 tabular-nums">
+          {{ coverage.legs_no_fixture.toLocaleString() }} legs had no fixture in our corpus ·
+          {{ coverage.legs_no_market.toLocaleString() }} a market the engine does not grade
+        </p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { resolveWalletMeta } from '~/utils/wallet-meta'
+import { VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE } from '~/utils/wallet-stats'
 
 const props = defineProps({
   wallet:           { type: Object, required: true },
   /** One `get_wallet_performance` row. Null renders the stats as unknown. */
   performance:      { type: Object, default: null },
-  subscription:     { type: Object, default: null }, // { expires_at, ... }
   sparklinePoints:  { type: Array, default: () => [] }, // [{ts, balance}, ...]
+  /** Cohort-corrected verdict from utils/wallet-stats.scoreFamily. */
+  verdict:          { type: String, default: 'n<10' },
+  /** { k, bonferroni } for the cohort this wallet was scored in. */
+  family:           { type: Object, default: null },
+  /** One v_tipster_wallet_coverage row — mirrored wallets only. */
+  coverage:         { type: Object, default: null },
 })
-
-const meta = computed(() => resolveWalletMeta(props.wallet || { id: 0 }))
 
 /**
  * Balance movement — this one IS a bankroll figure and is labelled as such
@@ -126,18 +145,11 @@ const winRate = computed(() =>
 
 const nWagers = computed(() => Number(props.performance?.n_wagers ?? 0))
 
-const verdictClass = computed(() => ({
-  EDGE:   'bg-emerald-500/15 text-emerald-300',
-  hint:   'bg-amber-500/15 text-amber-300',
-  LUCK:   'bg-zinc-700/40 text-zinc-400',
-  'n<10': 'bg-zinc-800/60 text-zinc-500',
-}[props.performance?.verdict] || 'bg-zinc-800/60 text-zinc-500'))
-
-const expiresInDays = computed(() => {
-  const exp = props.subscription?.expires_at
-  if (!exp) return null
-  const ms = new Date(exp).getTime() - Date.now()
-  return Math.max(0, Math.ceil(ms / 86400_000))
+const coverageClass = computed(() => {
+  const n = Number(props.coverage?.coverage_pct || 0)
+  if (n >= 25) return 'text-zinc-300'
+  if (n >= 10) return 'text-amber-400'
+  return 'text-red-400'
 })
 
 // Map balance points into 0-100 / 30-0 SVG coords

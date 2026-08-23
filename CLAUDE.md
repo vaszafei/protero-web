@@ -64,7 +64,7 @@ protero-frontend/
 │   ├── game/               17 — match detail views, stats, predictions
 │   ├── league/             18 (incl. predictions/) — league detail tabs
 │   ├── twin/               1 — entity/blind-spot layer
-│   ├── wallet/             6 — roster, hero, bet rows
+│   ├── wallet/             8 — roster, hero, breakdown, provenance, bet/parlay rows
 │   ├── ui/                 5 — shared primitives (Card, EmptyState, LoadingSpinner, etc.)
 │   └── (root)              7 — Sidebar, BottomNav, etc.
 
@@ -98,11 +98,12 @@ protero-frontend/
 | `/calendar` | `calendar.vue` (~221L) | Month calendar — toolbar (sport/wallet dropdowns), wallet card, calendar/date-bar, games, predictions, bets. **This was `/` until 2026-08-22.** |
 | `/login` | `login.vue` (18L) | Login form (no layout) |
 | `/leagues` | `leagues.vue` (~235L) | **Competitions** — every competition in `games` (37, not the registry's 22), grouped Leagues / Cups / Not fitted, ranked by twin `level`. |
-| `/league/[slug]` | `league/[slug].vue` (~700L) | **Twin-led league page** — fitted level/home/spread, club ratings (→ `/team/[id]`), transitions in-out; then Overview / Analysis / Predictions tabs. |
+| `/league/[slug]` | `league/[slug].vue` (~900L) | **Overview / Analysis / Predictions.** Overview = the twin AND the round's fixtures in one pane (merged 2026-08-23). Season rail, one-line fixture carousel, twin-merged standings, latest picks. Predictions are gated to the newest season that has fixtures. |
 | `/game/[id]` | `game/[id].vue` (~467L) | Game detail — timeline/stats/players (completed) or analysis/h2h/prediction (scheduled) |
 | `/player/[id]` | `player/[id].vue` (~467L) | Player season page |
 | `/team/[id]` | `team/[id].vue` (~225L) | Digital-twin club page — ratings, season history, squad continuity |
-| `/wallet` | `wallet.vue` (~308L) | Operator wallet console — roster + per-wallet performance |
+| `/wallet` | `wallet/index.vue` (~125L) | **Wallet roster** — three cohorts (trader / mirrored tipsters / legacy), split fleet totals, mirrored-source provenance. Split from the combined page 2026-08-23. |
+| `/wallet/[id]` | `wallet/[id].vue` (~290L) | **One wallet** — hero, equity curve, P&L breakdown (competition / market / price), bets + parlays, sibling picker |
 | `/gates` | `gates.vue` (~129L) | Pipeline health + CLI-gate status (honest, no fabricated greens) |
 | `/my-real-bets` | `my-real-bets.vue` (~518L) | Operator real-money slip log (`user_real_bets`, CD #31) |
 | `/account` | `account.vue` (17L) | Profile card |
@@ -123,7 +124,7 @@ protero-frontend/
 | **leagues/** | 3 | `index.get`, `[slug].get`, `overview.get` — every competition + twin + role |
 | **predictions/** | 3 | `[gameId].get`, `accuracy.get`, `bulk-regenerate.post` |
 | **user-real-bets/** | 4 | `index.get/post`, `[id].patch/delete` |
-| **wallet/** | 6 | `bets.get`, `list.get`, `settle-bets.post`, `stats.get`, `status.get`, `tipsters.get` |
+| **wallet/** | 6 | `bets.get`, `list.get`, `settle-bets.post`, `stats.get`, `status.get`, `tipsters.get` (provenance + coverage, **not** a second ROI) |
 | **misc** | 4 | `parlays.get`, `player/[id]/season.get`, `seasons/[leagueKey].get`, `sports.get`, `update-match.post` |
 
 > The credit/subscription/picks/user-bets routes were removed 2026-08-22 with the
@@ -235,6 +236,23 @@ npm run apk:build:release  # gradlew assembleRelease → app-release.apk (~17MB,
 
 **The silent-failure pattern.** The league route swallowed a PostgREST error into `games: []` for months — a select referencing `home_possession` (the column is `home_possession_pct`). Fail loud: throw on `.error`, never fall through to an empty array.
 
+**The silent 1,000-row cap.** PostgREST truncates a response at 1,000 rows and says nothing — no
+error, no flag, just a short array. Two league-page fetchers counted what came back:
+`/api/seasons/:leagueKey` reported 233 NBA games where there are 1,337 and dropped whole seasons,
+and `fetchLeague` lost the last quarter of an NBA schedule. Anything that may exceed 1,000 rows must
+page with `.range()`. Aggregates are disabled on this instance (`PGRST123`), and a larger `.limit()`
+does not lift the cap.
+
+**RLS enabled with zero policies reads as "no data".** `parlays` and `parlay_legs` had
+`rowsecurity = t` and no policy, so PostgREST returned `[]` to the browser while `psql` and the
+service-role key saw 1,383 parlays. Every parlay view in the app rendered empty and it looked like
+missing data. Fixed 2026-08-23. When a table returns empty from the client but not from `psql`,
+check `pg_policies` before checking the query.
+
+**The TS cast in a non-TS SFC.** `($event.target as HTMLImageElement)` inside a template whose
+`<script setup>` lacks `lang="ts"` compiles to invalid JS and takes down the **entire** Vite module
+graph — every route 404s on its own source URL. Nothing points at the offending file.
+
 **The auto-import naming trap.** `components/foo/Bar.vue` registers as `<FooBar>`, not `<Bar>`, unless the filename already starts with the folder name. This broke two pages and one modal during the 2026-08-22 session.
 
 **The SSR assumption.** `ssr: false` — no server-side rendering. The Nitro server only serves API routes. Don't add SSR-specific features.
@@ -285,11 +303,38 @@ When schema changes happen in Supabase, update this file to keep types in sync.
 
 ---
 
-## Wallet Console (operator surface, 2026-08-22)
+## Wallet Console (`/wallet` + `/wallet/[id]`, split 2026-08-23)
 
-`pages/wallet.vue` is an operator roster backed by `get_wallet_performance` — not a
-discovery/subscribe flow (that was deleted). Key facts:
+`docs/sessions/2026-08-23-tipster-wallets-projected-wallet-console.md` has the full account. The
+rules that will bite a future change:
 
+| File | Owns |
+|---|---|
+| `pages/wallet/index.vue` | The roster and the split fleet header. Rows navigate; nothing expands in place. |
+| `pages/wallet/[id].vue` | One wallet. Loads the WHOLE roster's performance on purpose — see multiplicity below. |
+| `utils/wallet-stats.ts` | `cohortOf()`, `scoreFamily()` (Bonferroni + Benjamini-Hochberg), and the verdict vocabulary. **The only definition of the cohort split** — the roster, the detail page and the fleet header all read it, or they will show one wallet two verdicts. |
+| `components/wallet/WalletRoster.vue` | Three cohort tables, each corrected for its own k. |
+| `components/wallet/WalletBreakdown.vue` | `get_wallet_breakdown` — competition / market / price. Settled singles only. |
+| `components/wallet/WalletProvenance.vue` | Mirrored-source coverage. Replaced `TipsterSources.vue`, which is deleted. |
+
+- **W33–W47 are MIRRORS, not our wallets.** They replay an external tipster's published picks at a
+  flat 1.00 (`ml/tipsters/project_bets.py`, 2026-08-23). They are real `bets` rows and settle
+  through the real engine, but **nobody staked that money**. Every "ours" figure — the fleet
+  header here, and exposure / live slate / weekly P&L / fleet on `/api/dashboard` — filters
+  `archetype !== 'external_tipster'`. Pooling them reports a bankroll that does not exist.
+- **Multiplicity is per cohort, and it is not optional.** 15 mirrors are scored at once; at k=11
+  Bonferroni needs p<0.0045, and W44's p=0.010 renders as `dies on k`, not EDGE. The RPC returns
+  the *uncorrected* p by design — the correction lives in `utils/wallet-stats.ts`. Never render
+  `performance.verdict` raw again.
+- **A mirrored ROI never travels without its coverage.** 0%–37% of a source's slips bind to a
+  fixture we hold; the ROI describes those. The roster has a `Covered` column and the hero a
+  Mirror block. Do not remove either.
+- **The equity curve is keyed on when the wager was STRUCK**, not `settled_at`. A backfilled wallet
+  settles twenty months in one run — on the old axis that was a single vertical line at today.
+  `v_wallet_balance_history` was rekeyed in `20260823020000_wallet_console.sql`, which also added
+  parlays to it.
+- **Never compute ROI in the client.** `get_wallet_performance` and `get_wallet_breakdown` are the
+  only sources. The `%` on the chart footer is bankroll return and is labelled as such.
 - **Prediction gating:** `server/utils/wallet-models.ts` — `WALLET_MODEL_MAP` (wallet → model_versions) + `pickBestPrediction()` (V6 hybrid > V18 > V20 football; V6 AIF > V5 TS > V4 RL basketball). **Admin passes `null` for "all models"** — an empty subscription set must never strip the operator's predictions (the 2026-08-22 bug).
 - **Auth helpers:** `server/utils/auth.ts` — `getOptionalUserId()` / `requireUserId()` (dual-mode: Bearer JWT + session cookie).
 
@@ -301,6 +346,32 @@ discovery/subscribe flow (that was deleted). Key facts:
 - `WALLET_MODEL_MAP` (server) and `utils/wallet-meta.ts` (client) must stay in sync — adding a wallet means updating both.
 - Use `python3` (never `python`) in any spawned processes/shebangs.
 - Match football prediction families on **suffix**, never equality (`matchesFamily()` in `server/utils/wallet-models.ts`).
+
+## League Page (`/league/[slug]`, redesigned 2026-08-23)
+
+`docs/sessions/2026-08-23-league-page-redesign.md` has the full account. The rules that will bite a
+future change:
+
+| Component | Owns |
+|---|---|
+| `LeagueOverview.vue` | The merged Overview tab. Replaced `LeagueTwin.vue`, which is deleted. |
+| `LeagueSeasonBar.vue` | Season picker, round stepper, and the season rail (one segment per round, filled by that round's completion). |
+| `LeagueFixtureCard.vue` | One fixture. Reads `odds_home` / `odds_draw` / `odds_away` — **not** `home_odds`. |
+| `LeagueMetricCard.vue` | A fitted quantity plus its peer distribution as a strip plot. |
+| `LeagueStandingsTable.vue` | Was `OverviewView.vue`. Only for competitions with **no** twin. |
+| `utils/viz.ts` | The validated chart palette. Re-run its documented validator command before changing a hex. |
+
+- **A season is "current" when it is the newest one with fixtures**, not when it equals
+  `currentSeason()`. That is a calendar rule, and a cup that has not been drawn fails it.
+- **Paging follows the data, not the sport.** A competition with no round numbers anywhere is paged
+  by match day. Cup football has none — `bin/backfill-rounds.js` fills nothing for it.
+- **`g.round || 1` is wrong.** A fixture with no round belongs to no round; it is counted and
+  labelled "unmapped". Folding it into round 1 put 189 of Ligue 1's 301 fixtures in a nine-game round.
+- **A `bets` row in `parlay_legs` is a LEG, not a wager.** Never derive that from the wallet's
+  archetype (NULL on every legacy wallet) or from `wallet-meta.ts` (its id map stops at 20).
+- **No ROI is computed on this page.** Latest picks lists wagers; aggregates live on `/wallet`,
+  where they travel with `p_luck`.
+- **Every rate ships with its n.** Below six completed fixtures Analysis says so in words.
 
 ## Pending Work
 
