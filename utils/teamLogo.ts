@@ -1,52 +1,35 @@
-// Mapping from team_key → filename in /public/data/greek_basket_league/
-const GBL_LOGOS: Record<string, string> = {
-  greek_basket_league_aek_athens:    'AEK.png',
-  greek_basket_league_aris:          'ARIS.png',
-  greek_basket_league_as_karditsas:  'KARDITSA.png',
-  greek_basket_league_iraklis:       'IRAKLIS.png',
-  greek_basket_league_kolossos_rhodes: 'KOLOSSOS.png',
-  greek_basket_league_maroussi:      'MAROUSSI.png',
-  greek_basket_league_mykonos:       'Mykonos.png',
-  greek_basket_league_panionios:     'PANIONIOS_BC.png',
-  greek_basket_league_paok:          'PAOK.png',
-  greek_basket_league_peristeri:     'BC_Peristeri.png',
-  greek_basket_league_promitheas:    'PROMITHEAS.png',
-  // EuroLeague teams (Olympiacos/Panathinaikos) that also play GBL
-  euroleague_oly:                    'OLY.webp',
-  euroleague_pan:                    'PANATHINAIKOS.webp',
+/**
+ * Static logo resolution for teams and competitions.
+ *
+ * Files live under `/public/data/logos/` in a flat, league-independent layout
+ * written by `protero-tools/bin/scrape-logos.js`:
+ *
+ *   logos/leagues/<league_key>.png   competition logo
+ *   logos/teams/<team_key>.png       team logo
+ *
+ * Keying teams by `team_key` (globally unique) instead of the old per-league
+ * folders is what lets a caller resolve a logo from a game row that carries
+ * only team_key — no league lookup needed. Every file the scraper writes is a
+ * PNG, so resolution is a single deterministic path; callers already render a
+ * text-circle fallback via `@error` when a file is missing.
+ */
+
+/**
+ * URL of a team's logo, or null when there is no team_key. League-independent:
+ * a `team_key` is unique across the whole corpus, so a game's `home_key`
+ * resolves without knowing which competition it belongs to.
+ */
+export function getTeamLogoUrl(teamKey: string | null | undefined): string | null {
+  if (!teamKey) return null
+  return `/data/logos/teams/${teamKey}.png`
 }
 
 /**
- * Build the static logo URL for a team based on team_key and league_key.
- * Files live under public/data/{nba,euroleague,acb,bcl,eurocup,greek_basket_league}/.
- *
- * Convention for ACB/BCL/EuroCup: `<team_key>.png` (downloaded by
- * protero-tools/bin/scrape-team-logos.js). Returns null when no file
- * is expected to exist so callers can render the text-circle fallback.
+ * URL of a competition's logo, or null when there is no league_key.
  */
-export function getTeamLogoUrl(
-  teamKey: string | null | undefined,
-  leagueKey?: string
-): string | null {
-  if (!teamKey) return null
-  if (leagueKey === 'euroleague' || teamKey.startsWith('euroleague_')) {
-    // EuroLeague team but also playing GBL — check GBL map first
-    if (leagueKey === 'greek_basket_league' && GBL_LOGOS[teamKey])
-      return `/data/greek_basket_league/${GBL_LOGOS[teamKey]}`
-    return `/data/euroleague/${teamKey}.webp`
-  }
-  if (leagueKey === 'nba') return `/data/nba/${teamKey}.svg`
-  if (leagueKey === 'greek_basket_league' || teamKey.startsWith('greek_basket_league_')) {
-    const file = GBL_LOGOS[teamKey]
-    return file ? `/data/greek_basket_league/${file}` : null
-  }
-  if (leagueKey === 'acb' || teamKey.startsWith('spanish_acb_'))
-    return `/data/acb/${teamKey}.png`
-  if (leagueKey === 'bcl' || teamKey.startsWith('basketball_cl_'))
-    return `/data/bcl/${teamKey}.png`
-  if (leagueKey === 'eurocup' || teamKey.startsWith('eurocup_'))
-    return `/data/eurocup/${teamKey}.png`
-  return null
+export function getLeagueLogoUrl(leagueKey: string | null | undefined): string | null {
+  if (!leagueKey) return null
+  return `/data/logos/leagues/${leagueKey}.png`
 }
 
 /**
