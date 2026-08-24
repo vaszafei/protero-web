@@ -91,31 +91,15 @@ export const useApi = () => {
 
     if (error) throw error
 
-    // Get counts for each league
-    const activeLeagues = (leagues || []).filter((l: any) => l.key)
-    const counts = await Promise.all(
-      activeLeagues.map(async (league: any) => {
-        const [totalRes, playedRes] = await Promise.all([
-          supabase.from('games').select('*', { count: 'exact', head: true }).eq('season', season).eq('league_key', league.key),
-          supabase.from('games').select('*', { count: 'exact', head: true }).eq('season', season).eq('league_key', league.key).not('home_goals', 'is', null).not('away_goals', 'is', null),
-        ])
-        return { key: league.key, total: totalRes.count || 0, played: playedRes.count || 0 }
-      })
-    )
-
-    const totalMap: Record<string, number> = {}
-    const playedMap: Record<string, number> = {}
-    for (const c of counts) {
-      totalMap[c.key] = c.total
-      playedMap[c.key] = c.played
-    }
-
+    // Per-league game counts were once fetched with TWO count queries per
+    // league — an N+1 that fired 44 requests and queued on the browser's
+    // six-connection limit, which was the calendar's visible latency on every
+    // visit. No live page reads `games_count`/`played_count` anymore (the only
+    // consumer, LeagueList.vue, is unregistered and unused), so they are not
+    // fetched. If a page needs them again, compute them in ONE grouped SQL
+    // query (or an RPC), never per-league round trips.
     return {
-      leagues: (leagues || []).map((league: any) => ({
-        ...league,
-        games_count: totalMap[league.key] || 0,
-        played_count: playedMap[league.key] || 0,
-      })),
+      leagues: leagues || [],
       season,
       cached_at: new Date().toISOString()
     }
@@ -134,12 +118,25 @@ export const useApi = () => {
     const fromDate = opts.from || defaultFrom.toISOString().split('T')[0]
     const toDate = opts.to || defaultTo.toISOString().split('T')[0]
 
+    // Calendar/dashboard games. Do NOT select `sport_stats` or the full
+    // `odds_raw` here — the calendar renders only the flattened odds scalars
+    // and the basketball O/U triple, and those raw JSONB columns cost ~2.5MB
+    // per response window (full box scores + the 0.5→9.5 alt ladder nobody on
+    // this surface reads). Basketball odds are `sport_stats->odds` (the
+    // pre-averaged triple) with `odds_raw->{moneyline,handicap,over_under}` as
+    // fallback; football has neither, so those keys are NULL for football at
+    // zero payload cost. The game detail page uses fetchGame(), which selects
+    // the full columns — only this list endpoint is trimmed.
     const selectCols = `
       id, date, season, league_key, sport, status,
       home_team_id, away_team_id,
       home_goals, away_goals,
       home_xg, away_xg,
-      odds_home, odds_away, odds_raw, sport_stats,
+      odds_home, odds_away,
+      odds:sport_stats->odds,
+      ml:odds_raw->moneyline,
+      hc:odds_raw->handicap,
+      ou:odds_raw->over_under,
       home_team:teams!home_team_id(name, team_key),
       away_team:teams!away_team_id(name, team_key),
       predictions(
@@ -198,6 +195,15 @@ export const useApi = () => {
         away_name: game.away_team?.name || 'Unknown',
         home_key: game.home_team?.team_key || null,
         away_key: game.away_team?.team_key || null,
+        // Normalize the slimmed odds into the names the dashboard reads.
+        // `odds` is the basketball sport_stats->odds triple (NULL for
+        // football); `ml`/`hc`/`ou` are the basketball odds_raw fallback
+        // entries, which are single objects (not arrays). `sport_stats` is
+        // therefore no longer a full box score on this path.
+        sport_stats: game.odds ? { odds: game.odds } : null,
+        odds_raw: game.ml || game.hc || game.ou
+          ? { moneyline: game.ml, handicap: game.hc, over_under: game.ou }
+          : null,
       }
     })
 
@@ -272,7 +278,14 @@ export const useApi = () => {
     const baseRes = await fetchGame(gameId)
     const game = baseRes.game
 
-    // 2) Now fan out h2h + fantasy in parallel.
+    // 2) A completed fixture renders neither H2H nor fantasy projections —
+    //    both live on scheduled-only tabs — so skip the two round trips
+    //    rather than fetching and discarding them.
+    if (game?.status === 'completed') {
+      return { ...baseRes, h2h: null, fantasy: [] }
+    }
+
+    // 3) Still scheduled: fan out h2h + fantasy in parallel.
     const [h2hRes, fantasyRes] = await Promise.all([
       fetchH2H(game.home_name, game.away_name, 10).catch(() => ({ matches: [], summary: null })),
       fetchFantasyProjections(gameId).catch(() => [])

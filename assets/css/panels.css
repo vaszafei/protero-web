@@ -38,3 +38,49 @@
 .pill-blue { background: rgba(57, 135, 229, 0.18); color: #8fbdf5; }
 .pill-amber { background: rgba(250, 178, 25, 0.16); color: #f0c469; }
 .pill-dim { background: rgba(255, 255, 255, 0.06); color: rgb(140, 143, 152); }
+.pill-good { background: rgba(12, 163, 12, 0.16); color: #4ade80; }
+.pill-critical { background: rgba(208, 59, 59, 0.16); color: #f28b8b; }
+
+/*
+ * Elevation — one step above `.panel`, for the piece of a page that should
+ * draw the eye first (bento-grid hierarchy: size/brightness carries rank,
+ * not every panel sitting at the same flat plane).
+ */
+.panel-elevated {
+  border-radius: 0.5rem;
+  background: #232732;
+  border: 1px solid #333a48;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/*
+ * Glass — targeted use only (hero header, sticky tab rail), never a
+ * page-wide background treatment.
+ */
+.panel-glass {
+  background: rgba(28, 31, 39, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/*
+ * A stat table too wide for a phone: scroll horizontally with a right-edge
+ * fade signaling there's more — no left fade, since the sticky columns
+ * below sit flush at the left edge and must stay fully opaque.
+ */
+.scroll-fade-x {
+  overflow-x: auto;
+  mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+}
+
+/* Pin a table's first two columns (# + Player) while the stat columns
+   scroll, so a scrolled row is still identifiable. */
+.sticky-col-1,
+.sticky-col-2 {
+  position: sticky;
+  background: #1c1f27;
+}
+.sticky-col-1 { left: 0; z-index: 2; }
+.sticky-col-2 { left: 2.25rem; z-index: 2; }

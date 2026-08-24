@@ -127,8 +127,11 @@ import { getTeamLogoUrl } from '~/utils/teamLogo'
 const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key))
 const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key))
 
-// Odds data — prefer sport_stats.odds (pre-averaged), fall back to odds_raw arrays
+// Odds data — prefer the slimmed basketball triple (game.odds), then the
+// flattened sport_stats.odds, then the odds_raw fallback keys.
 const oddsData = computed(() => {
+  const o = props.game.odds
+  if (o && (o.moneyline || o.handicap || o.over_under)) return o
   if (props.game.sport_stats?.odds) return props.game.sport_stats.odds
   const raw = props.game.odds_raw
   if (!raw) return null

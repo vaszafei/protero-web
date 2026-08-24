@@ -6,7 +6,7 @@
     </div>
 
     <!-- Main Content -->
-    <div v-else-if="data" class="max-w-[1200px] mx-auto p-2.5 sm:p-4">
+    <div v-else-if="data" class="max-w-[1400px] mx-auto p-2.5 sm:p-4">
       <!-- Back Button -->
       <button
         type="button"
@@ -17,55 +17,24 @@
         <ChevronLeft :size="20" />
       </button>
 
-      <!-- Game Header row: score card (left, narrow) + match stat tiles -->
-      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,400px)_1fr] gap-3 items-stretch">
-        <Reveal :delay="0">
-          <GameHeader :game="data.game" :sport="gameSport" class="h-full" />
+      <!-- ── HERO: home stats rail · centered scorecard + court · away stats rail ── -->
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)_minmax(0,1fr)] gap-3 items-start">
+        <Reveal :delay="0" class="min-w-0 space-y-3">
+          <TeamStatsRail side="home" :game="data.game" :sport="gameSport" />
+          <TeamRatingsCard v-if="showRatings" side="home" :lineup="data.lineups.home" :league-key="data.game.league_key" />
         </Reveal>
-        <Reveal v-if="showHeaderStats" :delay="40" class="min-w-0">
-          <GameHeaderStats :game="data.game" :sport="gameSport" />
-        </Reveal>
-      </div>
+        <Reveal :delay="40" class="min-w-0 space-y-3">
+          <GameHeader :game="data.game" :sport="gameSport" />
 
-      <Reveal :delay="60">
-        <TwinBlindSpotBanner v-if="blindSpot" :risk="blindSpot" class="mt-3" />
-      </Reveal>
-
-      <!-- ── COMPLETED FOOTBALL: dashboard-style cards, multi-column (no tabs) ── -->
-      <div v-if="isCompleted && gameSport === 'football'" class="mt-4 sm:mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-        <!-- Timeline — full width, horizontal -->
-        <Reveal :delay="120" class="md:col-span-2">
-          <section class="rounded-lg border border-edge bg-surface overflow-hidden">
-            <header class="flex items-baseline gap-2 px-3 py-2 border-b border-edge bg-surface-light/30">
-              <h2 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Timeline</h2>
-              <span class="text-[10px] text-zinc-600 tabular-nums">{{ data.game.match_events?.length || 0 }} events</span>
+          <!-- The court sits in the middle column, directly under the scorecard -->
+          <section v-if="showPitch" class="panel overflow-hidden">
+            <header class="panel-head">
+              <span class="panel-title">Lineups</span>
+              <span class="pill pill-blue">{{ data.game.home_formation || '—' }}</span>
+              <span class="pill pill-dim ml-auto">{{ data.game.away_formation || '—' }}</span>
             </header>
-            <div class="p-3 sm:p-4">
-              <MatchEvents
-                v-if="data.game.match_events && data.game.match_events.length > 0"
-                :events="data.game.match_events"
-                :home-name="data.game.home_name"
-                :away-name="data.game.away_name"
-                :home-lineup="data.lineups?.home || []"
-                :away-lineup="data.lineups?.away || []"
-              />
-              <div v-else class="text-center py-6 text-zinc-500 text-sm">No match events available</div>
-            </div>
-          </section>
-        </Reveal>
-
-        <!-- Lineups — horizontal pitch -->
-        <Reveal :delay="160">
-          <section class="rounded-lg border border-edge bg-surface overflow-hidden">
-            <header class="flex items-baseline gap-2 px-3 py-2 border-b border-edge bg-surface-light/30">
-              <h2 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Lineups</h2>
-              <span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/15 text-blue-300">
-                {{ data.game.home_formation || '—' }} · {{ data.game.away_formation || '—' }}
-              </span>
-            </header>
-            <div class="p-3 sm:p-4">
+            <div class="p-2.5 sm:p-4">
               <FormationPitch
-                v-if="hasLineups"
                 :home-lineup="data.lineups.home"
                 :away-lineup="data.lineups.away"
                 :home-name="data.game.home_name"
@@ -73,84 +42,88 @@
                 :home-formation="data.game.home_formation"
                 :away-formation="data.game.away_formation"
               />
-              <div v-else class="text-center py-6 text-zinc-500 text-sm">No lineup information available</div>
+              <div v-if="homeBench.length || awayBench.length" class="bench mt-3">
+                <div class="bench-side">
+                  <span class="bench-label">Bench · {{ data.game.home_name }}</span>
+                  <div class="bench-chips">
+                    <span v-for="pl in homeBench" :key="pl.id || pl.player_name" class="bench-chip" :style="{ borderColor: `${VIZ_HOME}55` }">
+                      <span class="bench-chip-num">{{ pl.jersey_number || '-' }}</span>{{ benchName(pl.player_name) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="bench-side">
+                  <span class="bench-label">Bench · {{ data.game.away_name }}</span>
+                  <div class="bench-chips">
+                    <span v-for="pl in awayBench" :key="pl.id || pl.player_name" class="bench-chip" :style="{ borderColor: `${VIZ_AWAY}55` }">
+                      <span class="bench-chip-num">{{ pl.jersey_number || '-' }}</span>{{ benchName(pl.player_name) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </Reveal>
-
-        <!-- Match Stats -->
-        <Reveal :delay="200">
-          <section class="rounded-lg border border-edge bg-surface overflow-hidden">
-            <header class="flex items-baseline gap-2 px-3 py-2 border-b border-edge bg-surface-light/30">
-              <h2 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Match Stats</h2>
-            </header>
-            <div class="p-3 sm:p-4">
-              <MatchStatistics v-if="hasMatchStats" :game="data.game" :sport="gameSport" />
-              <div v-else class="text-center py-6 text-zinc-500 text-sm">No match statistics available</div>
-            </div>
-          </section>
-        </Reveal>
-
-        <!-- Player Ratings — full width -->
-        <Reveal :delay="240" class="md:col-span-2">
-          <section class="rounded-lg border border-edge bg-surface overflow-hidden">
-            <header class="flex items-baseline gap-2 px-3 py-2 border-b border-edge bg-surface-light/30">
-              <h2 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Player Ratings</h2>
-            </header>
-            <div class="p-3 sm:p-4">
-              <PlayerStatsSection
-                v-if="hasLineups"
-                :home-lineup="data.lineups.home"
-                :away-lineup="data.lineups.away"
-                :home-name="data.game.home_name"
-                :away-name="data.game.away_name"
-                :league-key="data.game.league_key"
-              />
-              <div v-else class="text-center py-6 text-zinc-500 text-sm">No lineup information available</div>
-            </div>
-          </section>
+        <Reveal :delay="80" class="min-w-0 space-y-3">
+          <TeamStatsRail side="away" :game="data.game" :sport="gameSport" mirror />
+          <TeamRatingsCard v-if="showRatings" side="away" :lineup="data.lineups.away" :league-key="data.game.league_key" mirror />
         </Reveal>
       </div>
 
-      <!-- Main panel (scheduled + basketball) -->
-      <Reveal v-else :delay="120">
-        <div class="mt-4 sm:mt-6 panel overflow-hidden">
-          <!-- Tab rail with gliding indicator -->
-          <GameTabs :tabs="tabs" v-model="activeTab" />
+      <Reveal v-if="blindSpot" :delay="60">
+        <TwinBlindSpotBanner :risk="blindSpot" class="mt-3" />
+      </Reveal>
 
-          <!-- Tab body (swipeable) -->
-          <div class="p-2.5 sm:p-6" @touchstart="onTouchStart" @touchend="onTouchEnd">
+      <!-- ── TIMELINE: a horizontal minute axis, one compact band ──
+           Deliberately NOT a vertical rail: a rail costs ~55px per event and
+           leaves the middle of a 1400px page empty, which is what this page
+           did before. The axis reads the match left to right in ~140px. -->
+      <Reveal v-if="showTimeline" :delay="90">
+        <section class="panel overflow-hidden mt-3">
+          <header class="panel-head">
+            <span class="panel-title">Timeline</span>
+            <span class="pill pill-dim tabular-nums">{{ data.game.match_events.length }} events</span>
+            <div class="ml-auto flex items-center gap-2">
+              <span class="tl-key" :style="{ borderColor: `${VIZ_HOME}55`, color: VIZ_HOME }">
+                <i :style="{ background: VIZ_HOME }" />{{ data.game.home_name }}
+              </span>
+              <span class="tl-key" :style="{ borderColor: `${VIZ_AWAY}55`, color: VIZ_AWAY }">
+                <i :style="{ background: VIZ_AWAY }" />{{ data.game.away_name }}
+              </span>
+            </div>
+          </header>
+          <div class="px-3 pt-3 pb-2 sm:px-4">
+            <MatchEvents
+              :events="data.game.match_events"
+              :home-name="data.game.home_name"
+              :away-name="data.game.away_name"
+              :home-lineup="data.lineups?.home || []"
+              :away-lineup="data.lineups?.away || []"
+            />
+          </div>
+        </section>
+      </Reveal>
+
+      <!-- ── DETAIL: one panel, one minimal tab rail ──
+           Everything below the fold lives behind a tab so the page is a
+           screen of cards, not a 3,000px column. -->
+      <Reveal v-if="tabs.length > 0" :delay="120">
+        <section class="panel overflow-hidden mt-3">
+          <header class="panel-head tabs-head">
+            <GameTabs :tabs="tabs" v-model="activeTab" />
+          </header>
+
+          <div class="p-2.5 sm:p-4" @touchstart="onTouchStart" @touchend="onTouchEnd">
             <Transition name="tab" mode="out-in">
               <div :key="activeTab">
-                <!-- ── COMPLETED ─────────────────────────────────── -->
-                <!-- Timeline Tab (football only) -->
-                <div v-if="activeTab === 'timeline'">
-                  <MatchEvents 
-                    v-if="data.game.match_events && data.game.match_events.length > 0"
-                    :events="data.game.match_events"
-                    :home-name="data.game.home_name"
-                    :away-name="data.game.away_name"
-                    :home-lineup="data.lineups?.home || []"
-                    :away-lineup="data.lineups?.away || []"
-                  />
-                  <div v-else class="text-center py-12 text-zinc-400">
-                    No match events available
-                  </div>
-                </div>
-
-                <!-- Match Stats Tab -->
-                <div v-else-if="activeTab === 'stats'">
-                  <MatchStatistics 
-                    v-if="hasMatchStats"
-                    :game="data.game"
-                    :sport="gameSport"
-                  />
-                  <div v-else class="text-center py-12 text-zinc-500">
+                <!-- Match / Game Stats (basketball) -->
+                <div v-if="activeTab === 'stats'">
+                  <MatchStatistics v-if="hasMatchStats" :game="data.game" :sport="gameSport" />
+                  <div v-else class="text-center py-10 text-zinc-500 text-sm">
                     No {{ gameSport === 'basketball' ? 'game' : 'match' }} statistics available
                   </div>
                 </div>
 
-                <!-- Players / Ratings Tab -->
+                <!-- Player ratings / box score -->
                 <div v-else-if="activeTab === 'players'">
                   <BasketballPlayerStats
                     v-if="gameSport === 'basketball' && hasBballPlayers"
@@ -159,7 +132,7 @@
                     :away-name="data.game.away_name"
                     :league-key="data.game.league_key"
                   />
-                  <PlayerStatsSection 
+                  <PlayerStatsSection
                     v-else-if="hasLineups"
                     :home-lineup="data.lineups.home"
                     :away-lineup="data.lineups.away"
@@ -167,18 +140,17 @@
                     :away-name="data.game.away_name"
                     :league-key="data.game.league_key"
                   />
-                  <div v-else class="text-center py-12 text-zinc-500">
+                  <div v-else class="text-center py-10 text-zinc-500 text-sm">
                     No {{ gameSport === 'basketball' ? 'player stats' : 'lineup information' }} available
                   </div>
                 </div>
 
-                <!-- ── SCHEDULED ─────────────────────────────────── -->
-                <!-- Market Tab (football only — full alt-line ladder) -->
+                <!-- Market ladder (scheduled football) -->
                 <div v-else-if="activeTab === 'market'">
                   <OddsLadder :odds-raw="data.game.odds_raw" />
                 </div>
 
-                <!-- Analysis Tab -->
+                <!-- Analysis -->
                 <div v-else-if="activeTab === 'analysis'">
                   <GameAnalysis
                     :game="data.game"
@@ -190,7 +162,7 @@
                   />
                 </div>
 
-                <!-- Prediction Tab -->
+                <!-- Prediction -->
                 <div v-else-if="activeTab === 'prediction'">
                   <GamePrediction
                     :game="data.game"
@@ -199,7 +171,7 @@
                   />
                 </div>
 
-                <!-- Fantasy Tab -->
+                <!-- Fantasy -->
                 <div v-else-if="activeTab === 'fantasy'">
                   <FantasyProjections
                     :game-id="data.game.id"
@@ -208,7 +180,7 @@
                   />
                 </div>
 
-                <!-- Props Tab (admin only) -->
+                <!-- Props (admin only) -->
                 <div v-else-if="activeTab === 'props'">
                   <PlayerPropsUpload
                     :game-id="data.game.id"
@@ -221,7 +193,7 @@
               </div>
             </Transition>
           </div>
-        </div>
+        </section>
       </Reveal>
     </div>
 
@@ -240,10 +212,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { ChevronLeft } from 'lucide-vue-next'
+import { VIZ_HOME, VIZ_AWAY } from '~/utils/viz'
 import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
 import Reveal from '~/components/ui/Reveal.vue'
 import GameHeader from '~/components/game/GameHeader.vue'
-import GameHeaderStats from '~/components/game/GameHeaderStats.vue'
+import TeamStatsRail from '~/components/game/TeamStatsRail.vue'
+import TeamRatingsCard from '~/components/game/TeamRatingsCard.vue'
 import GameTabs from '~/components/game/GameTabs.vue'
 import MatchStatistics from '~/components/game/MatchStatistics.vue'
 import MatchEvents from '~/components/game/MatchEvents.vue'
@@ -276,32 +250,24 @@ function goBack() {
   }
 }
 
-// Fetch game data (bundled — game + lineups + h2h + fantasy in parallel).
-// 5-minute SWR cache via useAsyncData key.
-const { data, pending: loading, error } = await useAsyncData(
-  `game:${gameId.value}`,
+// Fetch game data (bundled — game + lineups, plus h2h + fantasy when the
+// fixture is still scheduled).
+//
+// `useSwr`, not `useAsyncData`: the app is SPA-only (`ssr: false`), so
+// useAsyncData's hydration path costs without paying, and useSwr is the
+// documented fetcher for new code. Its key is a computed, so routing straight
+// from one game to another refetches instead of showing the previous match.
+const swrKey = computed(() => `game:${gameId.value}`)
+const { data, pending: loading, error } = useSwr(
+  swrKey,
   () => api.fetchGameDetail(Number(gameId.value)),
-  { server: false }
+  { memoryTtl: 5 * 60_000 },
 )
 
 // Sport detection — sportOf() knows every basketball league_key, not just
 // nba/euroleague, so ACB/BCL/EuroCup/GBL games are no longer read as football.
 const gameSport = computed(() =>
   data.value?.game ? sportOf(data.value.game) : 'football')
-
-// Extra stat tiles beside the header — only completed football carries the
-// per-side match metrics these tiles show.
-const showHeaderStats = computed(() => {
-  if (gameSport.value !== 'football') return false
-  const g = data.value?.game
-  if (!g) return false
-  return [
-    g.home_possession, g.away_possession,
-    g.home_xg, g.away_xg,
-    g.home_shots, g.away_shots,
-    g.home_corners, g.away_corners,
-  ].some((v) => v != null)
-})
 
 // Twin blind-spot context: does either club lack history in this division?
 // `twin_fixture_risk` only returns fixtures that carry the risk, so a miss is
@@ -323,38 +289,77 @@ const activeTab = ref('stats')
 // Set the correct default tab based on game status
 watch(() => data.value?.game?.status, (status) => {
   if (status === 'completed') {
-    activeTab.value = 'stats'
+    activeTab.value = gameSport.value === 'football' ? 'players' : 'stats'
   } else {
     // Football's scheduled page leads with the full Market ladder.
     activeTab.value = gameSport.value === 'football' ? 'market' : 'analysis'
   }
 }, { immediate: true })
 
-// Tab order for swipe navigation
+
+// Tab order — also the swipe order. Counts ride along as badges so the rail
+// says how much is behind each tab before it is opened.
+// The pitch lives above the tabs, the match stats live in the side rails, and
+// the player ratings live in per-team cards under the rails — so a completed
+// football game has no tabs at all; only basketball keeps tabbed panels.
 const tabs = computed(() => {
   if (isCompleted.value) {
-    if (gameSport.value === 'football') return [
-      { key: 'timeline', label: 'Timeline' },
-      { key: 'stats', label: 'Match Stats' },
-      { key: 'players', label: 'Player Ratings' },
-    ]
+    if (gameSport.value === 'football') {
+      return []
+    }
     return [
-      { key: 'stats', label: 'Game Stats' },
-      { key: 'players', label: 'Player Stats' },
+      { key: 'stats', label: 'Game Stats', badge: null },
+      { key: 'players', label: 'Player Stats', badge: null },
     ]
   }
   if (gameSport.value === 'football') return [
-    { key: 'market', label: 'Market' },
-    { key: 'analysis', label: 'Analysis' },
-    { key: 'prediction', label: 'Prediction' },
+    { key: 'market', label: 'Market', badge: null },
+    { key: 'analysis', label: 'Analysis', badge: null },
+    { key: 'prediction', label: 'Prediction', badge: null },
   ]
   const t = [
-    { key: 'analysis', label: 'Analysis' },
-    { key: 'prediction', label: 'Prediction' },
+    { key: 'analysis', label: 'Analysis', badge: null },
+    { key: 'prediction', label: 'Prediction', badge: null },
   ]
-  if (hasFantasy.value) t.push({ key: 'fantasy', label: 'Fantasy' })
-  if (isAdmin.value) t.push({ key: 'props', label: 'Props' })
+  if (hasFantasy.value) t.push({ key: 'fantasy', label: 'Fantasy', badge: null })
+  if (isAdmin.value) t.push({ key: 'props', label: 'Props', badge: null })
   return t
+})
+
+// The pitch (formation diagram + bench) renders under the scorecard for a
+// completed football game that holds a lineup.
+const showPitch = computed(() => {
+  return isCompleted.value && gameSport.value === 'football' && hasLineups.value
+})
+
+// Per-team ratings cards render under each stat rail when a lineup exists.
+const showRatings = computed(() => {
+  return isCompleted.value && gameSport.value === 'football' && hasLineups.value
+})
+
+// The timeline is its own always-visible band above the tabs — it is the one
+// thing you want without a click, and it now costs ~140px to show.
+const showTimeline = computed(() => {
+  const g = data.value?.game
+  return !!(isCompleted.value
+    && gameSport.value === 'football'
+    && Array.isArray(g?.match_events)
+    && g.match_events.length > 0)
+})
+
+// Badge for the ratings tab: only players who actually carry a rating.
+const ratedPlayerCount = computed(() => {
+  const ls = data.value?.lineups
+  if (!ls) return 0
+  return [...(ls.home || []), ...(ls.away || [])].filter((pl) => pl?.rating != null).length
+})
+// A tab can disappear (no lineups, fantasy resolves to none). Falling back to
+// the first tab keeps the body from rendering nothing with the rail showing
+// no active pill.
+watch(tabs, (list) => {
+  if (list.length && !list.some((t) => t.key === activeTab.value)) {
+    activeTab.value = list[0].key
+  }
 })
 
 // Swipe gesture handling
@@ -393,6 +398,22 @@ const hasMatchStats = computed(() => {
 const hasLineups = computed(() => {
   return data.value?.lineups?.home?.length > 0 || data.value?.lineups?.away?.length > 0
 })
+
+// Bench strip under the pitch — the same non-starters PlayerStatsSection
+// lists further down, shown compactly here so the Lineups panel isn't just
+// the pitch diagram floating above empty space next to a taller Match Stats panel.
+function isLineupStarter(p: Record<string, any>): boolean {
+  if (typeof p.is_starting_xi === 'boolean') return p.is_starting_xi
+  if (p.starter === 1 || p.starter === true) return true
+  return false
+}
+function benchName(name: string): string {
+  if (!name) return ''
+  const last = name.split(' ').pop() || name
+  return last.length > 14 ? last.slice(0, 14) + '…' : last
+}
+const homeBench = computed(() => (data.value?.lineups?.home || []).filter(p => !isLineupStarter(p)))
+const awayBench = computed(() => (data.value?.lineups?.away || []).filter(p => !isLineupStarter(p)))
 
 const hasBballPlayers = computed(() => {
   const ss = data.value?.game?.sport_stats
@@ -467,6 +488,83 @@ useHead({
 </script>
 
 <style scoped>
+/* Timeline colour key — lives in the panel head so the plot itself does not
+   spend a whole row on a legend. */
+.tl-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 0.625rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tl-key i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* The tab rail sits inside a panel head, which is baseline-aligned for text.
+   A control needs centring and a little less vertical padding. */
+.tabs-head {
+  align-items: center;
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+  gap: 0.75rem;
+}
+
+.bench {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.bench-side {
+  min-width: 0;
+}
+.bench-label {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgb(113, 113, 122);
+  margin-bottom: 0.4rem;
+}
+.bench-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.bench-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem 0.2rem 0.3rem;
+  border-radius: 999px;
+  border: 1px solid;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: rgb(212, 212, 216);
+  white-space: nowrap;
+}
+.bench-chip-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.55rem;
+  font-variant-numeric: tabular-nums;
+  color: rgb(161, 161, 170);
+}
+
 .tab-enter-active,
 .tab-leave-active {
   transition: opacity 120ms ease, transform 120ms ease;

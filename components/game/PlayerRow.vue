@@ -3,7 +3,7 @@
     class="border-b border-edge/50 hover:bg-surface-hover transition-colors"
     :class="{ 'opacity-60': !isStarter }"
   >
-    <td class="py-2 px-2">
+    <td class="sticky-col-1 py-2 px-2">
       <div
         class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
         :class="isStarter ? 'bg-primary-600 text-white' : 'bg-zinc-600 text-white'"
@@ -11,7 +11,7 @@
         {{ player.jersey_number || '-' }}
       </div>
     </td>
-    <td class="py-2 px-2">
+    <td class="sticky-col-2 py-2 px-2">
       <!-- Deep-link only when a player entity id exists (player-twin plan). -->
       <NuxtLink
         v-if="playerLink"
@@ -26,7 +26,7 @@
     <td class="py-2 px-2 text-center">
       <span
         v-if="player.rating != null"
-        class="inline-block px-1.5 py-0.5 rounded text-xs font-bold"
+        class="pill text-[0.7rem]"
         :class="getRatingClass(player.rating)"
       >{{ Number(player.rating).toFixed(1) }}</span>
       <span v-else class="text-zinc-600">-</span>
@@ -85,10 +85,10 @@ function cell(v: any): string {
 
 function getRatingClass(rating: any): string {
   const r = parseFloat(rating)
-  if (r >= 8.5) return 'bg-green-500/20 text-green-400'
-  if (r >= 7.5) return 'bg-blue-500/20 text-blue-400'
-  if (r >= 6.5) return 'bg-zinc-700 text-zinc-300'
-  return 'bg-orange-500/20 text-orange-400'
+  if (r >= 8.0) return 'pill-good'
+  if (r >= 7.0) return 'pill-blue'
+  if (r >= 6.0) return 'pill-dim'
+  return 'pill-critical'
 }
 </script>
 

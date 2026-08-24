@@ -1,7 +1,7 @@
 <template>
   <div class="p-3 sm:p-6">
     <!-- Wait for subscriptions to load before rendering provider -->
-    <div v-if="!subsLoaded" class="max-w-[1600px] mx-auto flex items-center justify-center py-20">
+    <div v-if="!subsLoaded" class="flex items-center justify-center py-20">
       <div class="flex items-center gap-3 text-zinc-500">
         <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
         <span class="text-sm">Loading...</span>
@@ -11,21 +11,7 @@
     <DashboardDataProvider v-else :leagues="leagues" :wallet-id="selectedWalletId" :user-id="user?.id" v-slot="{ games, predictions, bets, parlays, walletStats, loading: dataLoading, refresh, hasLeagueGames }">
       <!-- Sync slot-prop games into reactive ref (needed for computed filteredGames/availableSports) -->
       {{ captureGames(games) }}
-      <div class="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
-        
-        <!-- Toolbar: wallet switcher (left) + sport dropdown (right) -->
-        <DashboardToolbar
-          :wallets="wallets"
-          :selected-wallet-id="selectedWalletId"
-          :available-sports="availableSports"
-          :selected-sport="selectedSport"
-          @wallet-change="selectedWalletId = $event"
-          @sport-change="selectedSport = $event"
-        />
-
-        <!-- Mini wallet card (only when wallet data exists) -->
-        <DashboardWalletCard v-if="walletStats" :wallet-stats="walletStats" />
-        
+      <div class="space-y-4 sm:space-y-6">
         <div v-if="filteredGames.length === 0 && !dataLoading">
           <EmptyStateCard 
             title="No matches found"
@@ -34,22 +20,9 @@
         </div>
         
         <template v-else>
-          <!-- MOBILE: Date bar + game cards (hidden on lg+) -->
-          <div class="lg:hidden">
-            <MobileDateBar
-              :games="filteredGames"
-              :predictions="predictions"
-              :leagues="leagues"
-              :bets="bets"
-              :parlays="parlays"
-              :show-bets="bets.length > 0"
-              @select-day="handleDaySelect"
-            />
-          </div>
-
-          <!-- DESKTOP: Calendar + Side panel (hidden below lg) -->
-          <div class="hidden lg:flex gap-6">
-            <div class="flex-[11]">
+          <!-- Calendar + Side panel (all viewports; stacks on narrow screens) -->
+          <div class="flex flex-col xl:flex-row gap-6">
+            <div class="xl:flex-[11]">
               <GamesCalendar 
                 :games="filteredGames" 
                 :predictions="predictions"
@@ -60,7 +33,18 @@
                 @select-day="handleDaySelect"
               />
             </div>
-            <div class="flex-[5] space-y-4">
+            <div class="xl:flex-[5] space-y-4">
+              <!-- Toolbar + wallet card live in the game-list column -->
+              <DashboardToolbar
+                :wallets="wallets"
+                :selected-wallet-id="selectedWalletId"
+                :available-sports="availableSports"
+                :selected-sport="selectedSport"
+                @wallet-change="selectedWalletId = $event"
+                @sport-change="selectedSport = $event"
+              />
+              <DashboardWalletCard v-if="walletStats" :wallet-stats="walletStats" />
+
               <DayMatchesPanel
                 v-if="selectedDay"
                 :key="selectedDay.date?.getTime() || 0"
@@ -86,7 +70,6 @@
 <script setup>
 import DashboardDataProvider from '~/components/dashboard/DashboardDataProvider.vue'
 import GamesCalendar from '~/components/dashboard/GamesCalendar.vue'
-import MobileDateBar from '~/components/dashboard/MobileDateBar.vue'
 import EmptyStateCard from '~/components/dashboard/EmptyStateCard.vue'
 import DayMatchesPanel from '~/components/dashboard/DayMatchesPanel.vue'
 import DashboardWalletCard from '~/components/dashboard/DashboardWalletCard.vue'
