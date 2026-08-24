@@ -128,16 +128,9 @@
           </div>
 
           <div v-else class="rounded-lg border border-edge divide-y divide-edge/40">
-            <div v-for="p in players" :key="p.player_key" class="px-3 py-2 flex items-center gap-2">
+            <div v-for="p in players" :key="p.player_id" class="px-3 py-2 flex items-center gap-2">
               <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-xs text-zinc-200 truncate">{{ p.player_name }}</span>
-                  <span v-if="isLikelyMergedPlayer(p)"
-                        class="flex-shrink-0 px-1 py-0.5 rounded text-[9px] bg-red-500/15 text-red-300"
-                        title="This name key spans many clubs — almost certainly several different players merged">
-                    MERGED?
-                  </span>
-                </div>
+                <div class="text-xs text-zinc-200 truncate">{{ p.full_name || p.player_name }}</div>
                 <div class="text-[10px] text-zinc-600 tabular-nums">
                   {{ Object.keys(p.teams_played || {}).length }} clubs ·
                   {{ Object.keys(p.leagues_played || {}).length }} divisions
@@ -146,16 +139,15 @@
               <div class="text-right flex-shrink-0">
                 <div class="text-xs text-zinc-300 tabular-nums">{{ p.appearances }}</div>
                 <div class="text-[10px] text-zinc-600 tabular-nums">
-                  {{ p.avg_rating ? Number(p.avg_rating).toFixed(2) : '—' }}
+                  {{ p.ability != null ? Number(p.ability).toFixed(2) : '—' }}
                 </div>
               </div>
             </div>
           </div>
 
           <p class="text-[10px] text-zinc-600 mt-2 leading-relaxed">
-            Player twins are keyed on the abbreviated name FlashScore publishes, so distinct people with
-            the same short name collapse into one twin — "Rodriguez J." carries 475 appearances across 16
-            clubs. Anything flagged MERGED? is a name key, not a career.
+            Player twins are keyed on the FlashScore player entity id, so a fitted row is one person.
+            Ability is the fitted rating, shrunk toward the population mean — never a price.
           </p>
         </section>
       </div>
@@ -165,7 +157,6 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { isLikelyMergedPlayer } from '~/composables/useTwins'
 
 definePageMeta({ middleware: 'auth' })
 

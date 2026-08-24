@@ -105,30 +105,53 @@ export interface TwinTransition {
 }
 
 export interface TwinPlayer {
-  player_key: string
+  player_id: string
+  full_name: string | null
   player_name: string
+  position: string | null
   current_team_id: number | null
+  /** Fitted rating, shrunk toward the population mean — the headline number. */
+  ability: number | null
+  /** Posterior variance of the ability; sqrt is the SD. */
+  ability_var: number | null
+  /** Time-weighted rated appearances behind the ability. */
+  effective_games: number | null
   appearances: number
   starts: number
   rated_games: number
-  avg_rating: number | null
   teams_played: Record<string, number>
   leagues_played: Record<string, number>
   first_seen: string | null
   last_seen: string | null
+  /** When the twin fit last ran — the fit is a daily rebuild, not live. */
+  state_as_of: string | null
 }
 
 /**
- * Player twins are keyed on the abbreviated name FlashScore publishes
- * ("rodriguez j."), so distinct people with the same short name collapse into
- * one twin: "Rodriguez J." carries 475 appearances across 16 clubs and 14
- * leagues. 1,100 of 27,854 twins touch 5 or more clubs. Treat anything above
- * this as a merged key, not a career.
+ * The basketball twin — three fitted per-36 rates (points, rebounds, assists),
+ * each shrunk toward its position-cohort mean with a variance. There is no
+ * single 5-10 rating in basketball, so the analogue of football's `ability` is
+ * these three latents plus minutes as role context.
  */
-export const PLAYER_MERGE_TEAM_THRESHOLD = 5
-
-export function isLikelyMergedPlayer(p: Pick<TwinPlayer, 'teams_played'>): boolean {
-  return Object.keys(p.teams_played || {}).length >= PLAYER_MERGE_TEAM_THRESHOLD
+export interface BasketballPlayerTwin {
+  player_id: string
+  player_name: string
+  position: string | null
+  current_team_id: number | null
+  points_rate: number | null
+  points_var: number | null
+  rebounds_rate: number | null
+  rebounds_var: number | null
+  assists_rate: number | null
+  assists_var: number | null
+  /** Recent mean minutes — role context, not a fitted latent. */
+  minutes: number | null
+  effective_games: number | null
+  games: number
+  teams_played: Record<string, number>
+  first_seen: string | null
+  last_seen: string | null
+  state_as_of: string | null
 }
 
 export const useTwins = () => {
@@ -267,6 +290,91 @@ export const useTwins = () => {
     return (data || []) as TwinPlayer[]
   }
 
+  /** One player's fitted twin row, keyed by the FS entity id. */
+  const fetchTwinPlayer = async (playerId: string): Promise<TwinPlayer | null> => {
+    const { data, error } = await supabase
+      .from('twin_player')
+      .select('*')
+      .eq('player_id', playerId)
+      .maybeSingle()
+    if (error) throw error
+    return (data as TwinPlayer) || null
+  }
+
+  /**
+   * Every fitted player in one position group — the peer strip for a player's
+   * ability. Same-position only: a defender's rating is not a striker's.
+   */
+  const fetchPlayerPositionCohort = async (position: string): Promise<number[]> => {
+    const { data, error } = await supabase
+      .from('twin_player')
+      .select('ability')
+      .eq('position', position)
+      .not('ability', 'is', null)
+    if (error) throw error
+    return (data || []).map((r: any) => Number(r.ability)).filter(Number.isFinite)
+  }
+
+  /** team_id -> name, for the career-club list. */
+  const fetchTeamNames = async (teamIds: (number | string)[]): Promise<Record<string, string>> => {
+    if (!teamIds.length) return {}
+    const { data, error } = await supabase
+      .from('teams')
+      .select('id, name')
+      .in('id', teamIds)
+    if (error) throw error
+    return Object.fromEntries((data || []).map((r: any) => [String(r.id), r.name]))
+  }
+
+  /** One basketball player's fitted twin row, keyed by the FS entity id. */
+  const fetchBasketballTwinPlayer = async (playerId: string): Promise<BasketballPlayerTwin | null> => {
+    const { data, error } = await supabase
+      .from('twin_basketball_player')
+      .select('*')
+      .eq('player_id', playerId)
+      .maybeSingle()
+    if (error) throw error
+    return (data as BasketballPlayerTwin) || null
+  }
+
+  /**
+   * Resolve an NBA personId (integer) to the FlashScore entity id the twin is
+   * keyed on. Returns null when the id is not a personId or has no mapping
+   * (the 5 name-collision conflicts stay unresolved by design).
+   */
+  const resolveBasketballPlayerId = async (id: string): Promise<string | null> => {
+    if (!/^\d+$/.test(id)) return null
+    const { data, error } = await supabase
+      .from('basketball_player_ids')
+      .select('player_id')
+      .eq('source', 'nba_api')
+      .eq('external_id', id)
+      .not('player_id', 'is', null)
+      .maybeSingle()
+    if (error) throw error
+    return (data as any)?.player_id ?? null
+  }
+
+  /**
+   * Per-36 rates of every fitted player in one position group — the peer strip
+   * for a basketball player. Same-position only: a center's rebounds are not a
+   * guard's. Returns `{ points: number[], rebounds: number[], assists: number[] }`.
+   */
+  const fetchBasketballPositionCohort = async (position: string) => {
+    const { data, error } = await supabase
+      .from('twin_basketball_player')
+      .select('points_rate, rebounds_rate, assists_rate')
+      .eq('position', position)
+      .not('points_rate', 'is', null)
+    if (error) throw error
+    const rows = (data || []) as any[]
+    return {
+      points: rows.map((r) => Number(r.points_rate)).filter(Number.isFinite),
+      rebounds: rows.map((r) => Number(r.rebounds_rate)).filter(Number.isFinite),
+      assists: rows.map((r) => Number(r.assists_rate)).filter(Number.isFinite),
+    }
+  }
+
   return {
     fetchTwinLeagues,
     fetchTwinLeague,
@@ -278,5 +386,11 @@ export const useTwins = () => {
     fetchFixtureRiskFor,
     fetchTransitions,
     fetchTwinPlayers,
+    fetchTwinPlayer,
+    fetchPlayerPositionCohort,
+    fetchTeamNames,
+    fetchBasketballTwinPlayer,
+    fetchBasketballPositionCohort,
+    resolveBasketballPlayerId,
   }
 }

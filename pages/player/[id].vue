@@ -6,7 +6,7 @@
     </div>
 
     <!-- Content -->
-    <div v-else-if="seasonData" class="max-w-3xl mx-auto p-3 sm:p-6">
+    <div v-else-if="seasonData || twin" class="max-w-3xl mx-auto p-3 sm:p-6">
       <!-- Back -->
       <button @click="$router.back()" class="inline-flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 mb-4 transition-colors">
         <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
@@ -15,10 +15,38 @@
 
       <!-- Player Header -->
       <div class="bg-surface rounded-xl p-5 border border-edge/30 mb-5">
-        <h1 class="text-xl font-bold text-zinc-100">{{ playerName }}</h1>
-        <span class="text-sm text-zinc-500">{{ leagueKey.toUpperCase() }} · Season {{ currentSeason }} · {{ seasonData.gameCount }} games</span>
+        <h1 class="text-xl font-bold text-zinc-100">{{ twin?.full_name || twin?.player_name || bballTwin?.player_name || playerName }}</h1>
+        <span v-if="seasonData" class="text-sm text-zinc-500">{{ leagueKey.toUpperCase() }} · Season {{ currentSeason }} · {{ seasonData.gameCount }} games</span>
+        <span v-else-if="twin" class="text-sm text-zinc-500">Football player · {{ twin?.position || 'position unknown' }}</span>
+        <span v-else-if="bballTwin" class="text-sm text-zinc-500">Basketball player · {{ bballTwin?.position || 'position unknown' }}</span>
       </div>
 
+      <!-- The football twin — never a price -->
+      <PlayerTwinPanel
+        v-if="twin"
+        :twin="twin"
+        :cohort="twinCohort"
+        :team-names="twinTeamNames"
+        class="mb-5"
+      />
+
+      <!-- The basketball twin — never a price -->
+      <BasketballPlayerTwinPanel
+        v-if="bballTwin"
+        :twin="bballTwin"
+        :cohort="bballCohort"
+        :team-names="bballTeamNames"
+        class="mb-5"
+      />
+
+      <div v-else-if="isFootballId || (seasonData && !twin && !bballTwin)" class="bg-surface rounded-xl p-5 border border-edge/30 mb-5">
+        <p class="text-xs text-zinc-500 leading-relaxed">
+          No twin for this player. A player twin needs a FlashScore entity id and appearances
+          in the football or basketball corpus; players outside it have no fitted rates to show.
+        </p>
+      </div>
+
+      <template v-if="seasonData">
       <!-- Season Averages -->
       <div class="bg-surface rounded-xl p-5 border border-edge/30 mb-5">
         <div class="text-[11px] text-zinc-500 uppercase font-semibold tracking-wider mb-3">Season Averages</div>
@@ -164,6 +192,7 @@
           </div>
         </div>
       </div>
+      </template>
     </div>
 
     <!-- Error -->
@@ -174,11 +203,16 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
+import PlayerTwinPanel from '~/components/player/PlayerTwinPanel.vue'
+import BasketballPlayerTwinPanel from '~/components/player/BasketballPlayerTwinPanel.vue'
+import { useTwins } from '~/composables/useTwins'
+import type { TwinPlayer, BasketballPlayerTwin } from '~/composables/useTwins'
 
 const route = useRoute()
 const api = useApi()
+const twins = useTwins()
 
 const playerId = computed(() => route.params.id)
 const leagueKey = computed(() => route.query.league || 'nba')
@@ -188,6 +222,18 @@ const seasonData = ref(null)
 const playerName = ref('')
 const activeViz = ref('bars')
 const chartSideFilter = ref('all')
+
+// ── The twin (football only — keyed by the FS entity id string) ──
+const twin = ref<TwinPlayer | null>(null)
+const twinCohort = ref<number[]>([])
+const twinTeamNames = ref<Record<string, string>>({})
+
+// ── The basketball twin (also keyed by the FS entity id string) ──
+const bballTwin = ref<BasketballPlayerTwin | null>(null)
+const bballCohort = ref({ points: [] as number[], rebounds: [] as number[], assists: [] as number[] })
+const bballTeamNames = ref<Record<string, string>>({})
+
+const isFootballId = computed(() => /^[A-Za-z0-9]{6,12}$/.test(String(playerId.value)) && isNaN(Number(playerId.value)))
 
 const vizTypes = [
   { key: 'bars', label: 'Bars' },
@@ -221,6 +267,49 @@ onMounted(async () => {
     console.error('Failed to load player:', e)
   } finally {
     loading.value = false
+  }
+
+  // The twin is football-only. The basketball season fetch above fails for a
+  // string id (it feeds Number()), which is exactly the football case — fetch
+  // the twin independently and render it above the basketball-only sections.
+  if (isFootballId.value) {
+    try {
+      const t = await twins.fetchTwinPlayer(String(playerId.value))
+      if (t) {
+        twin.value = t
+        if (t.position) {
+          twinCohort.value = await twins.fetchPlayerPositionCohort(t.position)
+        }
+        // Resolve club names for the career list.
+        const teamIds = Object.keys(t.teams_played || {})
+        if (teamIds.length) {
+          twinTeamNames.value = await twins.fetchTeamNames(teamIds)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load player twin:', e)
+    }
+  }
+
+  // The basketball twin is keyed on the FS entity id string; NBA game pages
+  // link by personId. Resolve the personId first, then fall back to trying the
+  // raw id as an FS id. A conflict stays unresolved and shows the no-twin note.
+  try {
+    const rawId = String(playerId.value)
+    const fsId = (await twins.resolveBasketballPlayerId(rawId)) ?? rawId
+    const bt = await twins.fetchBasketballTwinPlayer(fsId)
+    if (bt) {
+      bballTwin.value = bt
+      if (bt.position) {
+        bballCohort.value = await twins.fetchBasketballPositionCohort(bt.position)
+      }
+      const teamIds = Object.keys(bt.teams_played || {})
+      if (teamIds.length) {
+        bballTeamNames.value = await twins.fetchTeamNames(teamIds)
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load basketball player twin:', e)
   }
 })
 
