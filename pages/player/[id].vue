@@ -230,7 +230,14 @@ const twinTeamNames = ref<Record<string, string>>({})
 
 // ── The basketball twin (also keyed by the FS entity id string) ──
 const bballTwin = ref<BasketballPlayerTwin | null>(null)
-const bballCohort = ref({ points: [] as number[], rebounds: [] as number[], assists: [] as number[] })
+const bballCohort = ref({
+  points: [] as number[],
+  rebounds: [] as number[],
+  assists: [] as number[],
+  plusMinus: [] as number[],
+  tsPct: [] as number[],
+  efgPct: [] as number[],
+})
 const bballTeamNames = ref<Record<string, string>>({})
 
 const isFootballId = computed(() => /^[A-Za-z0-9]{6,12}$/.test(String(playerId.value)) && isNaN(Number(playerId.value)))

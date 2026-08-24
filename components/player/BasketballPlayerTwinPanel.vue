@@ -4,7 +4,7 @@
       <div>
         <h2 class="text-sm font-bold text-zinc-100">Twin</h2>
         <p class="text-[11px] text-zinc-500 leading-relaxed max-w-prose">
-          Fitted per-36 rates — context about who this player is, never a price. Each rate is
+          Fitted latents — context about who this player is, never a price. Each is
           shrunk toward its position cohort; nothing here implies an edge.
         </p>
       </div>
@@ -13,7 +13,7 @@
       </span>
     </div>
 
-    <!-- The three fitted latents, each with a same-position peer strip -->
+    <!-- The fitted latents, each with a same-position peer strip -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 p-4">
       <LeagueMetricCard
         label="Points / 36"
@@ -35,6 +35,27 @@
         foot="fitted rate · ±SD"
         :peer-values="cohort.assists"
         :own="twin.assists_rate ?? undefined"
+      />
+      <LeagueMetricCard
+        label="Plus-minus / 36"
+        :value="rateText(twin.plus_minus_rate, twin.plus_minus_var)"
+        foot="fitted impact · ±SD"
+        :peer-values="cohort.plusMinus"
+        :own="twin.plus_minus_rate ?? undefined"
+      />
+      <LeagueMetricCard
+        label="True shooting %"
+        :value="pctText(twin.ts_pct, twin.ts_pct_var)"
+        foot="fitted TS% · ±SD"
+        :peer-values="cohort.tsPct"
+        :own="twin.ts_pct ?? undefined"
+      />
+      <LeagueMetricCard
+        label="Effective FG %"
+        :value="pctText(twin.efg_pct, twin.efg_pct_var)"
+        foot="fitted eFG% · ±SD"
+        :peer-values="cohort.efgPct"
+        :own="twin.efg_pct ?? undefined"
       />
     </div>
 
@@ -76,8 +97,15 @@ import type { BasketballPlayerTwin } from '~/composables/useTwins'
 
 const props = defineProps<{
   twin: BasketballPlayerTwin
-  /** Same-position per-36 peer values, split per column. */
-  cohort: { points: number[]; rebounds: number[]; assists: number[] }
+  /** Same-position fitted-latent peer values, split per column. */
+  cohort: {
+    points: number[]
+    rebounds: number[]
+    assists: number[]
+    plusMinus: number[]
+    tsPct: number[]
+    efgPct: number[]
+  }
   /** team_id -> name, for the career list. */
   teamNames: Record<string, string>
 }>()
@@ -87,5 +115,12 @@ function rateText(rate: number | null, variance: number | null): string {
   return variance != null
     ? `${Number(rate).toFixed(1)} ± ${Math.sqrt(Number(variance)).toFixed(1)}`
     : Number(rate).toFixed(1)
+}
+
+function pctText(pct: number | null, variance: number | null): string {
+  if (pct == null) return '—'
+  return variance != null
+    ? `${Number(pct).toFixed(1)}% ± ${Math.sqrt(Number(variance)).toFixed(1)}`
+    : `${Number(pct).toFixed(1)}%`
 }
 </script>

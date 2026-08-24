@@ -144,6 +144,15 @@ export interface BasketballPlayerTwin {
   rebounds_var: number | null
   assists_rate: number | null
   assists_var: number | null
+  /** Fitted plus-minus per 36 minutes (BPM-family: box score → impact). */
+  plus_minus_rate: number | null
+  plus_minus_var: number | null
+  /** Fitted true-shooting percentage (0-100). */
+  ts_pct: number | null
+  ts_pct_var: number | null
+  /** Fitted effective-FG percentage (0-100). */
+  efg_pct: number | null
+  efg_pct_var: number | null
   /** Recent mean minutes — role context, not a fitted latent. */
   minutes: number | null
   effective_games: number | null
@@ -356,14 +365,15 @@ export const useTwins = () => {
   }
 
   /**
-   * Per-36 rates of every fitted player in one position group — the peer strip
-   * for a basketball player. Same-position only: a center's rebounds are not a
-   * guard's. Returns `{ points: number[], rebounds: number[], assists: number[] }`.
+   * Fitted latents of every fitted player in one position group — the peer
+   * strip for a basketball player. Same-position only: a center's rebounds
+   * are not a guard's. Returns `{ points, rebounds, assists, plusMinus,
+   * tsPct, efgPct }` arrays.
    */
   const fetchBasketballPositionCohort = async (position: string) => {
     const { data, error } = await supabase
       .from('twin_basketball_player')
-      .select('points_rate, rebounds_rate, assists_rate')
+      .select('points_rate, rebounds_rate, assists_rate, plus_minus_rate, ts_pct, efg_pct')
       .eq('position', position)
       .not('points_rate', 'is', null)
     if (error) throw error
@@ -372,6 +382,9 @@ export const useTwins = () => {
       points: rows.map((r) => Number(r.points_rate)).filter(Number.isFinite),
       rebounds: rows.map((r) => Number(r.rebounds_rate)).filter(Number.isFinite),
       assists: rows.map((r) => Number(r.assists_rate)).filter(Number.isFinite),
+      plusMinus: rows.map((r) => Number(r.plus_minus_rate)).filter(Number.isFinite),
+      tsPct: rows.map((r) => Number(r.ts_pct)).filter(Number.isFinite),
+      efgPct: rows.map((r) => Number(r.efg_pct)).filter(Number.isFinite),
     }
   }
 
