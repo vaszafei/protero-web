@@ -116,7 +116,12 @@
               <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ num(l.home_adv, 3) }}</td>
               <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ l.is_cup ? '—' : num(l.spread, 3) }}</td>
               <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ num(l.avg_goals, 2) }}</td>
-              <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ l.twin_teams || '—' }}</td>
+              <td class="px-2 py-2 text-right tabular-nums text-zinc-500" :title="l.active_clubs ? `${l.active_clubs} active this season, ${l.twin_teams} rated all-time` : ''">
+                <template v-if="l.active_clubs && l.active_clubs !== l.twin_teams">
+                  {{ l.active_clubs }}<span class="text-zinc-700">/{{ l.twin_teams }}</span>
+                </template>
+                <template v-else>{{ l.twin_teams || '—' }}</template>
+              </td>
               <td class="px-2 py-2 text-right tabular-nums text-zinc-400">{{ l.games.toLocaleString() }}</td>
               <td class="px-2 py-2 text-right tabular-nums" :class="l.upcoming ? 'text-zinc-300' : 'text-zinc-700'">
                 {{ l.upcoming || '—' }}

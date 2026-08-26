@@ -1,57 +1,53 @@
 <template>
-  <div class="tabbar rounded-lg mb-3 sm:mb-5">
-    <div class="relative flex p-1 gap-0.5">
-      <!-- The moving indicator. One element that slides, rather than a border
-           painted on whichever button happens to be active — so the transition
-           reads as a single object moving between slots. -->
-      <div
-        class="tab-thumb"
-        :style="{
-          width: `calc(${100 / tabs.length}% - 4px)`,
-          transform: `translateX(calc(${activeIndex * 100}% + ${activeIndex * 4}px))`,
-        }"
-      />
-
+  <div class="tabbar mb-4 sm:mb-6 flex justify-center">
+    <div class="relative flex gap-6 sm:gap-8">
       <button
         v-for="tab in tabs"
         :key="tab.key"
+        ref="tabRefs"
         type="button"
         :disabled="tab.disabled"
         :title="tab.hint || undefined"
         @click="tab.disabled || $emit('update:activeTab', tab.key)"
         class="tab-btn"
         :class="[
-          activeTab === tab.key ? 'text-zinc-50' : 'text-zinc-500 hover:text-zinc-300',
-          tab.disabled ? 'opacity-40 cursor-not-allowed hover:text-zinc-500' : '',
+          activeTab === tab.key ? 'tab-btn-on' : '',
+          tab.disabled ? 'tab-btn-off' : '',
         ]"
       >
-        <span class="tab-label">
-          <span class="hidden sm:inline">{{ tab.label }}</span>
-          <span class="sm:hidden">{{ tab.shortLabel || tab.label }}</span>
-          <span
-            v-if="tab.count != null"
-            class="tab-count"
-            :class="activeTab === tab.key ? 'tab-count-on' : ''"
-          >{{ tab.count }}</span>
-        </span>
+        <span class="hidden sm:inline">{{ tab.label }}</span>
+        <span class="sm:hidden">{{ tab.shortLabel || tab.label }}</span>
       </button>
+
+      <!-- The moving underline. Measured against the real button rects rather
+           than assumed into equal percentage slots, because these tabs are now
+           sized to their own label + count, not to a fixed grid. -->
+      <div class="tab-underline" :style="underlineStyle" />
     </div>
   </div>
 </template>
 
 <script setup>
 /**
- * The league page's tab bar.
+ * The league page's primary section switch.
+ *
+ * Rebuilt 2026-08-25 off the pill/card pattern: three tabs sat inside a bordered
+ * box, which read as a form control (a segmented input) rather than as the
+ * page's primary navigation. This is an underline nav instead — no container,
+ * no background, no border — bold label weight and a thick sliding bar carry
+ * the hierarchy, the same way the sidebar's own nav items do. Centered, with
+ * no baseline rule under the row (removed same day) — the underline itself
+ * is enough of a line; a second static one just added visual noise.
  *
  * Three tabs, not four: "Twin" and "Fixtures" were one subject split across two
  * panes — the fitted competition and the games it is fitted on — so they are now
  * a single Overview. Analysis and Predictions stay separate because they answer
  * different questions (what happened / what we think happens next).
  *
- * No icons, per the frontend's CD #6. The motion, the counts and the weight
- * carry the hierarchy instead.
+ * No icons, per the frontend's CD #6. Weight, motion and counts carry the
+ * hierarchy instead.
  */
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
   activeTab: { type: String, required: true },
@@ -99,78 +95,86 @@ const activeIndex = computed(() => {
   const i = tabs.value.findIndex(t => t.key === props.activeTab)
   return i < 0 ? 0 : i
 })
+
+/* ── Underline geometry ─────────────────────────────────────────────────
+ * Tabs are no longer equal-width slots (the old grid math assumed that), so
+ * the underline is positioned against the active button's actual bounding
+ * box, measured relative to the row. Recomputed on tab change and on resize.
+ */
+const tabRefs = ref([])
+const underlineStyle = ref({ width: '0px', transform: 'translateX(0px)' })
+
+function measure() {
+  const el = tabRefs.value[activeIndex.value]
+  const row = el?.parentElement
+  if (!el || !row) return
+  const elRect = el.getBoundingClientRect()
+  const rowRect = row.getBoundingClientRect()
+  underlineStyle.value = {
+    width: `${elRect.width}px`,
+    transform: `translateX(${elRect.left - rowRect.left}px)`,
+  }
+}
+
+onMounted(async () => {
+  await nextTick()
+  measure()
+  window.addEventListener('resize', measure, { passive: true })
+})
+watch(() => [props.activeTab, tabs.value.length], async () => {
+  await nextTick()
+  measure()
+})
 </script>
 
 <style scoped>
 .tabbar {
-  background: #1c1f27;
-  border: 1px solid #2a2f3a;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px -16px rgba(0, 0, 0, 0.9);
-  /* Compact: the tabs size to their labels, not the page width. */
-  width: fit-content;
-  max-width: 100%;
-}
-
-.tab-thumb {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 4px;
-  border-radius: 0.5rem;
-  background: linear-gradient(180deg, rgba(57, 135, 229, 0.22), rgba(57, 135, 229, 0.08));
-  border: 1px solid rgba(57, 135, 229, 0.35);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 6px 18px -10px rgba(57, 135, 229, 0.9);
-  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
+  position: relative;
 }
 
 .tab-btn {
   position: relative;
-  z-index: 1;
-  /* Equal fixed slots so the sliding thumb stays aligned. */
-  flex: 0 0 auto;
-  width: 6.25rem;
-  min-height: 44px;
-  padding: 0.6rem 0.5rem;
-  border-radius: 0.5rem;
-  font-size: 0.78rem;
+  padding: 0.15rem 0.05rem 0.85rem;
+  font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  transition: color 180ms ease;
+  color: rgb(113, 113, 122);
   background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: color 180ms ease, transform 140ms ease;
 }
 @media (min-width: 640px) {
-  .tab-btn { font-size: 0.85rem; width: 8rem; }
+  .tab-btn { font-size: 0.95rem; }
 }
-
-.tab-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-}
-
-.tab-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.15rem;
-  padding: 0 0.3rem;
-  height: 1.15rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgb(161, 161, 170);
-  font-size: 0.62rem;
+.tab-btn:hover:not(:disabled) { color: rgb(200, 202, 208); }
+.tab-btn:active:not(:disabled) { transform: translateY(1px); }
+.tab-btn-on {
+  color: rgb(244, 245, 247);
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  transition: background 180ms ease, color 180ms ease;
 }
-.tab-count-on {
-  background: rgba(57, 135, 229, 0.28);
-  color: #cfe2ff;
+.tab-btn-off {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.tab-btn-off:hover { color: rgb(113, 113, 122); }
+
+/* The sliding indicator — a thick underline, not a filled pill. It sits on
+   the baseline, glowing forward into the content it governs rather than
+   backward like a card selection would. */
+.tab-underline {
+  position: absolute;
+  bottom: -1px;
+  height: 2.5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3987e5, #63a4ee);
+  box-shadow: 0 0 12px 0 rgba(57, 135, 229, 0.75);
+  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1), width 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tab-thumb { transition: none; }
+  .tab-underline, .tab-btn { transition: none; }
 }
 </style>

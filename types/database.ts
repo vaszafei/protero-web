@@ -616,6 +616,14 @@ export interface Database {
       }
     }
     Functions: {
+      league_bet_counts: {
+        Args: { p_since?: string }
+        Returns: {
+          league_key: string
+          n: number
+          pending: number
+        }[]
+      }
       execute_sql: {
         Args: { query: string; params: Json }
         Returns: Json

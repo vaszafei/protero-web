@@ -26,6 +26,18 @@ export const VIZ_HOME = VIZ_CAT[0]
 export const VIZ_AWAY = VIZ_CAT[1]
 
 /**
+ * Brand pair — the ΠΡΟΤΕΡΟ wordmark's own blue/red, sampled from
+ * `public/proteroLogo.png` (raw #0047a4 / #fd2528) and stepped up in
+ * lightness for the blue until it cleared the dark-surface contrast gate
+ * (raw blue was L 0.422, WARN at 1.91:1 — #2d6fd4 is the nearest passing
+ * step of the same hue, all checks green against `#1c1f27`). Scoped to
+ * charts that are explicitly "the two sides of this app" (Home vs Away),
+ * not a general-purpose categorical swap for VIZ_CAT.
+ */
+export const VIZ_BRAND_HOME = '#2d6fd4'
+export const VIZ_BRAND_AWAY = '#fd2528'
+
+/**
  * Sequential — magnitude. One hue, light → dark, validated as an ordinal ramp
  * (monotone lightness, ≥0.06 ΔL between steps, light end clear of the surface).
  */

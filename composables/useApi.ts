@@ -818,12 +818,21 @@ export const useApi = () => {
 
   /**
    * Calls public.get_league_analysis(p_league_key, p_season) which returns the
-   * 7-section payload rendered by the Analysis tab on /league/[slug] in one
+   * 8-section payload rendered by the Analysis tab on /league/[slug] in one
    * round-trip. Cached via useSwr (memoryTtl 5 min — analysis only updates
    * when new completed games land).
    *
    * Returns { sport, key_metrics, score_distribution, home_vs_away,
-   *           scoring_trends, form_table, top_scorers, referee_impact }
+   *           scoring_trends, form_table, top_scorers, referee_impact,
+   *           market_calibration }
+   *
+   * `market_calibration` (added 2026-08-25) is football-only and NULL below
+   * 40 matched `closing_odds` rows — the season in progress typically matches
+   * a handful until football-data.co.uk's weekly refresh, so it renders
+   * against a completed archive season, not the live one. It is a read on the
+   * CLOSE's own honesty (a reliability diagram + Brier score), never a model
+   * claim and never an EV/ROI number — see the do-not-do rule against masking
+   * on ROI in root CLAUDE.md.
    */
   const fetchLeagueAnalysis = async (
     leagueKey: string,
@@ -845,6 +854,7 @@ export const useApi = () => {
       form_table: Array<any>
       top_scorers: Array<any>
       referee_impact: Array<any>
+      market_calibration: { matched: number; total: number; brier: number; buckets: Array<{ bucket: number; n: number; implied: number; actual: number }> } | null
     }
   }
 

@@ -1,55 +1,68 @@
 <template>
   <div class="min-h-screen bg-surface-base">
    <div class="max-w-[1600px] mx-auto p-3 sm:p-6">
-    <!-- ═══ Identity ══════════════════════════════════════════════════════ -->
+    <!-- ═══ Header ════════════════════════════════════════════════════════ -->
     <div class="mb-4">
-      <NuxtLink to="/leagues" class="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors">
+      <NuxtLink to="/leagues" class="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors mb-2">
         <ChevronLeft :size="14" />
         <span class="text-[11px] font-medium">Competitions</span>
       </NuxtLink>
 
-      <div class="flex items-center gap-3 mt-1.5">
-        <img
-          v-if="leagueLogo"
-          :src="leagueLogo"
-          class="w-9 h-9 sm:w-11 sm:h-11 object-contain flex-shrink-0"
-          :alt="data?.name || leagueName"
-          @error="($event.target).style.display = 'none'"
-        />
-        <div class="min-w-0">
-          <div class="flex items-baseline gap-2 flex-wrap">
-            <h1 class="text-xl sm:text-2xl font-bold text-white">{{ data?.name || leagueName }}</h1>
-            <span v-if="twin?.is_cup" class="idchip">CUP</span>
-            <span v-else-if="twin?.tier" class="idchip">TIER {{ twin.tier }}</span>
-            <span v-if="data?.sport === 'basketball'" class="idchip idchip-orange">BASKETBALL</span>
-            <span v-if="!twin && !twinPending" class="idchip idchip-dim">NOT FITTED</span>
-          </div>
-          <p class="text-xs text-zinc-500 mt-0.5">
-            The digital twin of this competition — its fitted level, its clubs, who moved in or out,
-            and the model output for every fixture.
-          </p>
-        </div>
-      </div>
+      <!-- One row: the hero card (identity + season status) on the left, three
+           loose metric cards on the right — no wrapping card around them
+           (removed 2026-08-25, owner call), Clubs/Fitted on dropped the same
+           day since they describe the twin's bookkeeping, not the competition. -->
+      <div class="grid lg:grid-cols-[1.3fr_1fr] gap-3 items-stretch">
+        <div class="hero rounded-xl px-4 py-3.5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="inline-flex items-center gap-2.5 min-w-0">
+              <img
+                v-if="leagueLogo"
+                :src="leagueLogo"
+                class="w-7 h-7 object-contain flex-shrink-0"
+                :alt="data?.name || leagueName"
+                @error="($event.target).style.display = 'none'"
+              />
+              <div class="min-w-0 flex items-baseline gap-1.5 flex-wrap">
+                <h1 class="text-lg font-bold text-white whitespace-nowrap">{{ data?.name || leagueName }}</h1>
+                <span v-if="twin?.is_cup" class="idchip">CUP</span>
+                <span v-else-if="twin?.tier" class="idchip">TIER {{ twin.tier }}</span>
+                <span v-if="data?.sport === 'basketball'" class="idchip idchip-orange">BASKETBALL</span>
+                <span v-if="!twin && !twinPending" class="idchip idchip-dim">NOT FITTED</span>
+              </div>
+            </div>
 
-      <!-- Season, round and how far the season has actually got. One control
-           for the table and the fixtures below. -->
-      <div class="mt-4">
-        <LeagueSeasonBar
-          :season="selectedSeason"
-          :seasons="availableSeasons"
-          :is-current-season="isCurrentSeason"
-          :round="selectedRound"
-          :max-round="maxRound"
-          :round-label="roundLabel"
-          :live-round="liveRound"
-          :rounds="roundProgress"
-          :unrounded="unroundedCount"
-          :total="totalCount"
-          :completed="completedCount"
-          :by-date="byDate"
-          @update:season="selectedSeason = $event"
-          @update:round="changeRound"
-        />
+            <label class="season-pill" title="Season">
+              <select :value="selectedSeason" @change="selectedSeason = $event.target.value">
+                <option v-if="!availableSeasons.length" :value="selectedSeason">{{ seasonLabel(selectedSeason) }}</option>
+                <option v-for="s in availableSeasons" :key="s.season" :value="s.season">
+                  {{ s.label || seasonLabel(s.season) }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <LeagueSeasonBar
+            :is-current-season="isCurrentSeason"
+            :round="selectedRound"
+            :max-round="maxRound"
+            :live-round="liveRound"
+            :rounds="roundProgress"
+            :unrounded="unroundedCount"
+            :total="totalCount"
+            :completed="completedCount"
+            :by-date="byDate"
+            @update:round="changeRound"
+          />
+        </div>
+
+        <div class="flex items-center">
+          <LeagueMetricsGrid
+            :twin="twin"
+            :pending="twinPending"
+            :peers="twinPeers"
+          />
+        </div>
       </div>
     </div>
 
@@ -81,13 +94,15 @@
           :clubs="twinClubs"
           :standings="standingsAsOfRound"
           :round="roundLabel"
+          :round-num="selectedRound"
+          :max-round="maxRound"
           :round-games="roundGames"
           :all-games="data.games"
           :transitions="twinTransitions"
-          :peers="twinPeers"
           :leagues="allLeagues"
           :by-date="byDate"
           :is-current-season="isCurrentSeason"
+          @update:round="changeRound"
         >
           <!-- Competitions outside the fitted corpus keep their own table -
                basketball's ORtg / DRtg / pace columns have no twin equivalent. -->
@@ -269,20 +284,22 @@ function resetRound() {
     const idx = dates.findIndex(d => d >= todayStr)
     selectedRound.value = idx >= 0 ? idx + 1 : dates.length || 1
   } else {
-    const rounds = [...new Set(data.value.games.map(g => g.round || 1))].sort((a, b) => a - b)
-    let nextUpcomingRound = null
+    // A round can finish out of order — a handful of round-N fixtures get
+    // postponed past round N+1 (European-competition clubs, most often).
+    // Stopping at the first round with ANY future-dated game strands the page
+    // on round N while N+1 (already mostly played) sits one arrow away. Pick
+    // the highest round that's at least half played instead, so a couple of
+    // stragglers don't block progression to the round the league has reached.
+    const rounds = [...new Set(data.value.games.map(g => g.round).filter(r => r != null))].sort((a, b) => a - b)
+    let currentRound = null
     for (const round of rounds) {
       const roundGamesArr = data.value.games.filter(g => g.round === round)
-      const hasFutureGames = roundGamesArr.some(g => {
-        if (!g.date) return false
-        return new Date(g.date) > today
-      })
-      if (hasFutureGames) {
-        nextUpcomingRound = round
-        break
+      const playedCount = roundGamesArr.filter(g => g.home_goals != null).length
+      if (playedCount / roundGamesArr.length >= 0.5) {
+        currentRound = round
       }
     }
-    selectedRound.value = nextUpcomingRound || rounds[rounds.length - 1] || 1
+    selectedRound.value = currentRound || rounds[0] || 1
   }
 }
 resetRound()
@@ -943,6 +960,17 @@ function onPredictionsUpdated(predictions) {
 </script>
 
 <style scoped>
+.hero {
+  background: linear-gradient(165deg, rgba(41, 45, 54, 0.55), rgba(26, 29, 36, 0.95));
+  border: 1px solid #2a2f3a;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 28px -18px rgba(0, 0, 0, 0.9);
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+.hero:hover {
+  border-color: #353c48;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 14px 32px -16px rgba(0, 0, 0, 0.95);
+}
+
 .idchip {
   padding: 0.1rem 0.35rem;
   border-radius: 0.3rem;
@@ -954,6 +982,30 @@ function onPredictionsUpdated(predictions) {
 }
 .idchip-orange { background: rgba(217, 89, 38, 0.16); color: #e8905f; }
 .idchip-dim { background: rgba(255, 255, 255, 0.04); color: rgb(113, 113, 122); }
+
+/* Season selector — minimal rounded pill, no label text. */
+.season-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #1c1f27;
+  border: 1px solid #2a2f3a;
+}
+.season-pill select {
+  appearance: none;
+  max-width: 8rem;
+  padding: 0.32rem 1.6rem 0.32rem 0.85rem;
+  border-radius: 999px;
+  background:
+    linear-gradient(45deg, transparent 50%, rgb(113, 113, 122) 50%) calc(100% - 12px) calc(50% + 1px) / 5px 5px no-repeat,
+    transparent;
+  border: none;
+  color: rgb(228, 231, 236);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.season-pill select:focus { outline: none; }
+.season-pill:focus-within { border-color: rgba(57, 135, 229, 0.6); }
 
 /* Tab panes fade-slide in on every switch. The animation restarts because
    v-show toggles the element from display:none to block — no remount, so the
@@ -967,5 +1019,6 @@ function onPredictionsUpdated(predictions) {
 }
 @media (prefers-reduced-motion: reduce) {
   .tab-anim { animation: none; }
+  .hero { transition: none; }
 }
 </style>

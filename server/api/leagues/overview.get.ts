@@ -42,19 +42,18 @@ export default defineEventHandler(async (event) => {
 
   const since = new Date(Date.now() - BET_WINDOW_DAYS * 86400_000).toISOString()
 
-  const [leaguesRes, twinRes, betsRes, corpusRes] = await Promise.all([
+  const [leaguesRes, twinRes, betsRes, corpusRes, activeClubsRes] = await Promise.all([
     supabase.from('leagues').select('key, name, flag, country, sport, season'),
 
     supabase
       .from('twin_league')
       .select('league_key, sport, tier, is_cup, n_games, n_teams, avg_goals, level, home_adv, spread, state_as_of'),
 
-    // What we actually wager on, and where.
-    supabase
-      .from('bets')
-      .select('id, status, game_id, placed_at, game:games!game_id(league_key)')
-      .gte('placed_at', since)
-      .limit(20000),
+    // What we actually wager on, and where. Aggregated in the DATABASE
+    // (`league_bet_counts` RPC): counting `bets` rows client-side is silently
+    // truncated by PostgREST's db-max-rows, which reported leagues we had bet
+    // as DATA-only (2,738 bets in the window collapsed to "1,000 seen").
+    supabase.rpc('league_bet_counts', { p_since: since }),
 
     // Corpus size per competition. Aggregated in the DATABASE (`league_corpus`
     // view): counting `games` rows client-side is silently truncated by
@@ -63,27 +62,36 @@ export default defineEventHandler(async (event) => {
     supabase
       .from('league_corpus')
       .select('league_key, sport, n_games, n_played, n_upcoming, n_seasons, first_game, last_game, next_fixture'),
+
+    // Clubs in THIS season, as opposed to twin_league.n_teams which pools
+    // every club the twin has ever rated across every season — La Liga 2 read
+    // 58 there while this year's table has 22.
+    supabase
+      .from('league_active_clubs')
+      .select('league_key, season, n_active_clubs'),
   ])
 
-  for (const r of [leaguesRes, twinRes, betsRes, corpusRes]) {
+  for (const r of [leaguesRes, twinRes, betsRes, corpusRes, activeClubsRes]) {
     if (r.error) throw createError({ statusCode: 500, message: r.error.message })
   }
 
   const twinByKey = new Map((twinRes.data || []).map((t: any) => [t.league_key, t]))
 
   const betCounts: Record<string, { n: number; pending: number }> = {}
-  for (const b of (betsRes.data || [])) {
-    const key = (b as any).game?.league_key
+  for (const row of (betsRes.data || [])) {
+    const key = (row as any).league_key
     if (!key) continue
-    const c = betCounts[key] ||= { n: 0, pending: 0 }
-    c.n++
-    if (b.status === 'pending') c.pending++
+    betCounts[key] = {
+      n: Number((row as any).n ?? 0),
+      pending: Number((row as any).pending ?? 0),
+    }
   }
 
   // Union the three sources, registry first so its names and flags win.
   const registryByKey = new Map((leaguesRes.data || []).map((l: any) => [l.key, l]))
 
   const corpus = new Map<string, any>((corpusRes.data || []).map((c: any) => [c.league_key, c]))
+  const activeClubs = new Map<string, any>((activeClubsRes.data || []).map((a: any) => [a.league_key, a]))
 
   const allKeys = new Set<string>([
     ...registryByKey.keys(),
@@ -120,6 +128,8 @@ export default defineEventHandler(async (event) => {
       avg_goals: twin?.avg_goals ?? null,
       twin_games: twin?.n_games ?? 0,
       twin_teams: twin?.n_teams ?? 0,
+      // This season's clubs, distinct from twin_teams above (pooled all-time).
+      active_clubs: activeClubs.get(l.key)?.n_active_clubs ?? null,
       state_as_of: twin?.state_as_of ?? null,
       in_registry: registryByKey.has(l.key),
       // Whole-corpus counts, not this season's — a competition's identity is

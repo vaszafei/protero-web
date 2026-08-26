@@ -169,16 +169,17 @@ function crestBg(hex) { return `${hex}26` }
   display: block;
   padding: 0.4rem 0.45rem 0.35rem;
   border-radius: 0.5rem;
-  background: #1c1f27;
+  background: linear-gradient(165deg, rgba(41, 45, 54, 0.55), rgba(26, 29, 36, 0.95));
   border: 1px solid #2a2f3a;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
   transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 .fx:hover {
   border-color: rgba(57, 135, 229, 0.5);
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px -18px rgba(57, 135, 229, 0.9);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 24px -18px rgba(57, 135, 229, 0.9);
 }
-.fx-played { background: #181b22; }
+.fx-played { background: linear-gradient(165deg, rgba(35, 38, 46, 0.5), rgba(22, 25, 31, 0.95)); }
 
 .fx-top { display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.3rem; }
 .fx-day { font-size: 0.55rem; color: rgb(101, 103, 112); }

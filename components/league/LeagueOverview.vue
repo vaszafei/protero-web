@@ -1,84 +1,19 @@
 <template>
   <div class="space-y-3 sm:space-y-4">
-    <!-- ═══ 1. What this competition IS ═══════════════════════════════════ -->
-    <div v-if="pending" class="flex flex-col sm:flex-row gap-2.5">
-      <div class="sm:flex-[8] min-w-0 rounded-lg border border-edge/40 bg-surface/60 p-3 animate-pulse">
-        <div class="h-2 w-14 rounded bg-white/5 mb-2.5"></div>
-        <div class="h-5 w-12 rounded bg-white/5"></div>
-      </div>
-      <div class="sm:flex-[4] min-w-0 grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-        <div v-for="i in 5" :key="i" class="rounded-lg border border-edge/40 bg-surface/60 p-3 animate-pulse">
-          <div class="h-2 w-14 rounded bg-white/5 mb-2.5"></div>
-          <div class="h-5 w-12 rounded bg-white/5"></div>
-        </div>
-      </div>
-    </div>
+    <!-- ═══ 1. The round in front of us ═══════════════════════════════════
+         No outer panel — the fixture strip now sits directly on the page,
+         restyled to match the hero card's language (2026-08-25). The twin's
+         headline metrics moved to the page header (LeagueMetricsGrid, beside
+         the hero card) the same day. -->
+    <div>
+      <div class="round-head">
+        <!-- Switch round — on the round cards, not the season bar. -->
+        <span class="rd-step">
+          <button type="button" class="rd-step-btn" :disabled="roundNum <= 1" title="Previous round" @click="$emit('update:round', roundNum - 1)">‹</button>
+          <button type="button" class="rd-step-btn" :disabled="roundNum >= maxRound" title="Next round" @click="$emit('update:round', roundNum + 1)">›</button>
+        </span>
 
-    <div v-else-if="twin" class="flex flex-col sm:flex-row gap-2.5">
-      <!-- The one number that IS the league: its fitted level, flex 8. -->
-      <LeagueMetricCard
-        label="Level"
-        hint="Fitted strength of the competition, comparable to others of the same kind"
-        :value="num(twin.level, 3)"
-        :foot="levelRank ? `#${levelRank.pos} of ${levelRank.total} ${twin.is_cup ? 'cups' : 'leagues'}` : 'not ranked'"
-        :peer-values="peerScale.level"
-        :own="twin.level"
-        class="sm:flex-[8] min-w-0 flex flex-col justify-center"
-      />
-
-      <!-- The rest of the twin's key metrics, compact, in the same row. -->
-      <div class="sm:flex-[4] min-w-0 grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-        <LeagueMetricCard
-          label="Home adv."
-          hint="Home-advantage term in log-goals"
-          :value="num(twin.home_adv, 3)"
-          foot="log-goals"
-          :peer-values="peerScale.home_adv"
-          :own="twin.home_adv"
-        />
-        <LeagueMetricCard
-          label="Spread"
-          hint="How far apart this competition's clubs are"
-          :value="twin.is_cup ? '—' : num(twin.spread, 3)"
-          :muted="!!twin.is_cup"
-          :foot="twin.is_cup ? 'cups pool tiers' : 'club dispersion'"
-          :peer-values="twin.is_cup ? [] : peerScale.spread"
-          :own="twin.is_cup ? null : twin.spread"
-        />
-        <LeagueMetricCard
-          label="Avg goals"
-          :value="num(twin.avg_goals, 2)"
-          foot="per game"
-          :peer-values="peerScale.avg_goals"
-          :own="twin.avg_goals"
-        />
-        <LeagueMetricCard
-          label="Clubs"
-          :value="String(twin.n_teams ?? '—')"
-          :foot="`${clubs.length} rated now`"
-        />
-        <LeagueMetricCard
-          label="Fitted on"
-          :value="Number(twin.n_games || 0).toLocaleString()"
-          :foot="twin.state_as_of ? `games · ${twin.state_as_of}` : 'games'"
-        />
-      </div>
-    </div>
-
-    <!-- Outside the fitted corpus. Said plainly, once, rather than as six empty cards. -->
-    <div v-else-if="!pending" class="rounded-lg border border-edge/40 bg-surface/60 px-4 py-3">
-      <p class="text-xs text-zinc-300 font-medium">No twin for this competition.</p>
-      <p class="text-[11px] text-zinc-500 mt-1 leading-relaxed max-w-3xl">
-        The entity layer is fitted on the European football corpus. Basketball, LATAM football and
-        national-team fixtures sit outside it — they have games and predictions, but no fitted level,
-        club ratings or transition record. Nothing is wrong; there is simply no twin to show.
-      </p>
-    </div>
-
-    <!-- ═══ 2. The round in front of us ═══════════════════════════════════ -->
-    <section class="panel">
-      <header class="panel-head">
-        <h3 class="panel-title">{{ roundHeading }}</h3>
+        <h3 class="round-title">{{ roundHeading }}</h3>
         <span class="pill pill-blue">{{ roundGames.length }} {{ roundGames.length === 1 ? 'game' : 'games' }}</span>
         <span v-if="roundPlayed" class="pill pill-dim">{{ roundPlayed }} played</span>
         <span v-if="roundPicks" class="pill pill-amber">{{ roundPicks }} on the ledger</span>
@@ -88,11 +23,11 @@
           <button type="button" class="rail-nav" :disabled="!canScrollLeft" title="Scroll left" @click="scrollRail(-1)">‹</button>
           <button type="button" class="rail-nav" :disabled="!canScrollRight" title="Scroll right" @click="scrollRail(1)">›</button>
         </span>
-      </header>
+      </div>
 
       <!-- One line, scrolled. A round is a sequence, so it reads as a strip —
            and a 40-game NBA day does not push the standings a screen down. -->
-      <div v-if="roundGames.length" class="relative">
+      <div v-if="roundGames.length" class="relative mt-2.5">
         <div ref="railEl" class="rail" @scroll.passive="syncRail">
           <LeagueFixtureCard
             v-for="g in roundGames"
@@ -106,10 +41,10 @@
         <span v-if="canScrollLeft" class="rail-fade rail-fade-l" />
         <span v-if="canScrollRight" class="rail-fade rail-fade-r" />
       </div>
-      <p v-else class="px-4 py-10 text-center text-xs text-zinc-600">
+      <p v-else class="hero rounded-xl px-4 py-10 text-center text-xs text-zinc-600 mt-2.5">
         No fixtures in this {{ byDate ? 'day' : 'round' }}.
       </p>
-    </section>
+    </div>
 
     <div class="grid lg:grid-cols-3 gap-3 sm:gap-4 items-start">
       <!-- ═══ 3. The table, carrying the twin's own view of each club ═════ -->
@@ -313,7 +248,6 @@
  * wagers, it does not aggregate them into an ROI.
  */
 import { computed, h, defineComponent, nextTick, onMounted, ref, watch } from 'vue'
-import LeagueMetricCard from '~/components/league/LeagueMetricCard.vue'
 import LeagueFixtureCard from '~/components/league/LeagueFixtureCard.vue'
 import { VIZ_HOME, VIZ_STATUS } from '~/utils/viz'
 import { getTeamLogoUrl, teamAbbreviation } from '~/utils/teamLogo'
@@ -324,14 +258,15 @@ const props = defineProps({
   pending: { type: Boolean, default: false },
   clubs: { type: Array, default: () => [] },
   transitions: { type: Array, default: () => [] },
-  /** Every fitted competition — the peer distribution behind each metric strip. */
-  peers: { type: Array, default: () => [] },
   leagues: { type: Array, default: () => [] },
   /** Standings computed from fixtures, keyed by team_id. */
   standings: { type: Array, default: () => [] },
   /** The visible round's fixtures. */
   roundGames: { type: Array, default: () => [] },
   round: { type: String, default: '' },
+  /** The selected round's number — powers the prev/next switch. */
+  roundNum: { type: Number, default: 1 },
+  maxRound: { type: Number, default: 1 },
   /** Paged by match day rather than by round — basketball, and cup football. */
   byDate: { type: Boolean, default: false },
   /** Every game of the season — the source for the picks panel. */
@@ -343,6 +278,8 @@ const props = defineProps({
    */
   isCurrentSeason: { type: Boolean, default: true },
 })
+
+defineEmits(['update:round'])
 
 /* ── The round ─────────────────────────────────────────────────────────── */
 
@@ -464,29 +401,6 @@ const ratingScale = computed(() => {
 })
 
 const movedCount = computed(() => props.clubs.filter(c => c.league_changed).length)
-
-/* ── Peer distributions ────────────────────────────────────────────────── */
-
-/** Peers of the same kind only — a cup's level is not a league's level. */
-const samePeers = computed(() =>
-  props.peers.filter(p => !!p.is_cup === !!props.twin?.is_cup)
-)
-
-const peerScale = computed(() => ({
-  level: samePeers.value.map(p => p.level),
-  home_adv: samePeers.value.map(p => p.home_adv),
-  spread: samePeers.value.map(p => p.spread),
-  avg_goals: samePeers.value.map(p => p.avg_goals),
-}))
-
-const levelRank = computed(() => {
-  if (!props.twin || props.twin.level == null) return null
-  const ranked = samePeers.value
-    .filter(p => p.level != null)
-    .sort((a, b) => b.level - a.level)
-  const pos = ranked.findIndex(p => p.league_key === props.leagueKey)
-  return pos < 0 ? null : { pos: pos + 1, total: ranked.length }
-})
 
 /* ── Picks ─────────────────────────────────────────────────────────────── */
 
@@ -668,6 +582,20 @@ const RatingBar = defineComponent({
   color: rgb(212, 212, 216);
 }
 
+/* The round strip's own header — no card, sits directly on the page. */
+.round-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0 0.1rem;
+}
+.round-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgb(228, 231, 236);
+  letter-spacing: -0.005em;
+}
+
 .pill {
   padding: 0.06rem 0.4rem;
   border-radius: 999px;
@@ -678,6 +606,28 @@ const RatingBar = defineComponent({
 .pill-blue { background: rgba(57, 135, 229, 0.18); color: #8fbdf5; }
 .pill-amber { background: rgba(250, 178, 25, 0.16); color: #f0c469; }
 .pill-dim { background: rgba(255, 255, 255, 0.06); color: rgb(140, 143, 152); }
+
+/* Round switcher — on the round cards now, not the season bar. */
+.rd-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.05rem;
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #2a2f3a;
+}
+.rd-step-btn {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 0.35rem;
+  color: rgb(161, 161, 170);
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: background 140ms ease, color 140ms ease;
+}
+.rd-step-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.rd-step-btn:disabled { opacity: 0.25; cursor: not-allowed; }
 
 .rail {
   display: flex;

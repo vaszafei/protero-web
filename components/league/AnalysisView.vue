@@ -50,9 +50,9 @@
         </div>
       </section>
 
-      <div class="grid lg:grid-cols-2 gap-3 sm:gap-4 items-start">
+      <div class="grid gap-3 sm:gap-4 items-start lg:grid-cols-12">
         <!-- ═══ 2. Distribution ═══════════════════════════════════════════ -->
-        <section v-if="dist.length" class="panel">
+        <section v-if="dist.length" class="panel lg:col-span-3">
           <header class="panel-head">
             <h3 class="panel-title">{{ isBball ? 'Score distribution' : 'Goals distribution' }}</h3>
             <span class="text-[10px] text-zinc-600">{{ isBball ? 'games by total points' : 'matches by total goals' }}</span>
@@ -71,15 +71,19 @@
           </div>
         </section>
 
-        <!-- ═══ 3. Home vs away ═══════════════════════════════════════════ -->
-        <section v-if="ha" class="panel">
+        <!-- ═══ 3. Home vs away ═══════════════════════════════════════════
+             Brand blue/red (the wordmark's own two colours), not the general
+             chart categorical pair — this is explicitly "the two sides of
+             this app", where the other charts on the page are magnitude/
+             identity encodings with no inherent tie to the brand. -->
+        <section v-if="ha" class="panel lg:col-span-3">
           <header class="panel-head">
             <h3 class="panel-title">Home vs away</h3>
             <!-- Two series, so a legend is always present — identity never
                  rests on colour alone. -->
             <span class="ml-auto flex items-center gap-3">
-              <span class="lg"><span class="lg-key" :style="{ background: VIZ_HOME }" />Home</span>
-              <span class="lg"><span class="lg-key" :style="{ background: VIZ_AWAY }" />Away</span>
+              <span class="lg"><span class="lg-key" :style="{ background: VIZ_BRAND_HOME }" />Home</span>
+              <span class="lg"><span class="lg-key" :style="{ background: VIZ_BRAND_AWAY }" />Away</span>
             </span>
           </header>
           <div class="p-3 space-y-3">
@@ -89,10 +93,10 @@
                 <span class="text-[10px] text-zinc-500 tabular-nums">{{ row.home }} · {{ row.away }}</span>
               </div>
               <div class="split">
-                <span class="split-seg" :style="{ width: row.homePct + '%', background: VIZ_HOME }">
+                <span class="split-seg" :style="{ width: row.homePct + '%', background: VIZ_BRAND_HOME }">
                   <span v-if="row.homePct >= 18" class="split-val">{{ row.home }}</span>
                 </span>
-                <span class="split-seg split-seg-r" :style="{ width: (100 - row.homePct) + '%', background: VIZ_AWAY }">
+                <span class="split-seg split-seg-r" :style="{ width: (100 - row.homePct) + '%', background: VIZ_BRAND_AWAY }">
                   <span v-if="row.homePct <= 82" class="split-val">{{ row.away }}</span>
                 </span>
               </div>
@@ -102,60 +106,108 @@
             </p>
           </div>
         </section>
-      </div>
 
-      <!-- ═══ 4. Scoring trend ════════════════════════════════════════════ -->
-      <section v-if="trends.length > 1" class="panel">
-        <header class="panel-head">
-          <h3 class="panel-title">Scoring trend</h3>
-          <span class="text-[10px] text-zinc-600">{{ isBball ? 'avg points by game day' : 'avg goals by round' }}</span>
-          <span v-if="trendDirection !== 'flat'" class="ml-auto text-[10px] font-semibold"
-                :class="trendDirection === 'up' ? 'text-emerald-400' : 'text-red-400'">
-            trending {{ trendDirection }}
-          </span>
-        </header>
-        <div class="p-3">
-          <div class="relative" style="height: 150px">
-            <svg viewBox="0 0 600 150" preserveAspectRatio="none" class="w-full h-full overflow-visible">
-              <!-- Recessive baseline at the mean: hairline, solid, one step off surface. -->
-              <line x1="0" :y1="trendBaseY" x2="600" :y2="trendBaseY" :stroke="VIZ_GRID" stroke-width="1" vector-effect="non-scaling-stroke" />
-              <polyline :points="trendPolyline" fill="none" :stroke="VIZ_HOME" stroke-width="2"
-                        stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
-              <!-- End marker with a 2px surface ring so it survives the line. -->
-              <circle v-if="trendPoints.length" :cx="trendPoints[trendPoints.length - 1].x"
-                      :cy="trendPoints[trendPoints.length - 1].y" r="4.5"
-                      :fill="VIZ_HOME" :stroke="VIZ_SURFACE" stroke-width="2" vector-effect="non-scaling-stroke" />
-            </svg>
-          </div>
-          <div class="flex justify-between mt-1.5 text-[10px] text-zinc-600 tabular-nums">
-            <span>{{ trends[0].label }}</span>
-            <span class="text-zinc-400">mean {{ trendAvg }}</span>
-            <span>{{ trends[trends.length - 1].label }} · {{ Number(trends[trends.length - 1].avg_total).toFixed(1) }}</span>
-          </div>
-        </div>
-      </section>
-
-      <div class="grid lg:grid-cols-2 gap-3 sm:gap-4 items-start">
-        <!-- ═══ 5. Form table ═════════════════════════════════════════════ -->
-        <section v-if="form.length" class="panel">
+        <!-- ═══ 4. Scoring trend ═════════════════════════════════════════
+             One 12-column grid across the whole tab: Goals distribution 3,
+             Home vs away 3, Scoring trend 6 — one row. Market calibration 6,
+             Top scorers 3, Form 3 — the next. Columns align vertically
+             because every card shares one grid. -->
+        <section v-if="trends.length" class="panel lg:col-span-6">
           <header class="panel-head">
-            <h3 class="panel-title">Form</h3>
-            <span class="text-[10px] text-zinc-600">last 5 · top {{ form.length }}</span>
+            <h3 class="panel-title">Scoring trend</h3>
+            <span class="text-[10px] text-zinc-600">{{ isBball ? 'avg points by game day' : 'avg goals by round' }}</span>
           </header>
-          <div class="p-2 space-y-0.5">
-            <div v-for="(team, idx) in form" :key="team.team_id" class="rowline">
-              <span class="rowline-idx">{{ idx + 1 }}</span>
-              <span class="rowline-name">{{ team.name }}</span>
-              <span class="flex gap-0.5">
-                <span v-for="(r, i) in (team.form || '').split('')" :key="i" class="formdot" :class="formColor(r)">{{ r }}</span>
-              </span>
-              <span class="rowline-val">{{ team.points }}</span>
+          <div v-if="!isBball" class="px-3 pt-2 flex items-center gap-3">
+            <span class="lg"><span class="lg-key" :style="{ background: VIZ_HOME }" />Avg goals</span>
+            <span class="lg"><span class="lg-key" :style="{ background: VIZ_AWAY }" />Over 2.5%</span>
+            <span class="lg"><span class="lg-key" :style="{ background: VIZ_CAT2 }" />BTTS%</span>
+            <span v-if="trendDirection !== 'flat'" class="ml-auto text-[10px] font-semibold"
+                  :class="trendDirection === 'up' ? 'text-emerald-400' : 'text-red-400'">
+              trending {{ trendDirection }}
+            </span>
+          </div>
+          <div class="p-3">
+            <div class="relative" style="height: 150px">
+              <svg viewBox="0 0 600 150" preserveAspectRatio="none" class="w-full h-full overflow-visible">
+                <!-- Recessive baseline at the mean: hairline, solid, one step off surface. -->
+                <line v-if="trendPoints.length > 1" x1="0" :y1="trendBaseY" x2="600" :y2="trendBaseY" :stroke="VIZ_GRID" stroke-width="1" vector-effect="non-scaling-stroke" />
+
+                <!-- Secondary rate series (football only) — thinner, dimmer, own 0-100% scale. -->
+                <template v-if="!isBball">
+                  <polyline :points="over25Polyline" fill="none" :stroke="VIZ_AWAY" stroke-width="1.25" stroke-opacity="0.55"
+                            stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+                  <polyline :points="bttsPolyline" fill="none" :stroke="VIZ_CAT2" stroke-width="1.25" stroke-opacity="0.55"
+                            stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+                </template>
+
+                <polyline :points="trendPolyline" fill="none" :stroke="VIZ_HOME" stroke-width="2"
+                          stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+                <!-- End marker with a 2px surface ring so it survives the line. -->
+                <circle v-if="trendPoints.length" :cx="trendPoints[trendPoints.length - 1].x"
+                        :cy="trendPoints[trendPoints.length - 1].y"
+                        :r="trendPoints.length === 1 ? 6 : 4.5"
+                        :fill="VIZ_HOME" :stroke="VIZ_SURFACE" stroke-width="2" vector-effect="non-scaling-stroke" />
+                <!-- A single round has no line to draw — label its value so the
+                     chart doesn't read as an empty frame. -->
+                <text v-if="trendPoints.length === 1" :x="trendPoints[0].x" :y="trendPoints[0].y - 16"
+                      text-anchor="middle" fill="#e4e7ec" font-size="15" font-weight="700"
+                      style="font-variant-numeric: tabular-nums">{{ Number(trends[0].avg_total).toFixed(1) }}</text>
+              </svg>
+            </div>
+            <div class="flex justify-between mt-1.5 text-[10px] text-zinc-600 tabular-nums">
+              <span>{{ trends[0].label }}</span>
+              <span class="text-zinc-400">mean {{ trendAvg }} goals</span>
+              <span>{{ trends[trends.length - 1].label }} · {{ Number(trends[trends.length - 1].avg_total).toFixed(1) }}</span>
             </div>
           </div>
         </section>
 
+        <!-- ═══ 8. Market calibration ══════════════════════════════════════
+             Is the closing price honest for THIS competition? A reliability
+             diagram: bucket games by the market's own implied home-win
+             probability, plot the realised home-win rate per bucket. Points on
+             the diagonal = well-calibrated. This is a read on the CLOSE, never
+             a model claim — no EV, no ROI, no bet selection (do-not-do §1). -->
+        <section v-if="calibration" class="panel lg:col-span-6">
+          <header class="panel-head">
+            <h3 class="panel-title">Market calibration</h3>
+            <span class="text-[10px] text-zinc-600">closing 1X2 · implied vs realised</span>
+            <span class="ml-auto text-[10px] text-zinc-500 tabular-nums" title="Mean squared error of the market's own implied probability against the outcome. 0 = perfect, 0.25 = a coin-flip guess every time.">
+              Brier {{ calibration.brier }}
+            </span>
+          </header>
+          <div class="p-3">
+            <div class="relative" style="height: 150px">
+              <svg viewBox="0 0 190 190" class="w-full h-full overflow-visible">
+                <!-- The perfect-calibration diagonal — a market whose price always matched reality. -->
+                <line x1="10" y1="180" x2="180" y2="10" :stroke="VIZ_GRID" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+                <!-- Axis frame -->
+                <line x1="10" y1="10" x2="10" y2="180" :stroke="VIZ_GRID" stroke-width="1" vector-effect="non-scaling-stroke" />
+                <line x1="10" y1="180" x2="180" y2="180" :stroke="VIZ_GRID" stroke-width="1" vector-effect="non-scaling-stroke" />
+
+                <polyline :points="calibPolyline" fill="none" :stroke="VIZ_HOME" stroke-width="2"
+                          stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+                <circle v-for="p in calibPoints" :key="p.bucket" :cx="p.x" :cy="p.y" :r="p.r"
+                        :fill="VIZ_HOME" :stroke="VIZ_SURFACE" stroke-width="1.5" vector-effect="non-scaling-stroke">
+                  <title>{{ (p.implied * 100).toFixed(0) }}% implied → {{ (p.actual * 100).toFixed(0) }}% actual, n={{ p.n }}</title>
+                </circle>
+              </svg>
+            </div>
+            <div class="flex justify-between mt-1 text-[10px] text-zinc-600">
+              <span>lower implied home-win %</span>
+              <span>higher implied home-win %</span>
+            </div>
+            <p class="mt-2 text-[10px] text-zinc-600 leading-relaxed">
+              {{ calibration.matched }} of {{ calibration.total }} games matched to a closing price.
+              Dot size is bucket n; dashed line is perfect calibration. Above the line = market
+              underpriced home wins in that band; below = overpriced. Describes the CLOSE, not a
+              model — carries no EV of its own.
+            </p>
+          </div>
+        </section>
+
         <!-- ═══ 6. Top scorers ════════════════════════════════════════════ -->
-        <section v-if="scorers.length" class="panel">
+        <section v-if="scorers.length" class="panel lg:col-span-3">
           <header class="panel-head">
             <h3 class="panel-title">Top scorers</h3>
             <span class="text-[10px] text-zinc-600">by goals</span>
@@ -163,12 +215,60 @@
           <div class="p-2 space-y-0.5">
             <div v-for="(pl, idx) in scorers" :key="pl.name + idx" class="rowline">
               <span class="rowline-idx">{{ idx + 1 }}</span>
+              <span class="rowline-crest rowline-crest-static">
+                <img v-if="pl.team_key" :src="getTeamLogoUrl(pl.team_key)" :alt="pl.team" loading="lazy" @error="onCrestError" />
+                <span v-else class="rowline-crest-fallback">{{ teamAbbreviation(pl.team) }}</span>
+              </span>
               <span class="rowline-name">{{ pl.name }}</span>
-              <span class="text-[10px] text-zinc-600 truncate max-w-[100px]">{{ pl.team }}</span>
+              <span class="text-[10px] text-zinc-600 truncate max-w-[90px]">{{ pl.team }}</span>
               <span class="scorer-bar">
                 <span class="scorer-fill" :style="{ width: (pl.goals / topScorerGoals * 100) + '%' }" />
               </span>
               <span class="rowline-val">{{ pl.goals }}</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ 5. Form table ═════════════════════════════════════════════
+             Each dot is now a real fixture, not a bare letter: `recent[i]`
+             lines up 1:1 with `form[i]` (the RPC emits both newest-first), so
+             hovering a dot opens a small card with the actual opponent/score/
+             date and a link into that game — added 2026-08-25 once the RPC
+             started returning per-game detail instead of just the string. -->
+        <section v-if="form.length" class="panel lg:col-span-3">
+          <header class="panel-head">
+            <h3 class="panel-title">Form</h3>
+            <span class="text-[10px] text-zinc-600">last 5 · top {{ form.length }}</span>
+          </header>
+          <div class="p-2 space-y-0.5">
+            <div v-for="(team, idx) in form" :key="team.team_id" class="rowline">
+              <span class="rowline-idx">{{ idx + 1 }}</span>
+              <NuxtLink :to="`/team/${team.team_id}`" class="rowline-crest">
+                <img v-if="team.team_key" :src="getTeamLogoUrl(team.team_key)" :alt="team.name" loading="lazy" @error="onCrestError" />
+                <span v-else class="rowline-crest-fallback">{{ teamAbbreviation(team.name) }}</span>
+              </NuxtLink>
+              <span class="rowline-name">{{ team.name }}</span>
+              <span class="flex gap-0.5">
+                <span
+                  v-for="(r, i) in (team.form || '').split('')"
+                  :key="i"
+                  class="formdot-wrap"
+                  @mouseenter="openFormTip(`${team.team_id}-${i}`)"
+                  @mouseleave="closeFormTip(`${team.team_id}-${i}`)"
+                >
+                  <button type="button" class="formdot" :class="formColor(r)">{{ r }}</button>
+                  <div v-if="formTip === `${team.team_id}-${i}` && team.recent?.[i]" class="formdot-tip">
+                    <p class="formdot-tip-line">
+                      <span class="text-zinc-500">{{ team.recent[i].is_home ? 'vs' : '@' }}</span>
+                      {{ team.recent[i].opponent }}
+                    </p>
+                    <p class="formdot-tip-score">{{ team.recent[i].gf }}–{{ team.recent[i].ga }}</p>
+                    <p class="formdot-tip-date">{{ fmtShortDate(team.recent[i].date) }}</p>
+                    <NuxtLink :to="`/game/${team.recent[i].game_id}`" class="formdot-tip-btn">Go to game →</NuxtLink>
+                  </div>
+                </span>
+              </span>
+              <span class="rowline-val">{{ team.points }}</span>
             </div>
           </div>
         </section>
@@ -226,7 +326,11 @@
  *     painted home and away in two steps of the same blue, which is a
  *     sequential encoding used for an identity job.
  */
-import { VIZ_HOME, VIZ_AWAY, VIZ_GRID, VIZ_SURFACE, VIZ_STATUS, seqStep } from '~/utils/viz'
+import { VIZ_HOME, VIZ_AWAY, VIZ_CAT, VIZ_BRAND_HOME, VIZ_BRAND_AWAY, VIZ_GRID, VIZ_SURFACE, VIZ_STATUS, seqStep } from '~/utils/viz'
+import { getTeamLogoUrl, teamAbbreviation } from '~/utils/teamLogo'
+
+/** Third categorical slot (green) — BTTS% in the scoring-trend overlay. */
+const VIZ_CAT2 = VIZ_CAT[2]
 
 const props = defineProps<{
   leagueKey: string
@@ -249,6 +353,7 @@ const trends = computed<any[]>(() => data.value?.scoring_trends || [])
 const form = computed<any[]>(() => data.value?.form_table || [])
 const scorers = computed<any[]>(() => data.value?.top_scorers || [])
 const refs = computed<any[]>(() => data.value?.referee_impact || [])
+const calibration = computed<any>(() => data.value?.market_calibration || null)
 const hasGames = computed(() => Number(km.value?.games || 0) > 0)
 
 /** Below this, a percentage is a count and must be labelled as one. */
@@ -326,11 +431,61 @@ const trendBaseY = computed(() => {
 })
 const trendPoints = computed(() => {
   if (!trendVals.value.length) return []
+  // A single round has no left-to-right spread and no range to scale against
+  // (the 0..1 fallback range would pin the point to the top edge) — centre
+  // its one point so the chart reads as "one data point so far".
+  if (trendVals.value.length === 1) return [{ x: 300, y: 75 }]
   const range = trendMax.value - trendMin.value || 1
-  const stepX = trendVals.value.length > 1 ? 600 / (trendVals.value.length - 1) : 600
+  const stepX = 600 / (trendVals.value.length - 1)
   return trendVals.value.map((v, i) => ({ x: i * stepX, y: 138 - ((v - trendMin.value) / range) * 124 }))
 })
 const trendPolyline = computed(() => trendPoints.value.map(p => `${p.x},${p.y}`).join(' '))
+
+/**
+ * Over2.5% and BTTS% share the same x-positions as the goals line (one point
+ * per round) but their own 0-100% y-scale — a rate has nothing to do with the
+ * goals axis's min/max. Football only; the RPC never fills these for basketball.
+ */
+function ratePolyline(key: 'over25_pct' | 'btts_pct') {
+  const stepX = trends.value.length > 1 ? 600 / (trends.value.length - 1) : 0
+  const offsetX = trends.value.length === 1 ? 300 : 0
+  return trends.value
+    .map((t, i) => {
+      const v = Number(t[key])
+      if (!Number.isFinite(v)) return null
+      const y = 138 - (v / 100) * 124
+      return `${offsetX + i * stepX},${y}`
+    })
+    .filter((p): p is string => p != null)
+    .join(' ')
+}
+const over25Polyline = computed(() => ratePolyline('over25_pct'))
+const bttsPolyline = computed(() => ratePolyline('btts_pct'))
+
+/* ── Market calibration ────────────────────────────────────────────────── */
+
+/**
+ * Reliability-diagram points: x = implied home-win probability, y = realised
+ * rate, both 0-1 mapped onto the same 10..180 square the diagonal is drawn on.
+ * Dot radius carries bucket n (sqrt-scaled so area, not radius, tracks count).
+ */
+const calibPoints = computed(() => {
+  const buckets: any[] = calibration.value?.buckets || []
+  if (!buckets.length) return []
+  const maxN = Math.max(1, ...buckets.map((b) => Number(b.n)))
+  return buckets.map((b) => ({
+    bucket: b.bucket,
+    n: b.n,
+    implied: Number(b.implied),
+    actual: Number(b.actual),
+    x: 10 + Number(b.implied) * 170,
+    y: 180 - Number(b.actual) * 170,
+    r: 2.5 + Math.sqrt(Number(b.n) / maxN) * 5.5,
+  }))
+})
+const calibPolyline = computed(() =>
+  [...calibPoints.value].sort((a, b) => a.implied - b.implied).map((p) => `${p.x},${p.y}`).join(' ')
+)
 
 /* ── Lists ──────────────────────────────────────────────────────────────── */
 
@@ -346,6 +501,30 @@ function formColor(r: string) {
 /** One hue, more-is-darker — a referee's average is a magnitude, not a state. */
 function barColorForGoals(v: number) {
   return seqStep(Number(v) / refMax.value)
+}
+
+/** A crest whose file 404s falls back to the initials block, same pattern as LeagueFixtureCard. */
+function onCrestError(e: Event) {
+  const el = e.target as HTMLImageElement
+  el.style.display = 'none'
+}
+
+/** Which form dot's tooltip is open — `${team_id}-${index}`, one at a time. */
+const formTip = ref<string | null>(null)
+let formTipTimer: ReturnType<typeof setTimeout> | null = null
+function openFormTip(key: string) {
+  if (formTipTimer) clearTimeout(formTipTimer)
+  formTip.value = key
+}
+function closeFormTip(key: string) {
+  // Small delay so moving from the dot onto the popover itself doesn't close it.
+  formTipTimer = setTimeout(() => {
+    if (formTip.value === key) formTip.value = null
+  }, 120)
+}
+
+function fmtShortDate(d: string) {
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
 }
 </script>
 
@@ -464,6 +643,31 @@ function barColorForGoals(v: number) {
 .rowline-name { flex: 1 1 auto; min-width: 0; font-size: 0.7rem; font-weight: 500; color: rgb(212, 212, 216); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rowline-val { width: 1.6rem; text-align: right; font-size: 0.7rem; font-weight: 700; color: rgb(228, 231, 236); font-variant-numeric: tabular-nums; }
 
+.rowline-crest {
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.rowline-crest-static { cursor: default; }
+.rowline-crest img { width: 100%; height: 100%; object-fit: contain; }
+.rowline-crest-fallback {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.48rem;
+  font-weight: 800;
+  color: rgb(180, 183, 191);
+}
+
+.formdot-wrap { position: relative; }
 .formdot {
   width: 0.9rem;
   height: 0.9rem;
@@ -474,7 +678,42 @@ function barColorForGoals(v: number) {
   font-size: 0.52rem;
   font-weight: 700;
   color: #fff;
+  transition: transform 120ms ease;
 }
+.formdot-wrap:hover .formdot { transform: scale(1.15); }
+
+/* Popover card — a fixture, not a bare letter. Sits above the dot; pointer
+   events stay on so a mouse can travel from the dot onto the "Go to game" link. */
+.formdot-tip {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 9.5rem;
+  padding: 0.5rem 0.55rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(165deg, rgba(41, 45, 54, 0.98), rgba(24, 27, 34, 1));
+  border: 1px solid #333a48;
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.6);
+  text-align: left;
+}
+.formdot-tip-line { font-size: 0.66rem; font-weight: 600; color: rgb(228, 231, 236); }
+.formdot-tip-score { font-size: 0.78rem; font-weight: 800; color: #fff; margin-top: 0.15rem; font-variant-numeric: tabular-nums; }
+.formdot-tip-date { font-size: 0.58rem; color: rgb(140, 143, 152); margin-top: 0.1rem; }
+.formdot-tip-btn {
+  display: block;
+  margin-top: 0.4rem;
+  padding: 0.25rem 0;
+  border-radius: 0.3rem;
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  background: rgba(57, 135, 229, 0.18);
+  color: #8fbdf5;
+  transition: background 140ms ease;
+}
+.formdot-tip-btn:hover { background: rgba(57, 135, 229, 0.3); }
 
 .scorer-bar { position: relative; width: 3.5rem; height: 0.3rem; border-radius: 999px; background: rgba(255, 255, 255, 0.06); overflow: hidden; flex-shrink: 0; }
 .scorer-fill { position: absolute; inset: 0 auto 0 0; background: #3987e5; border-radius: 999px; }
