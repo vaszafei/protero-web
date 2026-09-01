@@ -117,9 +117,18 @@ function verdictClass(v: string): string {
 
 <style scoped>
 .wallet-card {
-  background: rgba(28, 31, 39, 0.85);
-  border: 1px solid rgba(42, 47, 58, 0.5);
+  background: linear-gradient(165deg, rgba(41, 45, 54, 0.55), rgba(26, 29, 36, 0.95));
+  border: 1px solid rgba(42, 47, 58, 0.7);
   border-radius: 0.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 20px -16px rgba(0, 0, 0, 0.85);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.wallet-card:hover {
+  border-color: rgba(53, 60, 72, 0.9);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 26px -14px rgba(0, 0, 0, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wallet-card { transition: none; }
 }
 </style>

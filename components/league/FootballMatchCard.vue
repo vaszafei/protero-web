@@ -9,11 +9,13 @@
           <span class="text-sm text-zinc-500">vs</span>
           <span class="text-base font-bold text-zinc-100">{{ match.away_name }}</span>
         </div>
-        <div class="flex items-center gap-2">
-          <div class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">
-            {{ match.expectedGoals }}g
-          </div>
+        <div v-if="match.prediction_id" class="flex items-center gap-2">
+          <span class="text-[10px] text-zinc-600">model call</span>
+          <span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">
+            {{ match.prediction }} @ {{ Number(modelDetail.decimal_odds || 0).toFixed(2) }}
+          </span>
         </div>
+        <span v-else class="text-[10px] text-zinc-700">no model call yet</span>
       </div>
 
       <!-- Stats and Trend Charts Row -->
@@ -194,147 +196,50 @@
             />
           </div>
 
-          <!-- Statistical Analysis & Match Insights Card -->
-          <div class="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-lg p-3 border border-indigo-500/20">
+          <!-- Model call — the picker's own output, never a UI formula.
+               The model_details JSONB carries exactly one wager per game:
+               market, selection, model probability, edge and the price it
+               was sized against. -->
+          <div v-if="match.prediction_id" class="bg-surface-light rounded-lg p-3 border border-edge">
             <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-1.5">
-                <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-indigo-400" />
-                <span class="text-xs font-bold text-indigo-300">Statistical Predictions</span>
+              <span class="text-xs font-bold text-zinc-300">Model call</span>
+              <span class="text-[10px] text-zinc-600 tabular-nums">
+                {{ probSourceLabel(modelDetail) }} · v6
+              </span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+              <div>
+                <p class="text-[10px] text-zinc-600 uppercase tracking-wide">Pick</p>
+                <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ modelDetail.selection || match.prediction }}</p>
               </div>
-              <div class="bg-indigo-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">
-                {{ generateMatchAnalysis(match).confidence }}% confidence
+              <div>
+                <p class="text-[10px] text-zinc-600 uppercase tracking-wide">Model prob</p>
+                <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ pct(modelDetail.model_prob) }}</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-zinc-600 uppercase tracking-wide">Edge</p>
+                <p class="text-sm font-bold tabular-nums" :class="edgeClass(modelDetail.edge)">
+                  {{ signedPct(modelDetail.edge) }}
+                </p>
+              </div>
+              <div>
+                <p class="text-[10px] text-zinc-600 uppercase tracking-wide">Price</p>
+                <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ Number(modelDetail.decimal_odds || 0).toFixed(2) }}</p>
               </div>
             </div>
-
-            <div class="grid grid-cols-4 gap-2">
-              <!-- Expected Goals -->
-              <div class="bg-surface rounded-lg p-1.5 border border-green-500/30">
-                <div class="flex items-center gap-1 mb-1">
-                  <span class="text-[11px] font-bold text-green-400 uppercase">Expected Goals</span>
-                </div>
-                <div class="space-y-0.5">
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] text-zinc-400">{{ match.home_name?.split(' ')[0] }}:</span>
-                    <span class="text-sm font-bold text-green-400">{{ generateMatchAnalysis(match).homeExpectedGoals }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] text-zinc-400">{{ match.away_name?.split(' ')[0] }}:</span>
-                    <span class="text-sm font-bold text-green-400">{{ generateMatchAnalysis(match).awayExpectedGoals }}</span>
-                  </div>
-                  <div class="pt-0.5 border-t border-green-500/20">
-                    <div class="flex items-center justify-between">
-                      <span class="text-[11px] font-bold text-zinc-300">Total:</span>
-                      <span class="text-sm font-bold text-green-400">{{ generateMatchAnalysis(match).totalExpectedGoals }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Expected Shots -->
-              <div class="bg-surface rounded-lg p-1.5 border border-orange-500/20">
-                <div class="flex items-center gap-1 mb-1">
-                  <span class="text-[11px] font-bold text-orange-400 uppercase">Expected Shots</span>
-                </div>
-                <div class="space-y-0.5">
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] text-zinc-400">{{ match.home_name?.split(' ')[0] }}:</span>
-                    <span class="text-sm font-bold text-orange-400">{{ generateMatchAnalysis(match).homeExpectedShots }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] text-zinc-400">{{ match.away_name?.split(' ')[0] }}:</span>
-                    <span class="text-sm font-bold text-orange-400">{{ generateMatchAnalysis(match).awayExpectedShots }}</span>
-                  </div>
-                  <div class="pt-0.5 border-t border-orange-500/20">
-                    <div class="flex items-center justify-between">
-                      <span class="text-[11px] font-bold text-zinc-300">Total:</span>
-                      <span class="text-sm font-bold text-orange-400">{{ generateMatchAnalysis(match).expectedShots }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Expected Corners -->
-              <div class="bg-surface rounded-lg p-1.5 border border-cyan-500/20">
-                <div class="flex items-center gap-1 mb-1">
-                  <span class="text-[11px] font-bold text-cyan-400 uppercase">Expected Corners</span>
-                </div>
-                <div class="space-y-0.5">
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] text-zinc-400">{{ match.home_name?.split(' ')[0] }}:</span>
-                    <span class="text-sm font-bold text-cyan-400">{{ generateMatchAnalysis(match).homeExpectedCorners }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] text-zinc-400">{{ match.away_name?.split(' ')[0] }}:</span>
-                    <span class="text-sm font-bold text-cyan-400">{{ generateMatchAnalysis(match).awayExpectedCorners }}</span>
-                  </div>
-                  <div class="pt-0.5 border-t border-cyan-500/20">
-                    <div class="flex items-center justify-between">
-                      <span class="text-[11px] font-bold text-zinc-300">Total:</span>
-                      <span class="text-sm font-bold text-cyan-400">{{ generateMatchAnalysis(match).expectedCorners }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Expected Cards -->
-              <div class="bg-surface rounded-lg p-1.5 border border-yellow-500/30">
-                <div class="flex items-center gap-1 mb-1">
-                  <span class="text-[11px] font-bold text-yellow-400 uppercase">Expected Cards</span>
-                </div>
-                <div class="space-y-0.5">
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] text-zinc-400">{{ match.home_name?.split(' ')[0] }}:</span>
-                    <span class="text-sm font-bold text-yellow-400">{{ generateMatchAnalysis(match).homeExpectedCards }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] text-zinc-400">{{ match.away_name?.split(' ')[0] }}:</span>
-                    <span class="text-sm font-bold text-yellow-400">{{ generateMatchAnalysis(match).awayExpectedCards }}</span>
-                  </div>
-                  <div class="pt-0.5 border-t border-yellow-500/20">
-                    <div class="flex items-center justify-between">
-                      <span class="text-[11px] font-bold text-zinc-300">Total:</span>
-                      <span class="text-sm font-bold text-yellow-400">{{ generateMatchAnalysis(match).expectedCards }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Formula Explanation -->
-            <div class="mt-2 bg-surface/50 rounded p-1.5 border border-indigo-500/20">
-              <p class="text-[11px] text-zinc-400 leading-relaxed">
-                <span class="font-bold">Methodology:</span> Weighted averages considering recent form (last 5 games), attack vs defense strength, possession influence, and trend momentum. Form weights: Home {{ generateMatchAnalysis(match).formWeights.home }}× | Away {{ generateMatchAnalysis(match).formWeights.away }}×
-              </p>
-            </div>
+            <p class="mt-2 text-[10px] text-zinc-600 leading-relaxed">
+              This is the model's actual output — probability, edge and the price it was sized
+              against. No expected-goals, shots or corners are invented here; those belong to the
+              Analysis tab, where every rate carries its n.
+            </p>
           </div>
 
-          <!-- AI Predictions Component -->
-          <div>
-            <!-- Show message if no prediction -->
-            <div v-if="!match.prediction" class="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-lg border border-blue-500/20 p-4 flex items-center justify-center">
-              <div class="text-center">
-                <UIcon name="i-heroicons-information-circle" class="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                <p class="text-sm font-semibold text-zinc-400">No prediction yet</p>
-              </div>
-            </div>
-            <!-- Show predictions if available -->
-            <AIPredictions
-              v-else
-                :confidence="match.prediction?.confidence || 50"
-                :predictedOutcome="getPredictedOutcome(match)"
-                :outcomeProbability="getOutcomeProbability(match)"
-                :expectedScore="match.prediction?.outcome || match.expectedGoals"
-                :over15Probability="match.prediction?.markets?.over15 || 0"
-                :over25Probability="match.prediction?.over25Probability || match.prediction?.markets?.over25 || 0"
-                :over35Probability="match.prediction?.markets?.over35 || 0"
-                :bttsProbability="match.prediction?.bttsProbability || match.prediction?.markets?.btts || 0"
-                :cornersOver85="match.prediction?.markets?.cornersOver85 || 0"
-                :cornersOver105="match.prediction?.markets?.cornersOver105 || 0"
-                :cardsOver35="match.prediction?.markets?.cardsOver35 || 0"
-                :cardsOver45="match.prediction?.markets?.cardsOver45 || 0"
-                :shotsRange="getShotsPrediction(match.prediction)"
-                sport="football"
-              />
+          <div v-else class="bg-surface-light rounded-lg p-3 border border-edge text-center">
+            <p class="text-sm font-semibold text-zinc-500">No model call yet</p>
+            <p class="text-[10px] text-zinc-600 mt-1">
+              The football pipeline posts a slate on the nearest matchday with odds; nothing is
+              fabricated in the browser.
+            </p>
           </div>
         </div>
       </div>
@@ -405,13 +310,56 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import TrendChartsSimple from './predictions/TrendChartsSimple.vue'
-import AIPredictions from './predictions/AIPredictions.vue'
 
 const props = defineProps({
   match: { type: Object, required: true },
   games: { type: Array, default: () => [] },
 })
+
+/**
+ * The picker's one real wager for this game, parsed from `model_details`.
+ * The shape is { market, selection, model_prob, implied_prob, edge,
+ * decimal_odds, ... all_bets }. It is the model's own output — never a
+ * browser-side formula.
+ */
+const modelDetail = computed(() => {
+  const raw = props.match?.model_details
+  if (!raw) return {}
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw
+  } catch {
+    return {}
+  }
+})
+
+/** Probability source: DC is calibrated at source; GBM/Poisson go through the isotonic layer. */
+function probSourceLabel(d) {
+  const src = d?.prob_source || d?.mode || ''
+  if (src.includes('dc')) return 'Dixon-Coles'
+  if (src.includes('gbm')) return 'GBM ensemble'
+  if (src.includes('poisson')) return 'Poisson'
+  return 'model'
+}
+
+function pct(v) {
+  const n = Number(v)
+  if (v == null || !Number.isFinite(n)) return '—'
+  return `${Math.round(n * 100)}%`
+}
+
+function signedPct(v) {
+  const n = Number(v)
+  if (v == null || !Number.isFinite(n)) return '—'
+  return `${n > 0 ? '+' : ''}${(n * 100).toFixed(1)}%`
+}
+
+function edgeClass(v) {
+  const n = Number(v)
+  if (v == null || !Number.isFinite(n)) return 'text-zinc-600'
+  return n > 0 ? 'text-emerald-400' : 'text-red-400'
+}
 
 // Helper function to calculate bar width for comparison bars
 function getBarWidth(leftValue, rightValue, side) {
@@ -426,159 +374,5 @@ function getBarWidth(leftValue, rightValue, side) {
   } else {
     return `${(right / total) * 100}%`
   }
-}
-
-/**
- * SOPHISTICATED STATISTICAL PREDICTION FUNCTION
- * Uses weighted averages, form factors, and trend analysis from last 7 rounds
- * Outputs: Expected Goals, Corners, Cards, Shots with confidence intervals
- */
-function generateMatchAnalysis(match) {
-  if (!match || !match.homeStats || !match.awayStats) return {
-    homeExpectedGoals: 0,
-    awayExpectedGoals: 0,
-    expectedCorners: 0,
-    expectedCards: 0,
-    expectedShots: 0,
-    confidence: 0
-  }
-
-  const homeStats = match.homeStats
-  const awayStats = match.awayStats
-
-  // Helper to safely parse numbers
-  const parseNum = (val) => parseFloat(val) || 0
-
-  // Form weight calculation (recent form influences prediction)
-  const maxFormPoints = 15 // 5 wins
-  const homeFormWeight = 0.7 + (homeStats.formPoints / maxFormPoints) * 0.3 // 0.7 to 1.0
-  const awayFormWeight = 0.7 + (awayStats.formPoints / maxFormPoints) * 0.3
-
-  // === EXPECTED GOALS CALCULATION ===
-  const homeAttackStrength = parseNum(homeStats.avgGoalsFor)
-  const homeDefenseStrength = parseNum(homeStats.avgGoalsAgainst)
-  const awayAttackStrength = parseNum(awayStats.avgGoalsFor)
-  const awayDefenseStrength = parseNum(awayStats.avgGoalsAgainst)
-
-  const homeExpectedGoals = (homeAttackStrength * (awayDefenseStrength / (awayDefenseStrength + homeDefenseStrength || 1)) * homeFormWeight)
-  const awayExpectedGoals = (awayAttackStrength * (homeDefenseStrength / (homeDefenseStrength + awayDefenseStrength || 1)) * awayFormWeight)
-
-  // === EXPECTED SHOTS CALCULATION ===
-  const homeShots = parseNum(homeStats.shots)
-  const awayShots = parseNum(awayStats.shots)
-  const homePossession = parseNum(homeStats.possession) / 100
-  const awayPossession = parseNum(awayStats.possession) / 100
-
-  const homePossessionFactor = homePossession > 0.5 ? 1.1 : 0.9
-  const awayPossessionFactor = awayPossession > 0.5 ? 1.1 : 0.9
-
-  const homeExpectedShots = homeShots * homeFormWeight * homePossessionFactor
-  const awayExpectedShots = awayShots * awayFormWeight * awayPossessionFactor
-  const expectedShots = homeExpectedShots + awayExpectedShots
-
-  // === EXPECTED CORNERS CALCULATION ===
-  const homeCorners = parseNum(homeStats.corners)
-  const awayCorners = parseNum(awayStats.corners)
-
-  const homeCornerPressure = (homePossession + (homeShots / 20)) / 2
-  const awayCornerPressure = (awayPossession + (awayShots / 20)) / 2
-
-  const homeExpectedCorners = homeCorners * (1 + homeCornerPressure * 0.3) * homeFormWeight
-  const awayExpectedCorners = awayCorners * (1 + awayCornerPressure * 0.3) * awayFormWeight
-  const expectedCorners = homeExpectedCorners + awayExpectedCorners
-
-  // === EXPECTED CARDS CALCULATION ===
-  const homeCards = parseNum(homeStats.yellowCards)
-  const awayCards = parseNum(awayStats.yellowCards)
-
-  const homeExpectedCards = homeCards * (0.85 + homeFormWeight * 0.15)
-  const awayExpectedCards = awayCards * (0.85 + awayFormWeight * 0.15)
-  const expectedCards = homeExpectedCards + awayExpectedCards
-
-  // === CONFIDENCE CALCULATION ===
-  const dataCompleteness = [homeShots, awayShots, homeCorners, awayCorners, homeCards, awayCards]
-    .filter(v => v > 0).length / 6
-  const formConfidence = Math.min((homeStats.formPoints + awayStats.formPoints) / 20, 1)
-  const confidence = Math.round((dataCompleteness * 0.6 + formConfidence * 0.4) * 100)
-
-  return {
-    homeExpectedGoals: homeExpectedGoals.toFixed(2),
-    awayExpectedGoals: awayExpectedGoals.toFixed(2),
-    totalExpectedGoals: (homeExpectedGoals + awayExpectedGoals).toFixed(2),
-    expectedShots: expectedShots.toFixed(1),
-    homeExpectedShots: homeExpectedShots.toFixed(1),
-    awayExpectedShots: awayExpectedShots.toFixed(1),
-    expectedCorners: expectedCorners.toFixed(1),
-    homeExpectedCorners: homeExpectedCorners.toFixed(1),
-    awayExpectedCorners: awayExpectedCorners.toFixed(1),
-    expectedCards: expectedCards.toFixed(1),
-    homeExpectedCards: homeExpectedCards.toFixed(1),
-    awayExpectedCards: awayExpectedCards.toFixed(1),
-    confidence: confidence,
-    formWeights: {
-      home: homeFormWeight.toFixed(2),
-      away: awayFormWeight.toFixed(2)
-    }
-  }
-}
-
-// Get predicted outcome based on database prediction or form stats
-function getPredictedOutcome(match) {
-  if (match.prediction) {
-    const { homeWinProb, drawProb, awayWinProb } = match.prediction
-    if (homeWinProb && drawProb && awayWinProb) {
-      const maxProb = Math.max(homeWinProb, drawProb, awayWinProb)
-      if (maxProb === homeWinProb) return `${match.home_name.split(' ')[0]} Win`
-      if (maxProb === drawProb) return 'Draw'
-      return `${match.away_name.split(' ')[0]} Win`
-    }
-    if (match.prediction.outcome) {
-      const [home, away] = match.prediction.outcome.split('-').map(Number)
-      if (!isNaN(home) && !isNaN(away)) {
-        if (home > away) return `${match.home_name.split(' ')[0]} Win`
-        if (away > home) return `${match.away_name.split(' ')[0]} Win`
-        return 'Draw'
-      }
-    }
-  }
-
-  const homeAdvantage = match.homeFormPoints + (match.homeStats.avgGoalsFor || 0) * 2
-  const awayAdvantage = match.awayFormPoints + (match.awayStats.avgGoalsFor || 0) * 2
-
-  const diff = homeAdvantage - awayAdvantage
-
-  if (Math.abs(diff) < 2) return 'Draw'
-  if (diff > 2) return `${match.home_name.split(' ')[0]} Win`
-  return `${match.away_name.split(' ')[0]} Win`
-}
-
-// Get outcome probability based on prediction
-function getOutcomeProbability(match) {
-  if (!match.prediction) return 50
-
-  const { homeWinProb, drawProb, awayWinProb, outcome } = match.prediction
-
-  if (homeWinProb && drawProb && awayWinProb) {
-    return Math.max(homeWinProb, drawProb, awayWinProb)
-  }
-
-  if (outcome) {
-    const [home, away] = outcome.split('-').map(Number)
-    if (!isNaN(home) && !isNaN(away)) {
-      if (home > away) return homeWinProb || 50
-      if (away > home) return awayWinProb || 50
-      return drawProb || 50
-    }
-  }
-
-  return 50
-}
-
-// Get Shots prediction from model
-function getShotsPrediction(prediction) {
-  if (!prediction || !prediction.shots || !prediction.shots.advantage) return 'N/A'
-  if (prediction.shots.advantage === 'even') return 'Even'
-  const team = prediction.shots.advantage === 'home' ? 'Home' : 'Away'
-  return `${team} (${prediction.shots.probability}%)`
 }
 </script>

@@ -333,7 +333,7 @@ export const useApi = () => {
       home_xg, away_xg, odds_home, odds_draw, odds_away, sport_stats,
       home_team:teams!home_team_id(name, team_key),
       away_team:teams!away_team_id(name, team_key),
-      predictions(id, prediction, confidence, model_version, over_15_prob, over_25_prob, over_35_prob, over_85_corners_prob, over_95_corners_prob, over_105_corners_prob, odds_over_25, odds_under_25, expected_value, result_correct, created_at),
+      predictions(id, prediction, confidence, model_version, over_15_prob, over_25_prob, over_35_prob, over_85_corners_prob, over_95_corners_prob, over_105_corners_prob, odds_over_25, odds_under_25, expected_value, result_correct, created_at, model_details, calibrated_prob, belief_score),
       bets(
         id, wallet_id, bet_type, stake, odds, status, profit,
         parlay_legs(parlay_id)
@@ -398,6 +398,12 @@ export const useApi = () => {
         odds_over_25: prediction?.odds_over_25,
         odds_under_25: prediction?.odds_under_25,
         expected_value: prediction?.expected_value,
+        // The real model readout — the picker's own probabilities, carried on
+        // the prediction row and surfaced by FootballMatchCard. Never computed
+        // in the browser.
+        model_details: prediction?.model_details ?? null,
+        calibrated_prob: prediction?.calibrated_prob ?? null,
+        belief_score: prediction?.belief_score ?? null,
       }
     })
 
@@ -435,7 +441,7 @@ export const useApi = () => {
   /**
    * GET /api/h2h/:homeTeam/:awayTeam — head to head
    */
-  const fetchH2H = async (homeTeamName: string, awayTeamName: string, limit = 10) => {
+  const fetchH2H = async (homeTeamName: string, awayTeamName: string, limit = 20) => {
     // Find team IDs by name
     const { data: teams } = await supabase
       .from('teams')
@@ -934,6 +940,49 @@ export const useApi = () => {
     }
   }
 
+  /**
+   * Twin vs closing line, split by season phase — the persisted output of
+   * `research/closing_line/season_phase.py --persist` (workstream 1 of the
+   * research phase). One row per (league, market, phase):
+   *
+   *   phase='all'  → the per-cell M1 fit: `b_m1` is the twin's stack weight on
+   *                  the log-odds residual (0 = the close is right), `t_m1`
+   *                  its significance, fit on 2023-24 + 2024-25 and scored on
+   *                  2025-26.
+   *   phase=early|mid|late → the SAME weight re-scored on the calendar tercile
+   *                  of the test season (a phase cannot manufacture its own b).
+   *
+   * Proper scoring only — paired Brier deltas vs the Shin-close, no EV, no
+   * ROI, no bet selection. `twin_delta_brier` negative = the twin beat the
+   * close on that slice.
+   */
+  const fetchTwinSeasonPhase = async (leagueKey: string) => {
+    const { data, error } = await supabase
+      .from('twin_season_phase')
+      .select('*')
+      .eq('league_key', leagueKey)
+      .order('market')
+    if (error) throw error
+    return data as Array<{
+      league_key: string
+      market: string
+      phase: 'all' | 'early' | 'mid' | 'late'
+      n_test: number
+      ceiling: number | null
+      close_bss: number | null
+      twin_bss: number | null
+      b_m1: number | null
+      t_m1: number | null
+      twin_delta_brier: number | null
+      twin_delta_t: number | null
+      m1_delta_brier: number | null
+      m1_delta_t: number | null
+      train_seasons: string
+      test_season: string
+      computed_at: string
+    }>
+  }
+
   return {
     // Public
     fetchSports,
@@ -955,6 +1004,7 @@ export const useApi = () => {
     fetchWalletPerformance,
     fetchWalletBalanceHistory,
     fetchLeagueAnalysis,
+    fetchTwinSeasonPhase,
     fetchParlays,
     fetchPredictionsAccuracy,
   }

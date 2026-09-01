@@ -460,7 +460,7 @@ async function loadH2H() {
   const g = data.value.game
   h2hLoading.value = true
   try {
-    const res = await api.fetchH2H(g.home_name, g.away_name, 10)
+    const res = await api.fetchH2H(g.home_name, g.away_name, 20)
     h2hData.value = res
   } catch (e) {
     console.warn('H2H fetch failed:', e)

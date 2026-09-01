@@ -202,7 +202,7 @@
         <!-- Recent Matches -->
         <div class="space-y-1">
           <div
-            v-for="match in completedH2HMatches.slice(0, 4)"
+            v-for="match in completedH2HMatches"
             :key="`${match.date}-${match.home_team?.name}-${match.away_team?.name}`"
             class="flex items-center gap-2 px-2 py-1 rounded bg-surface-light/50"
           >

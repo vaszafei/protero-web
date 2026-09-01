@@ -92,6 +92,7 @@
           :twin="twin"
           :pending="twinPending"
           :clubs="twinClubs"
+          :managers="twinManagers"
           :standings="standingsAsOfRound"
           :round="roundLabel"
           :round-num="selectedRound"
@@ -215,20 +216,24 @@ const twins = useTwins()
 const { data: twinData, pending: twinPending } = await useAsyncData(
   `twin-${leagueName}`,
   async () => {
-    const [t, clubs, trans, peers, lgs] = await Promise.all([
+    const [t, clubs, trans, peers, lgs, mgrs] = await Promise.all([
       twins.fetchTwinLeague(leagueName).catch(() => null),
       twins.fetchTwinTeams({ league: leagueName, limit: 100 }).catch(() => []),
       twins.fetchLeagueTransitions(leagueName).catch(() => []),
       twins.fetchTwinLeagues().catch(() => []),
       api.fetchLeagues().then(d => d.leagues || []).catch(() => []),
+      // Managers — context only, like every twin surface. Absent for
+      // basketball / LATAM / national teams, which have no coach capture.
+      twins.fetchTwinManagers(leagueName).catch(() => []),
     ])
     // Strongest attack first — the ordering an operator reads a league in.
     const twinClubs = [...clubs].sort((a, b) => (b.attack ?? -99) - (a.attack ?? -99))
-    return { twin: t, twinClubs, twinTransitions: trans, twinPeers: peers, allLeagues: lgs }
+    return { twin: t, twinClubs, twinTransitions: trans, twinPeers: peers, allLeagues: lgs, twinManagers: mgrs }
   }
 )
 
 const twin = computed(() => twinData.value?.twin ?? null)
+const twinManagers = computed(() => twinData.value?.twinManagers ?? [])
 const twinClubs = computed(() => twinData.value?.twinClubs ?? [])
 const twinTransitions = computed(() => twinData.value?.twinTransitions ?? [])
 const twinPeers = computed(() => twinData.value?.twinPeers ?? [])

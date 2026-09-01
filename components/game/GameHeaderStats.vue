@@ -3,7 +3,7 @@
     <div
       v-for="t in tiles"
       :key="t.label"
-      class="rounded-lg border border-edge bg-surface p-3 flex flex-col justify-center"
+      class="panel p-3 flex flex-col justify-center"
     >
       <p class="text-center text-[10px] uppercase tracking-wider text-zinc-500 font-medium">{{ t.label }}</p>
 

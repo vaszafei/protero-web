@@ -113,17 +113,98 @@ export const VERDICT_TITLE: Record<FamilyVerdict, string> = {
  * detail page and the fleet header must agree: two different splits would show
  * the same wallet two different verdicts.
  *
- *   ours    — a strategy we run (`lifecycle='trader'`, not a mirror)
- *   mirror  — an external tipster's published picks replayed at a flat unit
- *   legacy  — our own history, frozen at the 2026-07-28 cutover
+ *   ours       — a strategy we run (`lifecycle='trader'`, not a mirror)
+ *   incubation — a strategy we run in incubation (`lifecycle='incubation'`):
+ *                accrues settled rows but is never a track record, rendered
+ *                with n and a p-value, never a headline ROI
+ *   mirror     — an external tipster's published picks replayed at a flat unit
+ *   legacy     — kept as a fallback only. Wallets 2-25 were deleted 2026-08-23
+ *                (CD #38) and every surviving wallet is `lifecycle='trader'`, so
+ *                this branch returns nothing today. The roster drops empty
+ *                cohorts, so an unexpected legacy row would surface rather than
+ *                render silently as one of ours.
  */
-export function cohortOf(w: { archetype?: string | null; lifecycle?: string | null }): 'ours' | 'mirror' | 'legacy' {
+export function cohortOf(w: { archetype?: string | null; lifecycle?: string | null }): 'ours' | 'incubation' | 'mirror' | 'legacy' {
   if (w.archetype === 'external_tipster') return 'mirror'
+  if (w.lifecycle === 'incubation') return 'incubation'
   return w.lifecycle === 'trader' ? 'ours' : 'legacy'
 }
 
 export const COHORT_LABEL: Record<ReturnType<typeof cohortOf>, string> = {
   ours: 'Trader personas',
+  incubation: 'Incubation',
   mirror: 'Mirrored tipsters',
   legacy: 'Legacy',
 }
+
+/**
+ * Price basis — whether a wallet's record was struck at prices a book actually
+ * posted, or at prices we generated ourselves.
+ *
+ * This is not a nuance, it is the difference between a result and an artifact.
+ * Measured over the whole corpus 2026-08-20: **every basketball game carries
+ * exactly ONE total line and ONE handicap line** (15,402 games with 1 distinct
+ * total, 0 games with 2 or more). So every `OVER_ALT` / `UNDER_ALT` / `SGP`
+ * wager in the ledger was struck at a line no book quoted — the picker
+ * generates them as `base * (1 + 0.09 * shift)`, roughly 16% above a ladder
+ * that does not exist. `bets.line_source` carries the literal value `'none'`
+ * on 286 rows.
+ *
+ * Split by price basis (2026-08-23 audit), the legacy ledger says one thing:
+ *
+ *   wallet   book-priced         synthetic
+ *   W4       -14.0%  n=78        +45.5%  n=65  (p=0.0029)
+ *   W6       no settled wagers   + 7.7%  n=593
+ *   W8       -77.7%  n=25        - 2.7%  n=52
+ *   W9       -41.8%  n=5         - 1.6%  n=31
+ *   W7       +22.6%  n=103       -35.5%  n=25
+ *
+ * Every positive figure came from a price we set ourselves. W6's headline
+ * "+5.0%, n=622" — the largest sample in the ledger — has ZERO settled
+ * book-priced wagers: all 320 of its ML bets are void.
+ *
+ * Those wallets were DELETED on 2026-08-23 (CD #38) — not for their ROI, but
+ * because no legacy pick was reproducible (0 of 1,480 settled bets carried a
+ * line, 0 carried a calibrated probability, 0 were graded by settlement-v1).
+ * Their rows live in the `archive_legacy` schema.
+ *
+ * The map below is therefore inert today: no live wallet id appears in it and
+ * `priceBasisOf` answers 'book' for all 22. It is kept as the GUARD, not as a
+ * record — the moment any wallet is found to be betting a line no book quoted,
+ * its share goes here and its ROI stops rendering. That is the lesson CD #37
+ * cost us, and deleting the map would delete the lesson with the wallets.
+ */
+export type PriceBasis = 'book' | 'mixed' | 'synthetic'
+
+/** Share of settled wagers struck at a price we generated. Measured 2026-08-23. */
+export const SYNTHETIC_SHARE: Record<number, number> = {
+  4: 0.45,   // 65 of 144 settled
+  6: 1.00,   // 593 of 622 — the other 29 are SPREAD_COVER at -48.9%
+  8: 0.68,   // 52 of 77
+  9: 0.86,   // 31 of 36
+  13: 1.00,  // 14 of 14
+  14: 1.00,  // 3 of 3
+  16: 1.00,  // 1 of 1
+  22: 1.00,  // 1 of 1
+  7: 0.18,   // 25 of 140 — the rest is the book-priced +22.6% slice
+}
+
+export function priceBasisOf(walletId: number): PriceBasis {
+  const share = SYNTHETIC_SHARE[walletId]
+  if (share === undefined || share === 0) return 'book'
+  return share >= 0.5 ? 'synthetic' : 'mixed'
+}
+
+/**
+ * A majority-synthetic wallet has no scoreable ROI. Callers should render
+ * `UNPRICED_LABEL` in place of the figure rather than suppressing the row —
+ * the wallet still happened, and hiding it would lose the lesson.
+ */
+export const UNPRICED_LABEL = 'unpriced'
+export const UNPRICED_TITLE =
+  'Struck at prices no book quoted (alt-lines / SGP). The ROI measures our own ' +
+  'model against itself and is not a result in either direction. CD #37.'
+
+export const MIXED_PRICE_TITLE =
+  'Part of this record was struck at prices we generated. Read the book-priced ' +
+  'slice only — the blended figure is not comparable to a book-priced wallet.'

@@ -40,8 +40,15 @@
       <div class="grid grid-cols-4 gap-2">
         <div>
           <p class="text-[9px] text-zinc-500 uppercase" title="Profit / turnover">ROI</p>
-          <p class="text-sm font-bold tabular-nums" :class="roi == null ? 'text-zinc-600' : roi >= 0 ? 'text-emerald-400' : 'text-red-400'">
-            {{ roi == null ? '—' : (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%' }}
+          <p
+            class="text-sm font-bold tabular-nums"
+            :class="unpriced ? 'text-neutral-500 italic font-normal'
+                  : roi == null ? 'text-zinc-600' : roi >= 0 ? 'text-emerald-400' : 'text-red-400'"
+            :title="unpriced ? UNPRICED_TITLE : mixedPrice ? MIXED_PRICE_TITLE : undefined"
+          >
+            <template v-if="unpriced">{{ UNPRICED_LABEL }}</template>
+            <template v-else>{{ roi == null ? '—' : (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%'
+              }}<span v-if="mixedPrice" class="text-amber-500/80 font-normal">*</span></template>
           </p>
         </div>
         <div>
@@ -114,7 +121,8 @@
 
 <script setup>
 import { computed } from 'vue'
-import { VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE } from '~/utils/wallet-stats'
+import { VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
+         priceBasisOf, UNPRICED_LABEL, UNPRICED_TITLE, MIXED_PRICE_TITLE } from '~/utils/wallet-stats'
 
 const props = defineProps({
   wallet:           { type: Object, required: true },
@@ -139,6 +147,16 @@ const pl = computed(() =>
 
 const roi = computed(() =>
   props.performance?.roi_pct == null ? null : Number(props.performance.roi_pct))
+
+/**
+ * A wallet whose wagers were struck at prices we generated has no scoreable
+ * ROI — the figure measures our own model against itself. Rendered as
+ * `unpriced` rather than hidden: the wallet happened, and the row is the
+ * record of why alt-line pricing is banned (CD #37).
+ */
+const priceBasis = computed(() => priceBasisOf(Number(props.wallet?.id)))
+const unpriced = computed(() => priceBasis.value === 'synthetic')
+const mixedPrice = computed(() => priceBasis.value === 'mixed')
 
 const winRate = computed(() =>
   props.performance?.win_rate_pct == null ? null : Number(props.performance.win_rate_pct))

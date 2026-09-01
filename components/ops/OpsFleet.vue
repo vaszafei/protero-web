@@ -1,9 +1,9 @@
 <template>
-  <section class="rounded-lg border border-edge bg-surface overflow-hidden">
-    <header class="flex items-baseline gap-2 px-3 py-2 border-b border-edge bg-surface-light/30">
-      <h2 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Fleet</h2>
+  <section class="panel overflow-hidden">
+    <header class="panel-head">
+      <h2 class="panel-title">Fleet</h2>
       <span class="text-[10px] text-zinc-600 tabular-nums">{{ rows.length }}</span>
-      <NuxtLink to="/wallet" class="ml-auto text-[10px] text-zinc-500 hover:text-zinc-300">All wallets →</NuxtLink>
+      <NuxtLink to="/wallet" class="panel-link">All wallets →</NuxtLink>
     </header>
 
     <div class="overflow-x-auto">
@@ -20,7 +20,7 @@
         <tbody>
           <tr
             v-for="r in rows" :key="r.id"
-            class="border-t border-edge/40 hover:bg-surface-light/20 cursor-pointer"
+            class="row-hover cursor-pointer"
             @click="$router.push(`/wallet?w=${r.id}`)"
           >
             <td class="px-2 py-2">

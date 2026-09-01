@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
   const homeTeam = decodeURIComponent(getRouterParam(event, 'homeTeam') || '')
   const awayTeam = decodeURIComponent(getRouterParam(event, 'awayTeam') || '')
   const query = getQuery(event)
-  const limit = parseInt(query.limit as string) || 10
+  const limit = parseInt(query.limit as string) || 20
 
   if (!homeTeam || !awayTeam) {
     throw createError({

@@ -205,7 +205,17 @@
             </p>
           </div>
         </section>
-
+        <!-- ═══ 8.5 Twin vs close — season-phase stack ═══════════════════
+             The persisted output of research/closing_line/season_phase.py:
+             the twin's rating scored against the Shin-close through the same
+             M0/M1/M2 instrument that judged DC/GBM/tipsters, split by season
+             phase. Football only — basketball has no closing-line spine row.
+             Proper scoring only, never a price. -->
+        <LeagueTwinVsClose
+          v-if="!isBball"
+          :league-key="leagueKey"
+          class="lg:col-span-12"
+        />
         <!-- ═══ 6. Top scorers ════════════════════════════════════════════ -->
         <section v-if="scorers.length" class="panel lg:col-span-3">
           <header class="panel-head">

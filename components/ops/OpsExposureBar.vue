@@ -1,12 +1,12 @@
 <template>
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
     <!-- Open exposure — the number an operator checks first. -->
-    <div class="rounded-lg border border-edge bg-surface p-3">
-      <p class="text-[10px] text-zinc-500 uppercase tracking-wider">Open exposure</p>
-      <p class="text-2xl font-bold tabular-nums" :class="exposure.stake > 0 ? 'text-amber-400' : 'text-zinc-600'">
+    <div class="stat-tile">
+      <p class="stat-label">Open exposure</p>
+      <p class="stat-value" :class="exposure.stake > 0 ? 'text-amber-400' : 'text-zinc-600'">
         ${{ fmt(exposure.stake) }}
       </p>
-      <p class="text-[10px] text-zinc-600 tabular-nums mt-0.5">
+      <p class="stat-foot">
         {{ exposure.n_wagers }} wager<span v-if="exposure.n_wagers !== 1">s</span>
         <span v-if="exposure.n_parlays" class="text-zinc-700">
           · {{ exposure.n_singles }} single{{ exposure.n_singles === 1 ? '' : 's' }} + {{ exposure.n_parlays }} parlay{{ exposure.n_parlays === 1 ? '' : 's' }}
@@ -15,35 +15,35 @@
     </div>
 
     <!-- Last 7 days, settled -->
-    <div class="rounded-lg border border-edge bg-surface p-3">
-      <p class="text-[10px] text-zinc-500 uppercase tracking-wider">Settled · 7d</p>
-      <p class="text-2xl font-bold tabular-nums" :class="signClass(week.pnl)">
+    <div class="stat-tile">
+      <p class="stat-label">Settled · 7d</p>
+      <p class="stat-value" :class="signClass(week.pnl)">
         {{ signed(week.pnl) }}
       </p>
-      <p class="text-[10px] text-zinc-600 tabular-nums mt-0.5">
+      <p class="stat-foot">
         {{ week.n_wagers }} wagers · {{ week.n_won }}W {{ week.n_wagers - week.n_won }}L
         <span v-if="week.turnover > 0" class="text-zinc-700">· ${{ fmt(week.turnover) }} turnover</span>
       </p>
     </div>
 
     <!-- Fleet lifetime — settled only, wager-counted -->
-    <div class="rounded-lg border border-edge bg-surface p-3">
-      <p class="text-[10px] text-zinc-500 uppercase tracking-wider">Fleet lifetime</p>
-      <p class="text-2xl font-bold tabular-nums" :class="signClass(lifetime.pnl)">
+    <div class="stat-tile">
+      <p class="stat-label">Fleet lifetime</p>
+      <p class="stat-value" :class="signClass(lifetime.pnl)">
         {{ signed(lifetime.pnl) }}
       </p>
-      <p class="text-[10px] text-zinc-600 tabular-nums mt-0.5">
+      <p class="stat-foot">
         {{ lifetime.n_wagers }} settled wagers
       </p>
     </div>
 
     <!-- Evidence state. There is nothing at p<0.05 and the card says so. -->
-    <div class="rounded-lg border border-edge bg-surface p-3">
-      <p class="text-[10px] text-zinc-500 uppercase tracking-wider">Proven edge</p>
-      <p class="text-2xl font-bold tabular-nums" :class="lifetime.n_edge > 0 ? 'text-emerald-400' : 'text-zinc-600'">
+    <div class="stat-tile">
+      <p class="stat-label">Proven edge</p>
+      <p class="stat-value" :class="lifetime.n_edge > 0 ? 'text-emerald-400' : 'text-zinc-600'">
         {{ lifetime.n_edge }}
       </p>
-      <p class="text-[10px] text-zinc-600 mt-0.5">
+      <p class="stat-foot">
         <template v-if="lifetime.n_edge === 0">
           no wallet at p&lt;0.05<span v-if="lifetime.best"> · best {{ lifetime.best.name }} p={{ Number(lifetime.best.p_luck).toFixed(2) }}</span>
         </template>
@@ -101,3 +101,45 @@ function signClass(v) {
   return n > 0 ? 'text-emerald-400' : 'text-red-400'
 }
 </script>
+
+<style scoped>
+.stat-tile {
+  position: relative;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  background: linear-gradient(165deg, rgba(41, 45, 54, 0.55), rgba(26, 29, 36, 0.95));
+  border: 1px solid #2a2f3a;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 20px -16px rgba(0, 0, 0, 0.85);
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+.stat-tile:hover {
+  border-color: #353c48;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 26px -14px rgba(0, 0, 0, 0.9);
+  transform: translateY(-1px);
+}
+.stat-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(113, 113, 122);
+}
+.stat-value {
+  margin-top: 0.15rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.stat-foot {
+  margin-top: 0.2rem;
+  font-size: 0.625rem;
+  color: rgb(101, 103, 112);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-tile { transition: none; }
+}
+</style>

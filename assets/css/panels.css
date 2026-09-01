@@ -6,8 +6,14 @@
 
 .panel {
   border-radius: 0.5rem;
-  background: #1c1f27;
+  background: linear-gradient(165deg, rgba(37, 40, 48, 0.5), rgba(24, 27, 34, 0.98));
   border: 1px solid #2a2f3a;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 26px -20px rgba(0, 0, 0, 0.9);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.panel:hover {
+  border-color: #353c48;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 14px 30px -18px rgba(0, 0, 0, 0.95);
 }
 
 .panel-head {
@@ -25,6 +31,26 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: rgb(212, 212, 216);
+}
+
+/* The header's trailing action link — "All wallets →", "Gates →". */
+.panel-link {
+  margin-left: auto;
+  font-size: 0.625rem;
+  color: rgb(113, 113, 122);
+  transition: color 160ms ease;
+}
+.panel-link:hover { color: rgb(212, 214, 218); }
+
+/* A clickable table/list row inside a panel. */
+.row-hover {
+  border-top: 1px solid rgba(42, 47, 58, 0.4);
+  transition: background 160ms ease;
+}
+.row-hover:hover { background: rgba(57, 135, 229, 0.06); }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel, .panel-link, .row-hover { transition: none; }
 }
 
 .pill {

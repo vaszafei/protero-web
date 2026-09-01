@@ -1,7 +1,7 @@
 <template>
-  <section class="rounded-lg border border-edge bg-surface overflow-hidden">
-    <header class="flex items-baseline gap-2 px-3 py-2 border-b border-edge bg-surface-light/30">
-      <h2 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Carried ratings</h2>
+  <section class="panel overflow-hidden">
+    <header class="panel-head">
+      <h2 class="panel-title">Carried ratings</h2>
       <span class="text-[10px] text-zinc-600 tabular-nums">{{ total }}</span>
       <span class="text-[10px] text-zinc-600">— next 7 days</span>
     </header>
@@ -14,7 +14,7 @@
       <NuxtLink
         v-for="r in rows" :key="r.game_id"
         :to="`/game/${r.game_id}`"
-        class="block px-3 py-2 hover:bg-surface-light/20"
+        class="block px-3 py-2 transition-colors duration-150 hover:bg-white/[0.03]"
       >
         <div class="flex items-center gap-2">
           <span class="text-[10px] text-zinc-600 tabular-nums w-12 flex-shrink-0">{{ shortDate(r.date) }}</span>

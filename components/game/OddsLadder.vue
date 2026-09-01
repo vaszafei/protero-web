@@ -1,18 +1,18 @@
 <template>
   <div class="odds-ladder">
-    <!-- 1X2 moneyline -->
-    <div v-if="moneyline" class="ladder-block">
+    <!-- 1X2 moneyline — the headline market, elevated above the rest -->
+    <div v-if="moneyline" class="ladder-block panel-elevated p-3">
       <div class="ladder-label">1X2</div>
       <div class="grid grid-cols-3 gap-1">
-        <div class="ladder-cell">
+        <div class="ladder-cell ladder-cell-primary">
           <span class="ladder-cell-label">Home</span>
           <span class="ladder-cell-value tabular-nums">{{ fmt(moneyline.home) }}</span>
         </div>
-        <div class="ladder-cell">
+        <div class="ladder-cell ladder-cell-primary">
           <span class="ladder-cell-label">Draw</span>
           <span class="ladder-cell-value tabular-nums">{{ fmt(moneyline.draw) }}</span>
         </div>
-        <div class="ladder-cell">
+        <div class="ladder-cell ladder-cell-primary">
           <span class="ladder-cell-label">Away</span>
           <span class="ladder-cell-value tabular-nums">{{ fmt(moneyline.away) }}</span>
         </div>
@@ -213,6 +213,13 @@ function fmt(v: number | null | undefined): string {
   color: rgb(228, 228, 231);
 }
 
+.ladder-cell-primary {
+  background: rgba(255, 255, 255, 0.05);
+}
+.ladder-cell-primary .ladder-cell-value {
+  font-size: 1.15rem;
+}
+
 .ladder-grid {
   display: flex;
   flex-direction: column;
@@ -230,8 +237,23 @@ function fmt(v: number | null | undefined): string {
 }
 
 .ladder-row-key {
-  border-color: rgba(57, 135, 229, 0.35);
-  background: rgba(57, 135, 229, 0.06);
+  position: relative;
+  border-color: rgba(57, 135, 229, 0.4);
+  background: rgba(57, 135, 229, 0.09);
+  box-shadow: 0 2px 10px rgba(57, 135, 229, 0.12);
+}
+.ladder-row-key::after {
+  content: 'MAIN';
+  position: absolute;
+  top: -0.4rem;
+  left: 0.5rem;
+  padding: 0.03rem 0.35rem;
+  border-radius: 999px;
+  background: #3987e5;
+  color: #0b1220;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
 .ladder-line-label {

@@ -1,7 +1,7 @@
 <template>
-  <section class="rounded-lg border border-edge bg-surface overflow-hidden">
-    <header class="flex items-baseline gap-2 px-3 py-2 border-b border-edge bg-surface-light/30">
-      <h2 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Live slate</h2>
+  <section class="panel overflow-hidden">
+    <header class="panel-head">
+      <h2 class="panel-title">Live slate</h2>
       <span class="text-[10px] text-zinc-600 tabular-nums">{{ rows.length }}</span>
       <span class="text-[10px] text-zinc-600">— open wagers on fixtures not yet settled</span>
     </header>
@@ -27,7 +27,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in rows" :key="r.id" class="border-t border-edge/40 hover:bg-surface-light/20">
+          <tr v-for="r in rows" :key="r.id" class="row-hover">
             <td class="px-3 py-2 text-zinc-500 tabular-nums whitespace-nowrap">{{ kickoff(r.date) }}</td>
             <td class="px-3 py-2">
               <NuxtLink :to="`/game/${r.game_id}`" class="text-zinc-200 hover:text-blue-400">

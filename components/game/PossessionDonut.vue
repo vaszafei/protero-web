@@ -1,5 +1,5 @@
 <template>
-  <div class="donut-wrap">
+  <div class="donut-wrap" ref="el">
     <div class="donut-ring">
       <svg :width="size" :height="size" :viewBox="`0 0 ${size} ${size}`">
         <circle
@@ -10,7 +10,7 @@
           :cx="center" :cy="center" :r="radius"
           fill="none" :stroke="VIZ_HOME" :stroke-width="stroke"
           stroke-linecap="round"
-          :stroke-dasharray="`${homeArc} ${circumference - homeArc}`"
+          :stroke-dasharray="`${visible ? homeArc : 0} ${circumference - (visible ? homeArc : 0)}`"
           :stroke-dashoffset="0"
           :transform="`rotate(-90 ${center} ${center})`"
           class="donut-arc"
@@ -20,8 +20,8 @@
           :cx="center" :cy="center" :r="radius"
           fill="none" :stroke="VIZ_AWAY" :stroke-width="stroke"
           stroke-linecap="round"
-          :stroke-dasharray="`${awayArc} ${circumference - awayArc}`"
-          :stroke-dashoffset="-homeArc"
+          :stroke-dasharray="`${visible ? awayArc : 0} ${circumference - (visible ? awayArc : 0)}`"
+          :stroke-dashoffset="visible ? -homeArc : 0"
           :transform="`rotate(-90 ${center} ${center})`"
           class="donut-arc"
         />
@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { VIZ_HOME, VIZ_AWAY } from '~/utils/viz'
 
 const props = defineProps<{
@@ -57,6 +57,25 @@ const props = defineProps<{
   homeLabel: string
   awayLabel: string
 }>()
+
+const el = ref<HTMLElement | null>(null)
+const visible = ref(false)
+let observer: IntersectionObserver | null = null
+
+onMounted(() => {
+  if (typeof IntersectionObserver === 'undefined' || !el.value) {
+    visible.value = true
+    return
+  }
+  // Re-fires the sweep every time the donut re-enters view, matching the
+  // momentum chart's draw-in — motion doesn't stop after the first paint.
+  observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) visible.value = entry.isIntersecting
+  }, { threshold: 0.3 })
+  observer.observe(el.value)
+})
+
+onBeforeUnmount(() => observer?.disconnect())
 
 const size = 120
 const stroke = 12

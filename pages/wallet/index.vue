@@ -40,6 +40,7 @@
         :wallets="allWallets"
         :performance="performance"
         :coverage="coverageRows"
+        :sources="tipsters?.sources || []"
         @select="open"
         class="mb-6"
       />
@@ -91,8 +92,12 @@ const totals = computed(() => {
   const zero = () => ({ wagers: 0, pending: 0, pnl: 0 })
   const acc = { ours: zero(), mirror: zero() }
   for (const p of performance.value) {
+    const c = cohortById.get(p.wallet_id)
+    // 'incubation' is excluded from fleet totals entirely: it accrues rows but
+    // is not a track record and must not appear in any headline number.
+    if (c === 'incubation') continue
     // 'legacy' rolls into `ours`: it is our own history, frozen but ours.
-    const bucket = cohortById.get(p.wallet_id) === 'mirror' ? 'mirror' : 'ours'
+    const bucket = c === 'mirror' ? 'mirror' : 'ours'
     acc[bucket].wagers += Number(p.n_wagers || 0)
     acc[bucket].pending += Number(p.n_pending || 0)
     acc[bucket].pnl += Number(p.pnl || 0)

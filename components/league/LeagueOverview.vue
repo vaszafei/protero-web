@@ -148,6 +148,9 @@
 
       <!-- ═══ 4. Right rail ═══════════════════════════════════════════════ -->
       <div class="space-y-3 sm:space-y-4">
+        <!-- Managers — the managerial landscape, entity-id keyed -->
+        <LeagueManagers v-if="twin" :managers="managers" :league-key="leagueKey" />
+
         <!-- Latest picks -->
         <section class="panel">
           <header class="panel-head">
@@ -249,6 +252,7 @@
  */
 import { computed, h, defineComponent, nextTick, onMounted, ref, watch } from 'vue'
 import LeagueFixtureCard from '~/components/league/LeagueFixtureCard.vue'
+import LeagueManagers from '~/components/league/LeagueManagers.vue'
 import { VIZ_HOME, VIZ_STATUS } from '~/utils/viz'
 import { getTeamLogoUrl, teamAbbreviation } from '~/utils/teamLogo'
 
@@ -257,6 +261,8 @@ const props = defineProps({
   twin: { type: Object, default: null },
   pending: { type: Boolean, default: false },
   clubs: { type: Array, default: () => [] },
+  /** Manager twin — context only, never a price (see LeagueManagers.vue). */
+  managers: { type: Array, default: () => [] },
   transitions: { type: Array, default: () => [] },
   leagues: { type: Array, default: () => [] },
   /** Standings computed from fixtures, keyed by team_id. */

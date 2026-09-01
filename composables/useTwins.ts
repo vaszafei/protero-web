@@ -163,8 +163,47 @@ export interface BasketballPlayerTwin {
   state_as_of: string | null
 }
 
+export interface TwinManager {
+  coach_id: string
+  coach_name: string | null
+  first_seen: string | null
+  last_seen: string | null
+  games: number
+  current_team_id: number | null
+  teams_managed: Record<string, number>
+  leagues_managed: Record<string, number>
+  formations_used: Record<string, number>
+  state_as_of: string | null
+}
+
 export const useTwins = () => {
   const supabase = useSupabaseClient()
+
+  /**
+   * Managers who have held a job in this league, most games first — the
+   * league's managerial landscape. Keyed on the FlashScore entity id, never
+   * the name. Context only, like every other twin surface: a manager's
+   * formation fingerprint is a fact about history, not a price.
+   *
+   * The corpus is ~1,800 rows, so the league filter is applied client-side:
+   * PostgREST has no direct `jsonb ?` key-existence operator, and a `@>`
+   * containment needs a value, not a bare key.
+   */
+  const fetchTwinManagers = async (leagueKey: string, limit = 12): Promise<TwinManager[]> => {
+    // Top 500 by total games covers every manager with a meaningful league
+    // history — the full 1,779-row corpus is ~700 kB, but the league's
+    // notable names all sit inside the top 500 by total games.
+    const { data, error } = await supabase
+      .from('twin_manager')
+      .select('*')
+      .order('games', { ascending: false })
+      .limit(500)
+    if (error) throw error
+    return ((data || []) as TwinManager[])
+      .filter(m => Object.keys(m.leagues_managed || {}).includes(leagueKey))
+      .sort((a, b) => (b.leagues_managed?.[leagueKey] || 0) - (a.leagues_managed?.[leagueKey] || 0))
+      .slice(0, Math.min(limit, 50))
+  }
 
   /** Every competition the twin layer has fitted, strongest first. */
   const fetchTwinLeagues = async (sport = 'football'): Promise<TwinLeague[]> => {
@@ -392,6 +431,7 @@ export const useTwins = () => {
     fetchTwinLeagues,
     fetchTwinLeague,
     fetchLeagueTransitions,
+    fetchTwinManagers,
     fetchTwinTeam,
     fetchTwinTeamHistory,
     fetchTwinTeams,

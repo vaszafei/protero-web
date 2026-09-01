@@ -46,6 +46,12 @@
                   <span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-surface-light text-zinc-400 border border-edge">
                     {{ r.meta.badge }}
                   </span>
+                  <span
+                    v-if="r.sourceName"
+                    class="flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold"
+                    :class="sourceClass(r.sourceKey)"
+                    :title="`External source: ${r.sourceName}`"
+                  >{{ r.sourceName }}</span>
                   <div class="min-w-0">
                     <div class="text-zinc-200 font-medium truncate">{{ r.meta.longName }}</div>
                     <div class="text-[10px] text-zinc-600 truncate">W{{ r.id }} · {{ r.blurbShort }}</div>
@@ -65,8 +71,17 @@
               </td>
               <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ money(r.perf.turnover) }}</td>
               <td class="px-2 py-2 text-right tabular-nums" :class="signClass(r.perf.pnl)">{{ signed(r.perf.pnl) }}</td>
-              <td class="px-2 py-2 text-right tabular-nums font-semibold" :class="signClass(r.perf.roi_pct)">
-                {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}
+              <td
+                class="px-2 py-2 text-right tabular-nums font-semibold"
+                :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic font-normal' : signClass(r.perf.roi_pct)"
+                :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE
+                      : priceBasisOf(r.id) === 'mixed' ? MIXED_PRICE_TITLE : undefined"
+              >
+                <template v-if="priceBasisOf(r.id) === 'synthetic'">{{ UNPRICED_LABEL }}</template>
+                <template v-else>
+                  {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}<span
+                    v-if="priceBasisOf(r.id) === 'mixed'" class="text-amber-500/80 font-normal">*</span>
+                </template>
               </td>
               <td class="px-2 py-2 text-right tabular-nums" :class="pClass(r.perf.p_luck)">
                 {{ r.perf.p_luck == null ? '—' : Number(r.perf.p_luck).toFixed(3) }}
@@ -94,7 +109,14 @@
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="text-sm text-zinc-200 font-medium truncate">{{ r.meta.longName }}</div>
-              <div class="text-[10px] text-zinc-600">W{{ r.id }} · {{ r.meta.badge }}</div>
+              <div class="text-[10px] text-zinc-600">
+                W{{ r.id }} · {{ r.meta.badge }}
+                <span
+                  v-if="r.sourceName"
+                  class="ml-1 px-1.5 py-0.5 rounded text-[9px] font-semibold"
+                  :class="sourceClass(r.sourceKey)"
+                >{{ r.sourceName }}</span>
+              </div>
             </div>
             <span
               class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold"
@@ -104,8 +126,13 @@
           <div class="flex items-center gap-3 mt-2 text-[11px] tabular-nums flex-wrap">
             <span class="text-zinc-500">n <span class="text-zinc-300">{{ r.perf.n_wagers }}</span></span>
             <span v-if="r.perf.n_pending" class="text-amber-400">{{ r.perf.n_pending }} open</span>
-            <span :class="signClass(r.perf.roi_pct)">
-              ROI {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}
+            <span
+              :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic' : signClass(r.perf.roi_pct)"
+              :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE : undefined"
+            >
+              <template v-if="priceBasisOf(r.id) === 'synthetic'">ROI {{ UNPRICED_LABEL }}</template>
+              <template v-else>ROI {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}<span
+                v-if="priceBasisOf(r.id) === 'mixed'" class="text-amber-500/80">*</span></template>
             </span>
             <span v-if="r.perf.p_luck != null" :class="pClass(r.perf.p_luck)">
               p={{ Number(r.perf.p_luck).toFixed(2) }}
@@ -120,6 +147,8 @@
 
     <p class="text-[10px] text-zinc-600 leading-relaxed mt-4 px-1">
       A wager is one settled bet, or one parlay at its parlay price — never a parlay's legs.
+      <span class="text-neutral-500">unpriced</span> = struck at alt-line/SGP prices no book quoted, so the ROI
+      measures our own model against itself (CD #37); <span class="text-amber-500/80">*</span> = part of the record was.
       ROI is profit over turnover, not bankroll return. p(luck) is the chance a bettor with no edge
       matches this P&amp;L. <span class="text-zinc-500">Verdicts are corrected for the size of the
       cohort they were picked from</span> — the whole roster is scored at once, so an uncorrected
@@ -133,14 +162,24 @@
 <script setup>
 import { computed } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
-import { cohortOf, scoreFamily, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE } from '~/utils/wallet-stats'
+import { cohortOf, scoreFamily, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
+         priceBasisOf, UNPRICED_LABEL, UNPRICED_TITLE, MIXED_PRICE_TITLE } from '~/utils/wallet-stats'
 
 const props = defineProps({
   wallets:     { type: Array, required: true },   // rows from `wallets`
   performance: { type: Array, default: () => [] },// rows from get_wallet_performance
   /** Rows from v_tipster_wallet_coverage, via /api/wallet/tipsters. */
   coverage:    { type: Array, default: () => [] },
+  /** Source registry (key + display name), via /api/wallet/tipsters. */
+  sources:     { type: Array, default: () => [] },
   selectedId:  { type: Number, default: null },
+})
+
+/** Which external source a mirrored wallet replays. Keyed by tipster_sources.key. */
+const sourceNameByKey = computed(() => {
+  const m = new Map()
+  for (const s of props.sources) m.set(s.key, s.name)
+  return m
 })
 
 defineEmits(['select'])
@@ -155,12 +194,15 @@ const rows = computed(() => {
   const covById = new Map((props.coverage || []).map(c => [c.wallet_id, c]))
   return (props.wallets || []).map(w => {
     const blurb = (w.bio || '').trim()
+    const cov = covById.get(w.id) || null
     return {
       id: w.id,
       raw: w,
       meta: resolveWalletMeta(w),
       perf: perfById.get(w.id) || EMPTY_PERF,
-      coverage: covById.get(w.id) || null,
+      coverage: cov,
+      sourceKey: cov?.source_key || null,
+      sourceName: cov?.source_key ? sourceNameByKey.value.get(cov.source_key) || cov.source_key : null,
       blurbShort: blurb.length > 68 ? blurb.slice(0, 68) + '…' : (blurb || '—'),
     }
   })
@@ -188,12 +230,15 @@ const rows = computed(() => {
 const groups = computed(() => {
   const all = rows.value
   const inCohort = k => all.filter(r => cohortOf(r.raw) === k)
-  const [ours, mirror, legacy] = ['ours', 'mirror', 'legacy'].map(inCohort)
+  const [ours, incubation, mirror, legacy] = ['ours', 'incubation', 'mirror', 'legacy'].map(inCohort)
   const byVolume = (a, b) => (b.perf.n_wagers - a.perf.n_wagers) || (a.id - b.id)
 
   return [
     { key: 'trader', label: 'Trader personas', hint: 'the live roster (CD #35)',
       rows: ours.sort(byVolume), showCoverage: false },
+    { key: 'incubation', label: 'Incubation',
+      hint: 'strategies accruing settled rows — never a track record',
+      rows: incubation.sort(byVolume), showCoverage: false },
     { key: 'mirror', label: 'Mirrored tipsters',
       hint: 'external picks replayed at a flat 1.00 — reference data, not our strategies',
       rows: mirror.sort(byVolume), showCoverage: true },
@@ -239,5 +284,14 @@ function coverageClass(pct) {
   if (n >= 25) return 'text-zinc-300'
   if (n >= 10) return 'text-amber-400'
   return 'text-red-400'
+}
+
+// Source chip — one colour per external source so the cohort reads as two
+// groups at a glance. New sources fall through to the neutral zinc chip.
+function sourceClass(key) {
+  return {
+    betarades:   'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20',
+    freetips247: 'bg-sky-500/10 text-sky-300 border border-sky-500/20',
+  }[key] || 'bg-zinc-700/40 text-zinc-400 border border-edge'
 }
 </script>

@@ -4,8 +4,8 @@
     <div class="flex items-center justify-end mb-3">
       <button
         type="button"
-        class="text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors"
-        :class="sortByRating ? 'bg-primary-600/20 text-[#8fbdf5]' : 'text-zinc-500 hover:text-zinc-300'"
+        class="pill transition-colors"
+        :class="sortByRating ? 'pill-blue' : 'pill-dim'"
         @click="sortByRating = !sortByRating"
       >
         Sort by rating
@@ -15,13 +15,13 @@
     <!-- Two Column Layout for Both Teams -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <!-- Home Team -->
-      <div class="overflow-x-auto min-w-0">
+      <div class="scroll-fade-x min-w-0">
         <h3 class="text-lg font-bold mb-4 text-zinc-100">{{ homeName }}</h3>
         <table class="w-full text-xs">
           <thead>
             <tr class="border-b-2 border-primary-600 text-left">
-              <th class="py-2 px-2 font-semibold text-zinc-300">#</th>
-              <th class="py-2 px-2 font-semibold text-zinc-300">Player</th>
+              <th class="sticky-col-1 py-2 px-2 font-semibold text-zinc-300">#</th>
+              <th class="sticky-col-2 py-2 px-2 font-semibold text-zinc-300">Player</th>
               <th class="py-2 px-2 font-semibold text-zinc-300 text-center">Rating</th>
               <th class="py-2 px-2 font-semibold text-zinc-300 text-center">xG</th>
               <th class="py-2 px-2 font-semibold text-zinc-300 text-center">Shots</th>
@@ -59,13 +59,13 @@
       </div>
 
       <!-- Away Team -->
-      <div class="overflow-x-auto min-w-0">
+      <div class="scroll-fade-x min-w-0">
         <h3 class="text-lg font-bold mb-4 text-zinc-100">{{ awayName }}</h3>
         <table class="w-full text-xs">
           <thead>
             <tr class="border-b-2 border-primary-600 text-left">
-              <th class="py-2 px-2 font-semibold text-zinc-300">#</th>
-              <th class="py-2 px-2 font-semibold text-zinc-300">Player</th>
+              <th class="sticky-col-1 py-2 px-2 font-semibold text-zinc-300">#</th>
+              <th class="sticky-col-2 py-2 px-2 font-semibold text-zinc-300">Player</th>
               <th class="py-2 px-2 font-semibold text-zinc-300 text-center">Rating</th>
               <th class="py-2 px-2 font-semibold text-zinc-300 text-center">xG</th>
               <th class="py-2 px-2 font-semibold text-zinc-300 text-center">Shots</th>

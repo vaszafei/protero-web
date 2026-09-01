@@ -1,12 +1,12 @@
 <template>
-  <section class="rounded-lg border border-edge bg-surface overflow-hidden">
-    <header class="flex items-baseline gap-2 px-3 py-2 border-b border-edge bg-surface-light/30">
-      <h2 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Pipeline</h2>
-      <NuxtLink to="/gates" class="ml-auto text-[10px] text-zinc-500 hover:text-zinc-300">Gates →</NuxtLink>
+  <section class="panel overflow-hidden">
+    <header class="panel-head">
+      <h2 class="panel-title">Pipeline</h2>
+      <NuxtLink to="/gates" class="panel-link">Gates →</NuxtLink>
     </header>
 
     <div class="divide-y divide-edge/40">
-      <div v-for="p in pipelines" :key="p.pipeline" class="px-3 py-2.5">
+      <div v-for="p in pipelines" :key="p.pipeline" class="px-3 py-2.5 transition-colors duration-150 hover:bg-white/[0.02]">
         <div class="flex items-center gap-2">
           <span class="text-xs text-zinc-200 capitalize flex-1">{{ p.pipeline }}</span>
           <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="statusClass(p)">

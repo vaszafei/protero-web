@@ -25,9 +25,9 @@ import { getSupabase } from '~/server/utils/supabase'
  *     does not exist — so every "ours" figure here filters on
  *     `archetype <> 'external_tipster'`, and the mirrors are surfaced
  *     separately.
- *   - The three CLI gates persist nothing (there is no operation_logs table),
- *     so they are NOT reported here. /gates renders them honestly as
- *     "not recorded"; a dashboard tick would be a fabricated green.
+ *   - The regression gates (scripts/gates.sh) persist only a summary row in
+ *     `gate_runs` via common.gate_recorder (roadmap A4), so they are NOT
+ *     reported here. /gates renders them from that table.
  */
 
 /** A pipeline that has not written a run in this many hours is stale. */

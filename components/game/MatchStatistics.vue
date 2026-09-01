@@ -1,40 +1,62 @@
 <template>
   <div>
     <div class="space-y-2">
-      <!-- Football hero: possession donut + momentum chart above the stat stack -->
       <template v-if="isFootball">
-        <div
-          v-if="game.home_possession != null && game.away_possession != null"
-          class="rounded-lg bg-surface/40 border border-edge/50 p-2"
-        >
-          <PossessionDonut
-            :home="Number(game.home_possession)"
-            :away="Number(game.away_possession)"
-            :home-label="game.home_name"
-            :away-label="game.away_name"
-          />
-        </div>
+        <!-- Three compact cards, not one full-width band. The old "pressure"
+             line that sat beside the donut was removed 2026-08-23: it was
+             captioned "cumulative shots / SOT / corners by minute" while
+             `match_events` carries none of those three (corpus-wide the only
+             types are goal, penalty_goal, own-goal, yellow_card, red_card,
+             substitution, var, penalty_missed, unknown), so it plotted
+             cumulative GOALS — a single step for a 1-0 match. The two accuracy
+             readouts moved up here from the foot of the component, where they
+             were full-width rows below ten stat bars. -->
+        <div v-if="hasFootballHero" class="grid gap-2 sm:grid-cols-3 mb-2">
+          <div
+            v-if="game.home_possession != null && game.away_possession != null"
+            class="rounded-lg bg-surface/40 border border-edge/50 px-3 py-2"
+          >
+            <PossessionDonut
+              :home="Number(game.home_possession)"
+              :away="Number(game.away_possession)"
+              :home-label="game.home_name"
+              :away-label="game.away_name"
+            />
+          </div>
 
-        <div
-          v-if="game.match_events && game.match_events.length > 0"
-          class="rounded-lg bg-surface/40 border border-edge/50 p-2"
-        >
-          <MomentumChart
-            :events="game.match_events"
-            :home-label="game.home_name"
-            :away-label="game.away_name"
-          />
+          <div v-if="hasShootingStats" class="rounded-lg bg-surface/40 border border-edge/50 px-3 py-2 flex flex-col justify-center">
+            <p class="text-center text-[10px] uppercase tracking-wider text-zinc-500 font-medium">Shot Accuracy</p>
+            <div class="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2">
+              <span class="text-base font-bold tabular-nums" :style="{ color: VIZ_HOME }">{{ homeAccuracy }}%</span>
+              <div class="flex h-1.5 rounded-full overflow-hidden bg-surface-light">
+                <div :style="{ width: split(homeAccuracy, awayAccuracy) + '%', background: VIZ_HOME }" />
+                <div class="flex-1" :style="{ background: VIZ_AWAY }" />
+              </div>
+              <span class="text-base font-bold tabular-nums" :style="{ color: VIZ_AWAY }">{{ awayAccuracy }}%</span>
+            </div>
+            <p class="mt-1.5 text-center text-[10px] text-zinc-600">on target / total shots</p>
+          </div>
+
+          <div v-if="hasPassingStats" class="rounded-lg bg-surface/40 border border-edge/50 px-3 py-2 flex flex-col justify-center">
+            <p class="text-center text-[10px] uppercase tracking-wider text-zinc-500 font-medium">Pass Accuracy</p>
+            <div class="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2">
+              <span class="text-base font-bold tabular-nums" :style="{ color: VIZ_HOME }">{{ homePassAccuracy }}%</span>
+              <div class="flex h-1.5 rounded-full overflow-hidden bg-surface-light">
+                <div :style="{ width: split(homePassAccuracy, awayPassAccuracy) + '%', background: VIZ_HOME }" />
+                <div class="flex-1" :style="{ background: VIZ_AWAY }" />
+              </div>
+              <span class="text-base font-bold tabular-nums" :style="{ color: VIZ_AWAY }">{{ awayPassAccuracy }}%</span>
+            </div>
+            <p class="mt-1.5 text-center text-[10px] text-zinc-600 tabular-nums">
+              {{ game.home_passes_completed }}/{{ game.home_passes_attempted }} · {{ game.away_passes_completed }}/{{ game.away_passes_attempted }}
+            </p>
+          </div>
         </div>
       </template>
 
-      <!-- Possession (football only) -->
-      <StatBar 
-        v-if="isFootball && game.home_possession != null && game.away_possession != null"
-        label="Possession"
-        :home-value="game.home_possession"
-        :away-value="game.away_possession"
-        suffix="%"
-      />
+      <!-- The stat stack reads as a comparison table, not a scroll: two
+           columns on anything wider than a phone halves its height. -->
+      <div v-if="isFootball" class="grid sm:grid-cols-2 gap-x-6 gap-y-0 items-start">
 
       <!-- Shots (football only) -->
       <StatBar 
@@ -118,6 +140,7 @@
         :home-value="game.home_saves"
         :away-value="game.away_saves"
       />
+      </div>
 
       <!-- Basketball Stats from sport_stats -->
       <div v-if="!isFootball && hasBballStats">
@@ -234,32 +257,6 @@
         <p class="text-sm">Game statistics will be available after the game is completed.</p>
       </div>
 
-      <!-- Additional Stats Section (football only) -->
-      <div v-if="isFootball && (hasShootingStats || hasPassingStats)" class="mt-4 pt-4 border-t border-edge space-y-2">
-        <!-- Shot Accuracy -->
-        <div v-if="hasShootingStats">
-          <div class="flex items-center justify-between text-sm mb-2">
-            <span class="font-semibold text-zinc-300">{{ homeAccuracy }}%</span>
-            <span class="text-zinc-400">Shot Accuracy</span>
-            <span class="font-semibold text-zinc-300">{{ awayAccuracy }}%</span>
-          </div>
-          <div class="text-center text-xs text-zinc-500">
-            (Shots on Target / Total Shots)
-          </div>
-        </div>
-
-        <!-- Pass Accuracy -->
-        <div v-if="hasPassingStats">
-          <div class="flex items-center justify-between text-sm mb-2">
-            <span class="font-semibold text-zinc-300">{{ homePassAccuracy }}%</span>
-            <span class="text-zinc-400">Pass Accuracy</span>
-            <span class="font-semibold text-zinc-300">{{ awayPassAccuracy }}%</span>
-          </div>
-          <div class="text-center text-xs text-zinc-500">
-            ({{ game.home_passes_completed }}/{{ game.home_passes_attempted }} - {{ game.away_passes_completed }}/{{ game.away_passes_attempted }})
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -268,7 +265,6 @@
 import { computed } from 'vue'
 import StatBar from './StatBar.vue'
 import PossessionDonut from './PossessionDonut.vue'
-import MomentumChart from './MomentumChart.vue'
 
 const props = defineProps({
   game: {
@@ -283,7 +279,23 @@ const props = defineProps({
 
 const isFootball = computed(() => props.sport === 'football')
 
+// The hero row renders only when at least one of its two panels has data —
+// otherwise it would paint an empty grid above the stat stack.
+const hasFootballHero = computed(() => {
+  const g = props.game || {}
+  const hasPossession = g.home_possession != null && g.away_possession != null
+  return hasPossession || hasShootingStats.value || hasPassingStats.value
+})
+
+/** width of the home half of a two-sided ratio bar, in percent */
+const split = (home, away) => {
+  const h = Number(home) || 0
+  const a = Number(away) || 0
+  return h + a === 0 ? 50 : Math.round((h / (h + a)) * 100)
+}
+
 import { getTeamLogoUrl } from '~/utils/teamLogo'
+import { VIZ_HOME, VIZ_AWAY } from '~/utils/viz'
 
 const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key))
 const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key))

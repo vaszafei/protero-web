@@ -15,8 +15,11 @@
         <button
           @click="reload"
           :disabled="loading"
-          class="px-3 py-1.5 rounded-md text-xs font-medium bg-surface-light border border-edge text-zinc-400 hover:text-zinc-200 disabled:opacity-40"
-        >{{ loading ? 'Loading…' : 'Refresh' }}</button>
+          class="refresh-btn"
+        >
+          <span class="refresh-icon" :class="loading ? 'animate-spin' : ''">↻</span>
+          {{ loading ? 'Loading…' : 'Refresh' }}
+        </button>
       </div>
     </div>
 
@@ -34,10 +37,10 @@
         :exposure="data.exposure"
         :week="data.week"
         :fleet="data.fleet"
-        class="mb-4"
+        class="mb-4 tab-anim"
       />
 
-      <div class="grid lg:grid-cols-3 gap-4">
+      <div class="grid lg:grid-cols-3 gap-4 tab-anim" style="animation-delay: 60ms">
         <!-- Left: what it bet -->
         <div class="lg:col-span-2 space-y-4">
           <OpsLiveSlate :rows="data.live_slate" :blind-spots="data.blind_spots.rows" />
@@ -98,3 +101,35 @@ onMounted(reload)
 
 useHead({ title: 'Control room · Protero' })
 </script>
+
+<style scoped>
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: linear-gradient(165deg, rgba(41, 45, 54, 0.6), rgba(28, 31, 39, 0.9));
+  border: 1px solid #2a2f3a;
+  color: rgb(161, 161, 170);
+  transition: color 160ms ease, border-color 160ms ease, transform 140ms ease;
+}
+.refresh-btn:hover:not(:disabled) { color: rgb(228, 231, 236); border-color: rgba(57, 135, 229, 0.4); }
+.refresh-btn:active:not(:disabled) { transform: scale(0.97); }
+.refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.refresh-icon { display: inline-block; font-size: 0.85rem; line-height: 1; }
+
+/* Panes fade-slide in on load, matching the league page's entrance motion. */
+.tab-anim {
+  animation: pane-in 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@keyframes pane-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-anim, .refresh-btn { animation: none; transition: none; }
+}
+</style>
