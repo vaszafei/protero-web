@@ -57,3 +57,22 @@ export async function requireUserId(event: H3Event): Promise<number> {
   }
   return id
 }
+
+/**
+ * Require an authenticated admin. Operator-only surface — the pipeline-run
+ * button spawns a process on the host, so it must never be reachable by a
+ * non-admin session.
+ */
+export async function requireAdmin(event: H3Event): Promise<number> {
+  const id = await requireUserId(event)
+  const supabase = getSupabase()
+  const { data: user } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', id)
+    .maybeSingle()
+  if (!user || user.role !== 'admin') {
+    throw createError({ statusCode: 403, statusMessage: 'Admin only' })
+  }
+  return id
+}

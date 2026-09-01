@@ -16,12 +16,21 @@
           @click="reload"
           :disabled="loading"
           class="refresh-btn"
+          title="Reload dashboard data"
         >
           <span class="refresh-icon" :class="loading ? 'animate-spin' : ''">↻</span>
-          {{ loading ? 'Loading…' : 'Refresh' }}
+        </button>
+        <button
+          class="run-btn"
+          @click="runModalOpen = true"
+        >
+          <span class="run-icon">▶</span>
+          Run pipeline
         </button>
       </div>
     </div>
+
+    <PipelineRunModal :is-open="runModalOpen" @close="runModalOpen = false" />
 
     <div v-if="loading && !data" class="flex justify-center py-20">
       <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
@@ -84,6 +93,7 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 const data = ref(null)
 const loading = ref(true)
 const error = ref(null)
+const runModalOpen = ref(false)
 
 async function reload() {
   loading.value = true
@@ -120,6 +130,23 @@ useHead({ title: 'Control room · Protero' })
 .refresh-btn:active:not(:disabled) { transform: scale(0.97); }
 .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .refresh-icon { display: inline-block; font-size: 0.85rem; line-height: 1; }
+
+.run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: linear-gradient(165deg, rgba(57, 135, 229, 0.28), rgba(57, 135, 229, 0.12));
+  border: 1px solid rgba(57, 135, 229, 0.45);
+  color: rgb(190, 215, 245);
+  transition: color 160ms ease, border-color 160ms ease, transform 140ms ease;
+}
+.run-btn:hover { color: rgb(226, 238, 255); border-color: rgba(57, 135, 229, 0.75); }
+.run-btn:active { transform: scale(0.97); }
+.run-icon { display: inline-block; font-size: 0.7rem; line-height: 1; }
 
 /* Panes fade-slide in on load, matching the league page's entrance motion. */
 .tab-anim {
