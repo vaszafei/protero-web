@@ -185,24 +185,16 @@ export const useTwins = () => {
    * the name. Context only, like every other twin surface: a manager's
    * formation fingerprint is a fact about history, not a price.
    *
-   * The corpus is ~1,800 rows, so the league filter is applied client-side:
-   * PostgREST has no direct `jsonb ?` key-existence operator, and a `@>`
-   * containment needs a value, not a bare key.
+   * Filtered in the database by `twin_managers_by_league` — PostgREST has no
+   * `jsonb ?` key-existence operator, and a `@>` containment needs a value,
+   * not a bare key, so this used to pull the whole corpus and filter it in
+   * the browser.
    */
   const fetchTwinManagers = async (leagueKey: string, limit = 12): Promise<TwinManager[]> => {
-    // Top 500 by total games covers every manager with a meaningful league
-    // history — the full 1,779-row corpus is ~700 kB, but the league's
-    // notable names all sit inside the top 500 by total games.
     const { data, error } = await supabase
-      .from('twin_manager')
-      .select('*')
-      .order('games', { ascending: false })
-      .limit(500)
+      .rpc('twin_managers_by_league', { p_league_key: leagueKey, p_limit: limit })
     if (error) throw error
-    return ((data || []) as TwinManager[])
-      .filter(m => Object.keys(m.leagues_managed || {}).includes(leagueKey))
-      .sort((a, b) => (b.leagues_managed?.[leagueKey] || 0) - (a.leagues_managed?.[leagueKey] || 0))
-      .slice(0, Math.min(limit, 50))
+    return (data || []) as TwinManager[]
   }
 
   /** Every competition the twin layer has fitted, strongest first. */
