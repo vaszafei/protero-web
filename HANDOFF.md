@@ -1,6 +1,11 @@
-# HANDOFF — frontend redesign, resuming after Phases 0–2
+# HANDOFF — frontend redesign, resuming after Phase 3
 
-Written 2026-09-02. Read this before touching the frontend.
+Written 2026-09-02, updated 2026-09-03. Read this before touching the frontend.
+
+**2026-09-03 session:** Phase 2 finished (post-mortem + pre-match rails) and Phase 3
+shipped (team trajectory). See `../docs/sessions/2026-09-03-frontend-redesign-phase-2-3.md`.
+Four things below changed as a result — §0 fact 5 is resolved and a sixth added, §1.1 and
+§1.2 are done, and §2 has four new entries.
 
 - **The plan:** `/home/zafnitlab/.claude/plans/drifting-strolling-pancake.md`
 - **What shipped and why:** `../docs/sessions/2026-09-02-frontend-redesign-phase-0-2.md`
@@ -8,7 +13,7 @@ Written 2026-09-02. Read this before touching the frontend.
 
 ---
 
-## 0. Read these five facts first
+## 0. Read these six facts first
 
 They are not inferable from the code and each one already cost a debugging pass.
 
@@ -36,35 +41,52 @@ They are not inferable from the code and each one already cost a debugging pass.
    Login: `POST /api/auth/login` with `admin@protero.com` / `admin123`, then set the returned
    `session_id` cookie on `localhost`.
 
-5. **`composables/useApi.ts` is intentionally left MODIFIED and uncommitted.** It contains a
-   completed-game post-mortem (bets + `line_scores` per market, "did our number beat the close on
-   Brier") written in an earlier session that **nothing renders**. It predates this work. Wire it or
-   revert it — do not just commit it as-is.
+5. ~~`composables/useApi.ts` is left MODIFIED and uncommitted.~~ **RESOLVED 2026-09-03.**
+   Reverted, and the post-mortem rebuilt as `server/api/game/[id]/post-mortem.get.ts` +
+   `components/game/PostMortem.vue`. It had to move server-side for two reasons the draft
+   could not have known: `line_scores` is admin-RLS'd, and the probability source is routed
+   per (league, market) by `masks.py`, so a client assuming Dixon-Coles mislabels every
+   GBM-priced cell.
+
+6. **`ml.line_scores.write_model` is NOT a pipeline step.** Football step 5.85 runs
+   `ingest_close` / `write_book` / `write_close` / `grade` / `verify_source` — the MODEL side
+   of the spine is a manual command. So `dc` rows stop at **2026-08-28** and `gbm` at
+   **2026-06-20** while the price sources are current to yesterday, and **22 of the 64 settled
+   V6 wagers have no model row at all**. Any UI that compares our number to the market's must
+   handle its absence as the common case for recent fixtures, not the exception. This is an
+   ML-side cadence gap, not a frontend one — worth raising with the owner.
 
 ---
 
 ## 1. Next, in order
 
-### 1.1 Finish Phase 2 — the game page (two items left)
+### ~~1.1 Finish Phase 2 — the game page~~ — DONE 2026-09-03
 
-**(a) Wire the post-mortem.** `useApi.ts` already returns `postMortem` for completed football
-games. Build `components/game/PostMortem.vue`: what the model called, whether that wager won, and
-per market whether our Brier beat the close's. This is the most valuable unrendered thing in the
-codebase. It renders in the completed-football layout, which currently has **no tabs at all**
-(`tabs` returns `[]` for completed football — the pitch, rails and ratings cards carry it).
+**(a) Post-mortem — shipped.** Three panels, ordered by trustworthiness: the wager (money),
+then line movement, then Brier. The middle one is the important design decision: it uses
+`p_close − p_open` on the selection, both Shin-de-vigged — the project's own CLV definition
+from `research/tipster/clv.py` — and **not** `taken price ÷ close`, which measures book choice
+as much as timing. It is also the panel with real coverage, since `close_avg`/`open_avg` are
+current while `dc` is six days stale (fact 6 above).
 
-**(b) Pre-match side rails still say "No stats recorded."** `TeamStatsRail` has nothing to show for
-a scheduled fixture. Replace with form + twin context: last-6 W/D/L chips (use `.chip-wdl` +
-`UiTooltip`, the pattern is in `components/player/PlayerMatchLog.vue`), attack/defence twin ratings
-±SD, and the carried-rating warning from `twin_fixture_risk` (`TwinBlindSpotBanner` already exists
-and the page already fetches the risk). This is the same structural defect as the basketball rails,
-which are fixed — copy the shape of `components/game/BasketballTeamRail.vue`.
+**(b) Pre-match rails — shipped**, for BOTH sports. `server/api/game/[id]/preview.get.ts` +
+`components/game/TeamFormRail.vue`. Last-6 form with per-match tooltips, plus the twin's
+attack/defence ±1 SD against the competition's own fitted range. Extended to basketball because
+1,200 scheduled NBA fixtures carried the same blank rail; `twin_team` is football-only, so those
+rails show form alone.
 
-### 1.2 Phase 3 — team / twin page (`pages/team/[id].vue`)
+### ~~1.2 Phase 3 — team / twin page~~ — DONE 2026-09-03
 
-Two plain tables today. `twin_team_season` has **21,690 unused rows**: attack/defence trajectory
-across seasons as a dual `UiSparkline` with tier plotted underneath so promotion/relegation reads
-as a step. `twin_team_history` and `twin_league_transitions` are also unused.
+Shipped as `components/team/TeamTrajectory.vue`.
+
+**The description above was wrong and is kept only to explain the correction: there is no
+per-season attack/defence anywhere.** `twin_team_season` and `twin_team_history` carry
+goals/points per game and tier; the fitted ratings exist as ONE current value per club on
+`twin_team`. What shipped is goals-for/against per game against the division, which makes the
+tier confound visible — Ipswich 2.00/game in the Championship, 0.95 in the Premier League,
+1.74 back in the Championship — and is captioned so the raw rates are never read as the
+league-invariant ratings. `twin_league_transitions` is wired via a new
+`useTwins().fetchTeamTransitions(teamId)`.
 
 ### 1.3 Phase 4 — dashboard
 
@@ -118,6 +140,25 @@ add the scorecard risk row and leave the rest alone.
   `WALLET_MODEL_MAP` ↔ `wallet-meta.ts`. Re-check it after any mask change.
 - **The `wallet reconcile (money)` gate was already RED before this work** (visible on `/gates`).
   Not caused by the redesign; know it before you attribute anything to yourself.
+
+- **`twin_team.defence` is HIGHER-IS-BETTER.** It is log-rate suppression, not goals conceded:
+  Arsenal 1.309 → 27 conceded, Tottenham 0.658 → 57. Both ratings point the same way, so a bar
+  drawn for either reads the same direction. Getting this backwards renders a relegation
+  candidate as an elite defence, and nothing would error.
+
+- **There are no basketball twins.** `twin_team` is 3,692 rows, all `sport='football'`. Any
+  twin-derived surface degrades to nothing for basketball rather than erroring — which is the
+  behaviour `TeamFormRail` already relies on.
+
+- **`npm run build` wipes `.nuxt/dist` under a running `npm run dev`** and the dev server
+  restarts mid-flight; pages 404 their own assets and render white for ~30s. It looks exactly
+  like the "TS cast in a non-TS SFC" module-graph failure documented in `CLAUDE.md` and is not
+  it. Restart dev after a build rather than debugging the page.
+
+- **A season axis is not evenly spaced in time.** A club can leave the corpus for years
+  (Ipswich has nothing 2018-19 → 2023-24, League One is not ingested). An ordinal x-axis draws
+  that as consecutive; `TeamTrajectory` breaks the line across the gap. Anything plotting
+  seasons needs the same treatment.
 
 ---
 
