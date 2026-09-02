@@ -318,6 +318,17 @@ export const useTwins = () => {
     return (data || []) as TwinTransition[]
   }
 
+  /** One club's division changes, oldest first — the carry story for its rating. */
+  const fetchTeamTransitions = async (teamId: number): Promise<TwinTransition[]> => {
+    const { data, error } = await supabase
+      .from('twin_league_transitions')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('to_season', { ascending: true })
+    if (error) throw error
+    return (data || []) as TwinTransition[]
+  }
+
   /** Squad continuity — who is at this club, and where else they have played. */
   const fetchTwinPlayers = async (teamId: number, limit = 40): Promise<TwinPlayer[]> => {
     const { data, error } = await supabase
@@ -420,6 +431,7 @@ export const useTwins = () => {
   }
 
   return {
+    fetchTeamTransitions,
     fetchTwinLeagues,
     fetchTwinLeague,
     fetchLeagueTransitions,

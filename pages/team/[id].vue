@@ -77,6 +77,11 @@
         </div>
       </div>
 
+      <!-- Scoring trajectory. `twin_team_season` holds 21,690 rows nothing
+           rendered; the club's per-season rate against its division is the
+           part of it that shows why the twin layer exists at all. -->
+      <TeamTrajectory :history="history" :transitions="transitions" class="mb-6" />
+
       <div class="grid lg:grid-cols-5 gap-6">
         <!-- Season history -->
         <section class="lg:col-span-3">
@@ -157,6 +162,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import TeamTrajectory from '~/components/team/TeamTrajectory.vue'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -171,6 +177,7 @@ const twin = ref(null)
 const history = ref([])
 const players = ref([])
 const leagues = ref([])
+const transitions = ref([])
 
 const leagueNames = computed(() => {
   const m = new Map()
@@ -201,16 +208,18 @@ function ppgClass(ppg) {
 }
 
 onMounted(async () => {
-  const [t, h, p, lg] = await Promise.all([
+  const [t, h, p, lg, tr] = await Promise.all([
     twins.fetchTwinTeam(teamId.value).catch(() => null),
     twins.fetchTwinTeamHistory(teamId.value).catch(() => []),
     twins.fetchTwinPlayers(teamId.value, 40).catch(() => []),
     api.fetchLeagues().then(d => d.leagues || []).catch(() => []),
+    twins.fetchTeamTransitions(teamId.value).catch(() => []),
   ])
   twin.value = t
   history.value = h
   players.value = p
   leagues.value = lg
+  transitions.value = tr
   loading.value = false
   if (t) useHead({ title: `${t.name} · Protero` })
 })
