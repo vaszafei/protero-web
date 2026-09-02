@@ -28,6 +28,14 @@
             :sport-stats="data.game.sport_stats"
             :team-name="data.game.home_name"
           />
+          <GameTeamFormRail
+            v-else-if="showFormRails"
+            side="home"
+            :data="preview?.home || null"
+            :league="preview?.league || null"
+            :league-key="data.game.league_key"
+            :team-key="data.game.home_key"
+          />
           <TeamStatsRail v-else side="home" :game="data.game" :sport="gameSport" />
           <TeamRatingsCard v-if="showRatings" side="home" :lineup="data.lineups.home" :league-key="data.game.league_key" />
         </Reveal>
@@ -92,6 +100,15 @@
             :sport-stats="data.game.sport_stats"
             :team-name="data.game.away_name"
           />
+          <GameTeamFormRail
+            v-else-if="showFormRails"
+            side="away"
+            :data="preview?.away || null"
+            :league="preview?.league || null"
+            :league-key="data.game.league_key"
+            :team-key="data.game.away_key"
+            mirror
+          />
           <TeamStatsRail v-else side="away" :game="data.game" :sport="gameSport" mirror />
           <TeamRatingsCard v-if="showRatings" side="away" :lineup="data.lineups.away" :league-key="data.game.league_key" mirror />
         </Reveal>
@@ -129,6 +146,15 @@
             />
           </div>
         </section>
+      </Reveal>
+
+      <!-- ── POST-MORTEM: what we called, and whether our number was any good ──
+           A completed football fixture has no tabs, so this sits inline. It
+           renders nothing when there is no wager and no scored market. -->
+      <Reveal v-if="showPostMortem" :delay="105">
+        <div class="mt-3">
+          <GamePostMortem :game-id="data.game.id" />
+        </div>
       </Reveal>
 
       <!-- ── DETAIL: one panel, one minimal tab rail ──
@@ -267,6 +293,8 @@ import GameBasketballTeamRail from '~/components/game/BasketballTeamRail.vue'
 import GameQuarterFlow from '~/components/game/QuarterFlow.vue'
 import GameGameLeaders from '~/components/game/GameLeaders.vue'
 import GameMarketBoard from '~/components/game/MarketBoard.vue'
+import GamePostMortem from '~/components/game/PostMortem.vue'
+import GameTeamFormRail from '~/components/game/TeamFormRail.vue'
 
 definePageMeta({
   layout: 'default',
@@ -405,6 +433,36 @@ const showTimeline = computed(() => {
     && Array.isArray(g?.match_events)
     && g.match_events.length > 0)
 })
+
+/**
+ * Pre-match side rails.
+ *
+ * `TeamStatsRail` reads the scalar match-stat columns, all of which are NULL
+ * before kick-off, so a scheduled fixture rendered "No stats recorded" on both
+ * flanks — the same structural defect the basketball rails had. Form and twin
+ * ratings are what the fixture actually carries beforehand.
+ *
+ * Both sports, because both were empty: 1,200 scheduled NBA fixtures carry the
+ * same blank rail. `twin_team` holds football only, so a basketball rail shows
+ * form alone and the ratings block renders nothing — which is the component's
+ * existing behaviour for any club the twin has not fitted.
+ */
+const showFormRails = computed(() => !isCompleted.value)
+
+const preview = ref(null)
+watch(() => [data.value?.game?.id, showFormRails.value], async ([id, show]) => {
+  if (!id || !show) { preview.value = null; return }
+  preview.value = await $fetch(`/api/game/${id}/preview`).catch(() => null)
+}, { immediate: true })
+
+/**
+ * The post-mortem renders for a completed football fixture. The component
+ * itself decides whether there is anything to say — a fixture with no wager
+ * and no model rows in the spine renders nothing rather than three empty
+ * states.
+ */
+const showPostMortem = computed(() =>
+  isCompleted.value && gameSport.value === 'football')
 
 // Badge for the ratings tab: only players who actually carry a rating.
 const ratedPlayerCount = computed(() => {

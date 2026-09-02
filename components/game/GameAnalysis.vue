@@ -88,9 +88,16 @@
       <p class="text-sm text-zinc-500">No odds available for this game</p>
     </div>
 
-    <!-- ===== TEAM FORM ===== -->
+    <!-- ===== HEAD-TO-HEAD RECORD =====
+         NOT form. These pills come from `completedH2HMatches` — the last five
+         meetings BETWEEN these two clubs — so the two rows are always exact
+         inverses of each other, which no real form line ever is. It was
+         labelled "Recent Form" and contradicted the side rails, which show
+         actual form from the club's last six fixtures. -->
     <div v-if="homeFormPills.length || awayFormPills.length" class="border-t border-edge/50 pt-3.5 sm:pt-4">
-      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Recent Form</h4>
+      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">
+        Head-to-head · last {{ Math.max(homeFormPills.length, awayFormPills.length) }}
+      </h4>
       <div class="grid grid-cols-2 gap-3">
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
@@ -366,8 +373,14 @@ function resultColor(match: any) {
   return 'text-zinc-400'
 }
 
-// ─── Form pills (derived from H2H matches) ──────────────
-function formForTeam(teamName: string): ('W'|'L'|'D')[] {
+/**
+ * Each club's record in the last five meetings BETWEEN THESE TWO CLUBS — not
+ * its form. The section that renders this was captioned "Recent Form" until
+ * 2026-09-03, which put it in direct contradiction with the side rails: for
+ * Pistons-Celtics it read 4W-0D-1L beside the rail's true 2W-4L. The two rows
+ * are mirror images by construction, which is the tell.
+ */
+function h2hRecordFor(teamName: string): ('W'|'L'|'D')[] {
   const matches = completedH2HMatches.value
   if (!matches.length) return []
   // Use up to 5 most recent results
@@ -384,8 +397,8 @@ function formForTeam(teamName: string): ('W'|'L'|'D')[] {
   })
 }
 
-const homeFormPills = computed(() => formForTeam(props.game.home_name))
-const awayFormPills = computed(() => formForTeam(props.game.away_name))
+const homeFormPills = computed(() => h2hRecordFor(props.game.home_name))
+const awayFormPills = computed(() => h2hRecordFor(props.game.away_name))
 
 function formatFormRecord(pills: ('W'|'L'|'D')[]) {
   const w = pills.filter(p => p === 'W').length
