@@ -139,18 +139,59 @@ function fromNotes(bet: AnyBet): string | null {
  *   "UNDER (Under 216.5)"                       -> "U 216.5"
  *   "OVER (Over 1.5)"                           -> "O 1.5"
  *   "UNDER (UNDER 216.5) + OVER (OVER 221.5)"   -> "U 216.5 + O 221.5"
+ *   "OVER (Over 220.5 (shift +5))"              -> "O 220.5"
  *   "Home Win"                                  -> "Home"
  *   "Lakers +5.5"                               -> "Lakers +5.5"
  * Returns null when no recognised pattern.
  */
+
+/**
+ * Split on '+' only where it separates LEGS.
+ *
+ * A plain `text.split('+')` fires on every '+', including the two places one
+ * legitimately appears inside a single leg:
+ *
+ *   1. Inside a qualifier — the V6 basketball picker writes
+ *      `OVER (Over 220.5 (shift +5))`, which split into
+ *      `["OVER (Over 220.5 (shift ", "5))"]` and rendered on the game header as
+ *      "O 220.5 + 5))", the second fragment matching no pattern and falling
+ *      through to its own raw text.
+ *   2. As a handicap sign — `Lakers +5.5` is one selection, not two.
+ *
+ * So a separator must be at parenthesis depth 0 AND surrounded by whitespace,
+ * which is how a combo is always written.
+ */
+function splitLegs(text: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === '(') depth++
+    else if (c === ')') depth = Math.max(0, depth - 1)
+    else if (
+      c === '+'
+      && depth === 0
+      && /\s/.test(text[i - 1] ?? '')
+      && /\s/.test(text[i + 1] ?? '')
+    ) {
+      parts.push(text.slice(start, i))
+      start = i + 1
+    }
+  }
+  parts.push(text.slice(start))
+  return parts.map((p) => p.trim()).filter(Boolean)
+}
+
 function parseShortFromText(raw: string): string | null {
   if (!raw) return null
   const text = raw.trim()
   if (!text) return null
 
   // Multi-leg combos joined by '+' (SGP)
-  if (text.includes('+')) {
-    const parts = text.split('+').map(p => parseShortFromText(p.trim()) || p.trim())
+  const legs = splitLegs(text)
+  if (legs.length > 1) {
+    const parts = legs.map(p => parseShortFromText(p) || p)
     const joined = parts.join(' + ')
     if (joined.length <= 24) return joined
   }

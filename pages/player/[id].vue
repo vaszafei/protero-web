@@ -1,563 +1,292 @@
 <template>
-  <div class="min-h-screen bg-surface-base">
-    <!-- Loading -->
-    <div v-if="loading" class="flex justify-center items-center min-h-screen">
-      <LoadingSpinner size="lg" text="Loading player..." />
-    </div>
-
-    <!-- Content -->
-    <div v-else-if="seasonData || twin" class="max-w-3xl mx-auto p-3 sm:p-6">
-      <!-- Back -->
-      <button @click="$router.back()" class="inline-flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 mb-4 transition-colors">
-        <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
-        <span class="text-sm font-medium">Back</span>
-      </button>
-
-      <!-- Player Header -->
-      <div class="bg-surface rounded-xl p-5 border border-edge/30 mb-5">
-        <h1 class="text-xl font-bold text-zinc-100">{{ twin?.full_name || twin?.player_name || bballTwin?.player_name || playerName }}</h1>
-        <span v-if="seasonData" class="text-sm text-zinc-500">{{ leagueKey.toUpperCase() }} · Season {{ currentSeason }} · {{ seasonData.gameCount }} games</span>
-        <span v-else-if="twin" class="text-sm text-zinc-500">Football player · {{ twin?.position || 'position unknown' }}</span>
-        <span v-else-if="bballTwin" class="text-sm text-zinc-500">Basketball player · {{ bballTwin?.position || 'position unknown' }}</span>
-      </div>
-
-      <!-- The football twin — never a price -->
-      <PlayerTwinPanel
-        v-if="twin"
-        :twin="twin"
-        :cohort="twinCohort"
-        :team-names="twinTeamNames"
-        class="mb-5"
-      />
-
-      <!-- The basketball twin — never a price -->
-      <BasketballPlayerTwinPanel
-        v-if="bballTwin"
-        :twin="bballTwin"
-        :cohort="bballCohort"
-        :team-names="bballTeamNames"
-        class="mb-5"
-      />
-
-      <div v-else-if="isFootballId || (seasonData && !twin && !bballTwin)" class="bg-surface rounded-xl p-5 border border-edge/30 mb-5">
-        <p class="text-xs text-zinc-500 leading-relaxed">
-          No twin for this player. A player twin needs a FlashScore entity id and appearances
-          in the football or basketball corpus; players outside it have no fitted rates to show.
-        </p>
-      </div>
-
-      <template v-if="seasonData">
-      <!-- Season Averages -->
-      <div class="bg-surface rounded-xl p-5 border border-edge/30 mb-5">
-        <div class="text-[11px] text-zinc-500 uppercase font-semibold tracking-wider mb-3">Season Averages</div>
-        <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
-          <div v-for="avg in avgCards" :key="avg.key" class="text-center bg-surface-light/30 rounded-lg p-3">
-            <div class="text-lg font-bold text-zinc-100 tabular-nums">{{ avg.value }}</div>
-            <div class="text-[10px] text-zinc-500 font-medium">{{ avg.label }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Charts Section -->
-      <div class="bg-surface rounded-xl p-5 border border-edge/30 mb-5">
-        <!-- Filter + Viz switcher -->
-        <div class="flex items-center justify-between gap-2 mb-4">
-          <div class="flex bg-surface-light/40 rounded-lg p-0.5">
+  <UiPageShell>
+    <template #header>
+      <div class="ph-head">
+        <button class="btn btn-ghost btn-sm" @click="$router.back()">
+          <UIcon name="i-heroicons-chevron-left" class="w-3.5 h-3.5" />
+          Back
+        </button>
+        <div v-if="data?.found" class="ph-season">
+          <div v-if="seasons.length > 1" class="seg">
             <button
-              v-for="f in sideFilters" :key="f.key"
-              @click="chartSideFilter = f.key"
-              :class="[
-                'px-3 py-1 text-[11px] rounded-md font-semibold transition-all',
-                chartSideFilter === f.key
-                  ? (f.key === 'home' ? 'bg-[#0848a8]/40 text-[#4d8fff]' : f.key === 'away' ? 'bg-[#f82828]/20 text-[#ff6b6b]' : 'bg-surface text-zinc-200 shadow-sm')
-                  : 'text-zinc-500 hover:text-zinc-300'
-              ]"
-            >{{ f.label }}</button>
+              v-for="s in seasons.slice(0, 4)"
+              :key="s"
+              class="seg-item"
+              :class="{ 'is-active': s === activeSeason }"
+              @click="selectSeason(s)"
+            >{{ shortSeason(s) }}</button>
           </div>
-          <div class="flex bg-surface-light/40 rounded-lg p-0.5">
-            <button
-              v-for="vt in vizTypes" :key="vt.key"
-              @click="activeViz = vt.key"
-              :class="[
-                'px-2.5 py-1 text-[11px] rounded-md font-semibold transition-all',
-                activeViz === vt.key
-                  ? 'bg-surface text-zinc-200 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              ]"
-            >{{ vt.label }}</button>
-          </div>
-        </div>
-
-        <!-- Bar Charts -->
-        <div v-if="activeViz === 'bars'" class="space-y-6">
-          <div v-for="metric in barMetrics" :key="metric.key">
-            <div class="flex items-center justify-between mb-2.5 px-1">
-              <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">{{ metric.label }}</span>
-              <span class="text-[10px] text-zinc-500 tabular-nums">
-                avg <span class="text-[#f82828] font-bold">{{ filteredAvg(metric.key) }}</span>
-              </span>
-            </div>
-            <div class="bar-chart-container">
-              <div class="bar-grid-line" style="bottom: 25%"></div>
-              <div class="bar-grid-line" style="bottom: 50%"></div>
-              <div class="bar-grid-line" style="bottom: 75%"></div>
-              <div class="avg-line" :style="{ bottom: barPct(filteredAvg(metric.key), metric.max) + '%' }">
-                <span class="avg-line-label">{{ filteredAvg(metric.key) }}</span>
-              </div>
-              <div class="bars-row">
-                <div v-for="(g, i) in filteredGames" :key="i" class="bar-col" :style="{ '--bar-delay': i * 30 + 'ms' }">
-                  <div class="bar-wrapper">
-                    <div
-                      class="bar"
-                      :class="getStatVal(g, metric.key) >= filteredAvg(metric.key) ? 'bar-above' : 'bar-below'"
-                      :style="{ height: barPct(getStatVal(g, metric.key), metric.max) + '%' }"
-                    >
-                      <span class="bar-value">{{ getStatVal(g, metric.key) }}</span>
-                    </div>
-                  </div>
-                  <div class="bar-footer">
-                    <span :class="['text-[7px] font-bold leading-none', g.result === 'W' ? 'text-emerald-400' : 'text-red-400']">{{ g.result }}</span>
-                    <span class="text-[7px] text-zinc-600 leading-none truncate">{{ formatOppShort(g.opponent) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Radar Chart -->
-        <div v-if="activeViz === 'radar'" class="flex flex-col items-center">
-          <svg viewBox="0 0 220 220" class="w-56 h-56">
-            <polygon v-for="ring in [0.25, 0.5, 0.75, 1]" :key="ring" :points="radarRingPoints(ring)" fill="none" stroke="#2a2f3a" stroke-width="0.5" />
-            <line v-for="(_, i) in radarAxes" :key="'ax'+i" x1="110" y1="110" :x2="110 + 80 * Math.cos(radarAngle(i))" :y2="110 + 80 * Math.sin(radarAngle(i))" stroke="#2a2f3a" stroke-width="0.5" />
-            <polygon :points="radarPolygon('avg')" fill="#f82828" fill-opacity="0.1" stroke="#f82828" stroke-width="1.5" stroke-opacity="0.5" />
-            <polygon :points="radarPolygon('last5')" fill="#0848a8" fill-opacity="0.25" stroke="#4d8fff" stroke-width="2" />
-            <g v-for="(axis, i) in radarAxes" :key="'lbl'+i">
-              <text :x="110 + 98 * Math.cos(radarAngle(i))" :y="110 + 98 * Math.sin(radarAngle(i)) - 5" text-anchor="middle" dominant-baseline="central" class="fill-zinc-400 text-[10px] font-semibold">{{ axis.label }}</text>
-              <text :x="110 + 98 * Math.cos(radarAngle(i))" :y="110 + 98 * Math.sin(radarAngle(i)) + 7" text-anchor="middle" dominant-baseline="central" class="fill-zinc-500 text-[8px]">{{ last5Avg(axis.key) }}</text>
-            </g>
-          </svg>
-          <div class="flex items-center gap-5 mt-2">
-            <div class="flex items-center gap-1.5"><span class="w-4 h-2 rounded-sm bg-[#0848a8]"></span><span class="text-xs text-zinc-400">Last 5</span></div>
-            <div class="flex items-center gap-1.5"><span class="w-4 h-2 rounded-sm bg-[#f82828] opacity-50"></span><span class="text-xs text-zinc-400">Season Avg</span></div>
-          </div>
-        </div>
-
-        <!-- Heat Map -->
-        <div v-if="activeViz === 'heat'">
-          <div class="overflow-x-auto -mx-1 pb-2">
-            <div class="inline-flex flex-col min-w-full">
-              <div class="flex items-end gap-1 mb-1.5 pl-10">
-                <div v-for="(g, i) in filteredGames" :key="i" class="heat-cell-h">
-                  <span class="text-[8px] text-zinc-600 whitespace-nowrap">{{ formatHeatDate(g.game_date) }}</span>
-                  <span :class="['text-[9px] font-bold', g.result === 'W' ? 'text-emerald-400' : g.result === 'L' ? 'text-red-400' : 'text-zinc-500']">{{ g.result }}</span>
-                  <span :class="['w-1.5 h-1.5 rounded-full mt-0.5', g.side === 'home' ? 'bg-[#0848a8]' : 'bg-[#f82828]']"></span>
-                </div>
-              </div>
-              <div v-for="metric in heatMetrics" :key="metric.key" class="flex items-center gap-1 mb-1">
-                <span class="text-[10px] text-zinc-500 w-9 text-right font-semibold flex-shrink-0">{{ metric.label }}</span>
-                <div v-for="(g, i) in filteredGames" :key="i" class="heat-cell" :style="{ backgroundColor: heatColor(getStatVal(g, metric.key), metric.key) }">
-                  <span class="text-[10px] font-semibold tabular-nums">{{ getStatVal(g, metric.key) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center justify-center gap-3 mt-2">
-            <div class="flex items-center gap-1"><span class="w-4 h-3 rounded-sm" style="background:rgba(248,40,40,0.25)"></span><span class="text-[10px] text-zinc-500">Below avg</span></div>
-            <div class="flex items-center gap-1"><span class="w-4 h-3 rounded-sm" style="background:rgba(42,47,58,0.4)"></span><span class="text-[10px] text-zinc-500">At avg</span></div>
-            <div class="flex items-center gap-1"><span class="w-4 h-3 rounded-sm" style="background:rgba(8,72,168,0.3)"></span><span class="text-[10px] text-zinc-500">Above avg</span></div>
-          </div>
+          <span v-else-if="activeSeason" class="ph-season-one">{{ activeSeason }}</span>
         </div>
       </div>
+    </template>
 
-      <!-- Game Log -->
-      <div class="bg-surface rounded-xl p-5 border border-edge/30">
-        <div class="text-[11px] text-zinc-500 uppercase font-semibold tracking-wider mb-3">Game Log ({{ filteredGames.length }})</div>
-        <div class="space-y-1">
-          <div
-            v-for="g in filteredGames" :key="g.game_id"
-            class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-light/20 hover:bg-surface-light/40 transition-colors"
-          >
-            <span :class="['text-xs font-bold w-4', g.result === 'W' ? 'text-emerald-400' : g.result === 'L' ? 'text-red-400' : 'text-zinc-500']">{{ g.result }}</span>
-            <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', g.side === 'home' ? 'bg-[#0848a8]' : 'bg-[#f82828]']"></span>
-            <div class="flex-1 min-w-0">
-              <div class="text-xs text-zinc-300 truncate">vs {{ g.opponent }}</div>
-              <div class="text-[10px] text-zinc-500 tabular-nums">{{ formatGameDate(g.game_date) }} · {{ g.score_for }}-{{ g.score_against }}</div>
+    <!-- Loading: shape-matched, so nothing jumps when the data lands. -->
+    <div v-if="pending" class="grid-12">
+      <div class="col-3"><UiSkeletonPanel :rows="7" /></div>
+      <div class="col-5"><UiSkeletonPanel :rows="8" /></div>
+      <div class="col-4"><UiSkeletonPanel :rows="6" /></div>
+      <div class="col-12"><UiSkeletonPanel :rows="6" /></div>
+    </div>
+
+    <div v-else-if="error" class="panel ph-error">
+      <p class="ph-error-t">The player query failed.</p>
+      <p class="ph-error-b">{{ error }}</p>
+    </div>
+
+    <!-- A player we genuinely do not hold, stated as such. -->
+    <div v-else-if="!data?.found" class="panel ph-empty">
+      <p class="ph-empty-t">No player with id <code>{{ route.params.id }}</code></p>
+      <p class="ph-empty-b">
+        Players are keyed by FlashScore entity id; a numeric stats.nba.com id resolves
+        through <code>basketball_player_ids</code>. This id matches neither the football
+        corpus (<code>lineups</code>) nor the basketball one
+        (<code>basketball_player_games</code>).
+      </p>
+    </div>
+
+    <template v-else>
+      <div class="grid-12">
+        <!-- Identity -->
+        <div class="col-3 pane-in">
+          <PlayerPlayerIdentity
+            :player="data.player || {}"
+            :sport="sport"
+            :totals="data.totals"
+            :team-names="teamNames"
+          />
+        </div>
+
+        <!-- The hexagon -->
+        <div class="col-5 pane-in" style="animation-delay: 60ms">
+          <PlayerPlayerHexagon
+            :axes="data.axes || []"
+            :cohort="data.cohort || defaultCohort"
+            :season="activeSeason"
+            :sport="sport"
+            :minutes="data.totals?.minutes"
+          />
+        </div>
+
+        <!-- Third column: the court where a court is possible, the per-match
+             trend otherwise. Never a dead column. -->
+        <div class="col-4 pane-in" style="animation-delay: 120ms">
+          <div v-if="sport === 'basketball' && hasZones" class="panel ph-court">
+            <div class="panel-head">
+              <span class="panel-title">Shooting</span>
+              <span class="panel-link">{{ activeSeason }}</span>
             </div>
-            <div class="flex items-center gap-2 text-xs tabular-nums">
-              <span class="font-bold text-zinc-100">{{ g.player_stats?.pts ?? '-' }}</span>
-              <span class="text-zinc-500">{{ g.player_stats?.reb ?? '-' }}r</span>
-              <span class="text-zinc-500">{{ g.player_stats?.ast ?? '-' }}a</span>
+            <div class="ph-court-body">
+              <PlayerShootingZones :zones="data.zones" />
             </div>
           </div>
+          <PlayerPlayerTrend v-else :rows="data.log || []" :sport="sport" />
+        </div>
+
+        <!-- Season totals strip -->
+        <div class="col-12 pane-in" style="animation-delay: 160ms">
+          <div class="panel ph-totals">
+            <div class="panel-head">
+              <span class="panel-title">Season totals</span>
+              <span class="panel-link">{{ activeSeason }}</span>
+            </div>
+            <div v-if="totalCards.length" class="ph-total-grid">
+              <div v-for="t in totalCards" :key="t.k" class="ph-total">
+                <div class="ph-total-v">
+                  <UiCountUp :value="t.n" :decimals="t.dp || 0" />
+                  <span v-if="t.suffix" class="ph-total-suffix">{{ t.suffix }}</span>
+                </div>
+                <div class="ph-total-k">{{ t.k }}</div>
+              </div>
+            </div>
+            <p v-else class="ph-note">No totals recorded for {{ activeSeason }}.</p>
+          </div>
+        </div>
+
+        <!-- Match log -->
+        <div class="col-12 pane-in" style="animation-delay: 200ms">
+          <PlayerPlayerMatchLog
+            :rows="data.log || []"
+            :sport="sport"
+            :season="activeSeason"
+          />
         </div>
       </div>
-      </template>
-    </div>
-
-    <!-- Error -->
-    <div v-else class="flex flex-col items-center justify-center min-h-screen gap-3">
-      <p class="text-zinc-400">Player not found</p>
-      <button @click="$router.back()" class="text-sm text-[#4d8fff] hover:underline">Go back</button>
-    </div>
-  </div>
+    </template>
+  </UiPageShell>
 </template>
 
 <script setup lang="ts">
-import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
-import PlayerTwinPanel from '~/components/player/PlayerTwinPanel.vue'
-import BasketballPlayerTwinPanel from '~/components/player/BasketballPlayerTwinPanel.vue'
-import { useTwins } from '~/composables/useTwins'
-import type { TwinPlayer, BasketballPlayerTwin } from '~/composables/useTwins'
+/**
+ * One player.
+ *
+ * What this replaced: a `max-w-3xl` centred column — 768px on a 1600px
+ * monitor — that defaulted `?league=nba` for EVERY id, so a football player
+ * rendered as "Player #E77oeEa6 · NBA · 0 games" above three empty charts and
+ * an empty "Season Averages" panel. Sport now comes from which corpus holds
+ * the player (`player_resolve`), and the season defaults to the newest one
+ * with data rather than `currentSeason()`.
+ *
+ * All of the aggregation — including the cohort percentiles the radar needs,
+ * which require every comparable player's season and would hit PostgREST's
+ * silent 1,000-row cap — happens in Postgres. See
+ * `supabase-local/supabase/migrations/20260902100000_player_profile_rpc.sql`.
+ */
+import { ref, computed, watch } from 'vue'
+import UiPageShell from '~/components/ui/PageShell.vue'
+import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
+import UiCountUp from '~/components/ui/CountUp.vue'
+import PlayerPlayerIdentity from '~/components/player/PlayerIdentity.vue'
+import PlayerPlayerHexagon from '~/components/player/PlayerHexagon.vue'
+import PlayerPlayerMatchLog from '~/components/player/PlayerMatchLog.vue'
+import PlayerPlayerTrend from '~/components/player/PlayerTrend.vue'
+import PlayerShootingZones from '~/components/player/ShootingZones.vue'
+
+definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const route = useRoute()
-const api = useApi()
 const twins = useTwins()
 
-const playerId = computed(() => route.params.id)
-const leagueKey = computed(() => route.query.league || 'nba')
+const data = ref<any>(null)
+const pending = ref(true)
+const error = ref<string | null>(null)
+const activeSeason = ref<string>('')
+const teamNames = ref<Record<string, string>>({})
 
-const loading = ref(true)
-const seasonData = ref(null)
-const playerName = ref('')
-const activeViz = ref('bars')
-const chartSideFilter = ref('all')
+const defaultCohort = { n: 0, min_minutes: 0, label: 'players', subject_qualifies: false }
 
-// ── The twin (football only — keyed by the FS entity id string) ──
-const twin = ref<TwinPlayer | null>(null)
-const twinCohort = ref<number[]>([])
-const twinTeamNames = ref<Record<string, string>>({})
+const sport = computed<'football' | 'basketball'>(() =>
+  data.value?.sport === 'basketball' ? 'basketball' : 'football'
+)
+const seasons = computed<string[]>(() => data.value?.seasons || [])
+const hasZones = computed(() =>
+  Array.isArray(data.value?.zones) && data.value.zones.some((z: any) => Number(z?.att) > 0)
+)
 
-// ── The basketball twin (also keyed by the FS entity id string) ──
-const bballTwin = ref<BasketballPlayerTwin | null>(null)
-const bballCohort = ref({
-  points: [] as number[],
-  rebounds: [] as number[],
-  assists: [] as number[],
-  plusMinus: [] as number[],
-  tsPct: [] as number[],
-  efgPct: [] as number[],
-})
-const bballTeamNames = ref<Record<string, string>>({})
-
-const isFootballId = computed(() => /^[A-Za-z0-9]{6,12}$/.test(String(playerId.value)) && isNaN(Number(playerId.value)))
-
-const vizTypes = [
-  { key: 'bars', label: 'Bars' },
-  { key: 'radar', label: 'Radar' },
-  { key: 'heat', label: 'Heat' },
-]
-const sideFilters = [
-  { key: 'all', label: 'All' },
-  { key: 'home', label: 'Home' },
-  { key: 'away', label: 'Away' },
-]
-
-const currentSeason = computed(() => {
-  const now = new Date()
-  const y = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1
-  return `${y}/${String(y + 1).slice(2)}`
-})
-
-// ─── Fetch data ──────────────────────────────────────────
-
-onMounted(async () => {
+async function load(season?: string) {
+  pending.value = true
+  error.value = null
   try {
-    const data = await api.fetchPlayerSeason(Number(playerId.value), leagueKey.value)
-    seasonData.value = data
-    if (data?.playerName) {
-      playerName.value = formatName(data.playerName)
-    } else {
-      playerName.value = route.query.name || `Player #${playerId.value}`
-    }
-  } catch (e) {
-    console.error('Failed to load player:', e)
+    const q = season ? `?season=${encodeURIComponent(season)}` : ''
+    const res = await $fetch<any>(`/api/player/${route.params.id}/season${q}`)
+    data.value = res
+    activeSeason.value = res?.season || season || ''
+
+    // Resolve the club ids in `teams_played` to names for the career list.
+    const ids = Object.keys(res?.player?.teams_played || {})
+    teamNames.value = ids.length ? await twins.fetchTeamNames(ids) : {}
+  } catch (e: any) {
+    error.value = e?.data?.message || e?.message || 'Unknown error'
+    data.value = null
   } finally {
-    loading.value = false
+    pending.value = false
+  }
+}
+
+function selectSeason(s: string) {
+  if (s === activeSeason.value) return
+  load(s)
+}
+
+const shortSeason = (s: string) => {
+  const m = /^(\d{4})-(\d{4})$/.exec(s || '')
+  return m ? `${m[1].slice(2)}/${m[2].slice(2)}` : s
+}
+
+/** The headline counting stats, per sport. */
+const totalCards = computed(() => {
+  const t = data.value?.totals
+  if (!t) return []
+  const num = (v: any) => (v == null ? null : Number(v))
+  const rows: { k: string; n: number; dp?: number; suffix?: string }[] = []
+  const add = (k: string, v: any, dp = 0, suffix = '') => {
+    const n = num(v)
+    if (n != null && !Number.isNaN(n)) rows.push({ k, n, dp, suffix })
   }
 
-  // The twin is football-only. The basketball season fetch above fails for a
-  // string id (it feeds Number()), which is exactly the football case — fetch
-  // the twin independently and render it above the basketball-only sections.
-  if (isFootballId.value) {
-    try {
-      const t = await twins.fetchTwinPlayer(String(playerId.value))
-      if (t) {
-        twin.value = t
-        if (t.position) {
-          twinCohort.value = await twins.fetchPlayerPositionCohort(t.position)
-        }
-        // Resolve club names for the career list.
-        const teamIds = Object.keys(t.teams_played || {})
-        if (teamIds.length) {
-          twinTeamNames.value = await twins.fetchTeamNames(teamIds)
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load player twin:', e)
-    }
+  if (sport.value === 'basketball') {
+    add('Games', t.games)
+    add('Minutes', t.minutes)
+    add('Points', t.pts)
+    add('Rebounds', t.reb)
+    add('Assists', t.ast)
+    add('Steals', t.stl)
+    add('Blocks', t.blk)
+    add('PTS / 36', t.pts36, 1)
+    add('TS%', t.ts_pct, 1, '%')
+    add('eFG%', t.efg_pct, 1, '%')
+  } else {
+    add('Apps', t.apps)
+    add('Starts', t.starts)
+    add('Minutes', t.minutes)
+    add('Goals', t.goals)
+    add('Assists', t.assists)
+    add('Rating', t.rating, 2)
+    add('xG', t.xg, 2)
+    add('Shots', t.shots)
+    add('On target', t.sot)
+    add('Pass acc.', t.pass_acc, 1, '%')
   }
-
-  // The basketball twin is keyed on the FS entity id string; NBA game pages
-  // link by personId. Resolve the personId first, then fall back to trying the
-  // raw id as an FS id. A conflict stays unresolved and shows the no-twin note.
-  try {
-    const rawId = String(playerId.value)
-    const fsId = (await twins.resolveBasketballPlayerId(rawId)) ?? rawId
-    const bt = await twins.fetchBasketballTwinPlayer(fsId)
-    if (bt) {
-      bballTwin.value = bt
-      if (bt.position) {
-        bballCohort.value = await twins.fetchBasketballPositionCohort(bt.position)
-      }
-      const teamIds = Object.keys(bt.teams_played || {})
-      if (teamIds.length) {
-        bballTeamNames.value = await twins.fetchTeamNames(teamIds)
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load basketball player twin:', e)
-  }
+  return rows
 })
 
-// ─── Season Avg cards ────────────────────────────────────
+watch(() => route.params.id, () => load(), { immediate: true })
 
-const avgCards = computed(() => {
-  const avg = seasonData.value?.averages
-  if (!avg) return []
-  return [
-    { key: 'pts', label: 'PPG', value: avg.pts },
-    { key: 'reb', label: 'RPG', value: avg.reb },
-    { key: 'ast', label: 'APG', value: avg.ast },
-    { key: 'min', label: 'MPG', value: avg.min },
-    { key: 'fgPct', label: 'FG%', value: avg.fgPct + '%' },
-    { key: 'fg3Pct', label: '3P%', value: avg.fg3Pct + '%' },
-  ]
+useHead({
+  title: computed(() => `${data.value?.player?.name || 'Player'} · Protero`),
 })
-
-// ─── Filtered games ─────────────────────────────────────
-
-const filteredGames = computed(() => {
-  const games = seasonData.value?.games
-  if (!games?.length) return []
-  const reversed = [...games].reverse().slice(-15)
-  if (chartSideFilter.value === 'all') return reversed
-  return reversed.filter(g => g.side === chartSideFilter.value)
-})
-
-function filteredAvg(key) {
-  const games = filteredGames.value
-  if (!games.length) return 0
-  const sum = games.reduce((acc, g) => acc + (g.player_stats?.[key] ?? 0), 0)
-  return +(sum / games.length).toFixed(1)
-}
-
-function getStatVal(game, key) {
-  return game?.player_stats?.[key] ?? 0
-}
-
-// ─── Bar Chart ──────────────────────────────────────────
-
-const barMetrics = [
-  { key: 'pts', label: 'Points', max: 50 },
-  { key: 'reb', label: 'Rebounds', max: 20 },
-  { key: 'ast', label: 'Assists', max: 15 },
-]
-
-function barPct(val, max) {
-  return Math.min((val / max) * 100, 100)
-}
-
-function formatOppShort(name) {
-  if (!name) return ''
-  const words = name.split(' ')
-  if (words.length <= 1) return name.slice(0, 3).toUpperCase()
-  return words.map(w => w[0]).join('').toUpperCase().slice(0, 3)
-}
-
-// ─── Radar ──────────────────────────────────────────────
-
-const radarAxes = [
-  { key: 'pts', label: 'PTS', max: 40 },
-  { key: 'reb', label: 'REB', max: 15 },
-  { key: 'ast', label: 'AST', max: 12 },
-  { key: 'stl', label: 'STL', max: 5 },
-  { key: 'blk', label: 'BLK', max: 5 },
-]
-
-function radarAngle(i) {
-  return (Math.PI * 2 * i) / radarAxes.length - Math.PI / 2
-}
-
-function radarRingPoints(scale) {
-  return radarAxes.map((_, i) => {
-    const a = radarAngle(i)
-    return `${110 + 80 * scale * Math.cos(a)},${110 + 80 * scale * Math.sin(a)}`
-  }).join(' ')
-}
-
-function last5Avg(key) {
-  const games = filteredGames.value.slice(-5)
-  if (!games.length) return 0
-  const sum = games.reduce((acc, g) => acc + (g.player_stats?.[key] ?? 0), 0)
-  return +(sum / games.length).toFixed(1)
-}
-
-function radarPolygon(type) {
-  return radarAxes.map((axis, i) => {
-    const a = radarAngle(i)
-    let val
-    if (type === 'avg') {
-      val = seasonData.value?.averages?.[axis.key] ?? 0
-    } else {
-      val = last5Avg(axis.key)
-    }
-    const ratio = Math.min(val / axis.max, 1)
-    return `${110 + 80 * ratio * Math.cos(a)},${110 + 80 * ratio * Math.sin(a)}`
-  }).join(' ')
-}
-
-// ─── Heat Map ───────────────────────────────────────────
-
-const heatMetrics = [
-  { key: 'pts', label: 'PTS' },
-  { key: 'reb', label: 'REB' },
-  { key: 'ast', label: 'AST' },
-  { key: 'stl', label: 'STL' },
-  { key: 'fg3m', label: '3PT' },
-]
-
-function heatColor(val, key) {
-  const avg = filteredAvg(key) || 1
-  const ratio = val / (avg || 1)
-  if (ratio <= 0.3) return 'rgba(248, 40, 40, 0.35)'
-  if (ratio <= 0.7) return 'rgba(248, 40, 40, 0.18)'
-  if (ratio <= 1.0) return 'rgba(42, 47, 58, 0.25)'
-  if (ratio <= 1.5) return 'rgba(8, 72, 168, 0.2)'
-  return 'rgba(8, 72, 168, 0.4)'
-}
-
-function formatHeatDate(dateStr) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return `${d.getDate()}/${d.getMonth() + 1}`
-}
-
-function formatGameDate(dateStr) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  return `${months[d.getMonth()]} ${d.getDate()}`
-}
-
-function formatName(name) {
-  if (!name) return ''
-  const parts = name.split(', ')
-  if (parts.length === 2) {
-    const last = parts[0].charAt(0) + parts[0].slice(1).toLowerCase()
-    const first = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase()
-    return `${first} ${last}`
-  }
-  return name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-}
 </script>
 
 <style scoped>
-/* Same bar/heat chart styles as the modal */
-.bar-chart-container {
-  position: relative;
-  height: 160px;
-  background: rgba(42, 47, 58, 0.15);
-  border-radius: 8px;
-  padding: 8px 4px 24px;
-}
-.bar-grid-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: rgba(42, 47, 58, 0.3);
-}
-.avg-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  border-top: 1.5px dashed #f82828;
-  opacity: 0.5;
-  z-index: 2;
-}
-.avg-line-label {
-  position: absolute;
-  right: 4px;
-  top: -14px;
-  font-size: 9px;
-  color: #f82828;
-  font-weight: 700;
-}
-.bars-row {
+.ph-head {
   display: flex;
-  align-items: flex-end;
-  height: 100%;
-  gap: 2px;
-  padding-bottom: 0;
-}
-.bar-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  min-width: 0;
-}
-.bar-wrapper {
+  justify-content: space-between;
+  gap: 1rem;
   width: 100%;
-  height: 120px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
 }
-.bar {
-  width: 80%;
-  max-width: 20px;
-  border-radius: 3px 3px 0 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  transition: height 0.4s ease;
-  transition-delay: var(--bar-delay, 0ms);
-  position: relative;
+.ph-season { display: flex; align-items: center; gap: 0.5rem; }
+.ph-season-one {
+  font-size: 0.65rem; color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
 }
-.bar-above { background: rgba(8, 72, 168, 0.5); }
-.bar-below { background: rgba(248, 40, 40, 0.3); }
-.bar-value {
-  font-size: 8px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.7);
-  position: absolute;
-  top: -14px;
-}
-.bar-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+
+.ph-court-body { padding: 0.7rem; }
+
+.ph-total-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
   gap: 1px;
-  margin-top: 3px;
-  min-height: 20px;
+  background: var(--edge-soft);
 }
-.heat-cell-h {
-  width: 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
+.ph-total {
+  padding: 0.6rem 0.7rem;
+  background: var(--surface);
 }
-.heat-cell {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255,255,255,0.8);
+.ph-total-v {
+  font-size: 1.05rem; font-weight: 700; color: var(--ink-strong);
+  font-variant-numeric: tabular-nums; line-height: 1.15;
+}
+.ph-total-suffix { font-size: 0.7rem; font-weight: 600; color: var(--ink-mute); }
+.ph-total-k {
+  font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-faint); font-weight: 600; margin-top: 0.1rem;
+}
+
+.ph-note, .ph-error, .ph-empty { padding: 1rem; }
+.ph-error-t, .ph-empty-t { font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); }
+.ph-error-t { color: var(--brand-red-hi); }
+.ph-error-b, .ph-empty-b {
+  margin-top: 0.35rem; font-size: 0.65rem; line-height: 1.6;
+  color: var(--ink-faint); max-width: 60ch;
+}
+.ph-empty-b code, .ph-empty-t code {
+  padding: 0.05rem 0.25rem; border-radius: var(--r-sm);
+  background: var(--neutral-tint); color: var(--ink-soft); font-size: 0.95em;
+}
+.ph-note { font-size: 0.62rem; color: var(--ink-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pane-in { animation: none; }
 }
 </style>

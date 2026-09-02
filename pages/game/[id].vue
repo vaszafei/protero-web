@@ -18,13 +18,35 @@
       </button>
 
       <!-- ── HERO: home stats rail · centered scorecard + court · away stats rail ── -->
-      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)_minmax(0,1fr)] gap-3 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)_minmax(0,1fr)] gap-3 items-start">
         <Reveal :delay="0" class="min-w-0 space-y-3">
-          <TeamStatsRail side="home" :game="data.game" :sport="gameSport" />
+          <!-- Basketball has no scalar stat columns — they are NULL by design —
+               so its rail derives team totals from the box score instead. -->
+          <GameBasketballTeamRail
+            v-if="showBballRails"
+            side="home"
+            :sport-stats="data.game.sport_stats"
+            :team-name="data.game.home_name"
+          />
+          <TeamStatsRail v-else side="home" :game="data.game" :sport="gameSport" />
           <TeamRatingsCard v-if="showRatings" side="home" :lineup="data.lineups.home" :league-key="data.game.league_key" />
         </Reveal>
         <Reveal :delay="40" class="min-w-0 space-y-3">
           <GameHeader :game="data.game" :sport="gameSport" />
+
+          <GameQuarterFlow
+            v-if="showQuarterFlow"
+            :quarters="data.game.sport_stats.quarters"
+            :home-name="data.game.home_name"
+            :away-name="data.game.away_name"
+          />
+
+          <GameGameLeaders
+            v-if="showBballRails"
+            :sport-stats="data.game.sport_stats"
+            :home-name="data.game.home_name"
+            :away-name="data.game.away_name"
+          />
 
           <!-- The court sits in the middle column, directly under the scorecard -->
           <section v-if="showPitch" class="panel overflow-hidden">
@@ -64,7 +86,13 @@
           </section>
         </Reveal>
         <Reveal :delay="80" class="min-w-0 space-y-3">
-          <TeamStatsRail side="away" :game="data.game" :sport="gameSport" mirror />
+          <GameBasketballTeamRail
+            v-if="showBballRails"
+            side="away"
+            :sport-stats="data.game.sport_stats"
+            :team-name="data.game.away_name"
+          />
+          <TeamStatsRail v-else side="away" :game="data.game" :sport="gameSport" mirror />
           <TeamRatingsCard v-if="showRatings" side="away" :lineup="data.lineups.away" :league-key="data.game.league_key" mirror />
         </Reveal>
       </div>
@@ -145,9 +173,15 @@
                   </div>
                 </div>
 
-                <!-- Market ladder (scheduled football) -->
+                <!-- Market board (scheduled football) — the price, our number,
+                     and whether the gap is one we have evidence for. The raw
+                     alt-line ladder sits underneath it, unchanged. -->
                 <div v-else-if="activeTab === 'market'">
-                  <OddsLadder :odds-raw="data.game.odds_raw" />
+                  <GameMarketBoard :game-id="data.game.id" />
+                  <details class="ladder-details">
+                    <summary class="ladder-summary">Full alt-line ladder</summary>
+                    <OddsLadder :odds-raw="data.game.odds_raw" />
+                  </details>
                 </div>
 
                 <!-- Analysis -->
@@ -229,6 +263,10 @@ import OddsLadder from '~/components/game/OddsLadder.vue'
 import FormationPitch from '~/components/game/FormationPitch.vue'
 import FantasyProjections from '~/components/game/FantasyProjections.vue'
 import PlayerPropsUpload from '~/components/PlayerPropsUpload.vue'
+import GameBasketballTeamRail from '~/components/game/BasketballTeamRail.vue'
+import GameQuarterFlow from '~/components/game/QuarterFlow.vue'
+import GameGameLeaders from '~/components/game/GameLeaders.vue'
+import GameMarketBoard from '~/components/game/MarketBoard.vue'
 
 definePageMeta({
   layout: 'default',
@@ -335,6 +373,27 @@ const showPitch = computed(() => {
 // Per-team ratings cards render under each stat rail when a lineup exists.
 const showRatings = computed(() => {
   return isCompleted.value && gameSport.value === 'football' && hasLineups.value
+})
+
+/**
+ * Basketball side rails.
+ *
+ * `TeamStatsRail` reads `home_shots` / `home_corners` / `home_possession_pct`,
+ * which the sport split NULLed for every basketball fixture — so it rendered
+ * "No stats recorded" on both sides and wasted ~50% of the page width. The
+ * basketball rail derives its totals from the box score instead, which is where
+ * basketball team stats actually live.
+ */
+const showBballRails = computed(() =>
+  isCompleted.value && gameSport.value === 'basketball' && hasBballPlayers.value
+)
+
+/** `sport_stats.quarters` is present on ~8% of completed basketball fixtures. */
+const showQuarterFlow = computed(() => {
+  const q = data.value?.game?.sport_stats?.quarters
+  return !!(isCompleted.value
+    && gameSport.value === 'basketball'
+    && Array.isArray(q?.home) && q.home.length > 0)
 })
 
 // The timeline is its own always-visible band above the tabs — it is the one
@@ -488,6 +547,30 @@ useHead({
 </script>
 
 <style scoped>
+/* The raw ladder is reference material now that the board is the lead — it
+   opens on demand rather than being the first thing on the page. */
+.ladder-details { margin-top: 1rem; }
+.ladder-summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--edge);
+  background: var(--neutral-tint);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--ink-mute);
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+.ladder-summary::-webkit-details-marker { display: none; }
+.ladder-summary::before { content: '+'; font-weight: 700; opacity: 0.7; }
+.ladder-details[open] .ladder-summary::before { content: '−'; }
+.ladder-summary:hover { color: var(--ink); border-color: var(--brand-blue-edge); }
+.ladder-details[open] .ladder-summary { margin-bottom: 0.75rem; }
+
 /* Timeline colour key — lives in the panel head so the plot itself does not
    spend a whole row on a legend. */
 .tl-key {

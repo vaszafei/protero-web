@@ -7,7 +7,7 @@
 
     <!-- One-line: [home_val] [bar] [away_val] -->
     <div class="grid grid-cols-[40px_1fr_40px] items-center gap-2">
-      <span class="text-right text-[12px] font-semibold text-[#e8a0a0] tabular-nums">{{ homeValue }}{{ suffix }}</span>
+      <span class="text-right text-[12px] font-semibold text-brand-blue tabular-nums">{{ homeValue }}{{ suffix }}</span>
 
       <div class="flex items-center gap-0">
         <!-- Home bar: grows RIGHT-TO-LEFT from center -->
@@ -29,7 +29,7 @@
         </div>
       </div>
 
-      <span class="text-left text-[12px] font-semibold text-[#a0b8e8] tabular-nums">{{ awayValue }}{{ suffix }}</span>
+      <span class="text-left text-[12px] font-semibold text-brand-red tabular-nums">{{ awayValue }}{{ suffix }}</span>
     </div>
   </div>
 </template>
@@ -123,11 +123,11 @@ const awayBarClass = computed(() => {
 }
 
 .home-bar {
-  background: #3987e5;
+  background: var(--brand-blue);
 }
 
 .away-bar {
-  background: #d95926;
+  background: var(--brand-red);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,6 +1,8 @@
 export default defineNuxtConfig({
   modules: ['@nuxt/ui'],
-  css: ['~/assets/css/panels.css'],
+  // tokens.css must load FIRST — panels.css and every component `<style>`
+  // resolve their custom properties from it.
+  css: ['~/assets/css/tokens.css', '~/assets/css/panels.css'],
   app: {
     head: {
       title: 'ΠροΤερο Admin',

@@ -10,7 +10,7 @@
         </div>
       </div>
       <p class="text-xs text-zinc-400">{{ formatDate(game.date) }} · <span class="text-zinc-300 font-medium">{{ formatTime(game.date) }}</span></p>
-      <div class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-[#f82828]/20 via-edge/40 to-[#0848a8]/20" />
+      <div class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-brand-red/20 via-edge/40 to-brand-blue/20" />
     </div>
 
     <!-- Match Score — centered scorecard, logos either side of the score -->
@@ -26,11 +26,11 @@
               class="w-12 h-12 sm:w-16 sm:h-16 object-contain"
               @error="homeImgError = true"
             />
-            <div v-else class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#3987e5]/12 border border-[#3987e5]/25 flex items-center justify-center">
-              <span class="text-base sm:text-xl font-extrabold text-[#3987e5]/80 tracking-tight">{{ homeAbbr }}</span>
+            <div v-else class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-brand-blue/12 border border-brand-blue/25 flex items-center justify-center">
+              <span class="text-base sm:text-xl font-extrabold text-brand-blue/80 tracking-tight">{{ homeAbbr }}</span>
             </div>
           </div>
-          <h1 class="text-xs sm:text-base font-semibold text-zinc-100 text-center leading-tight">{{ game.home_name }}</h1>
+          <h1 class="team-name text-xs sm:text-sm font-semibold text-zinc-100 text-center">{{ game.home_name }}</h1>
           <p v-if="sport === 'football' && game.home_formation" class="text-[10px] sm:text-xs text-zinc-500">{{ game.home_formation }}</p>
         </div>
 
@@ -74,11 +74,11 @@
               class="w-12 h-12 sm:w-16 sm:h-16 object-contain"
               @error="awayImgError = true"
             />
-            <div v-else class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#d95926]/12 border border-[#d95926]/25 flex items-center justify-center">
-              <span class="text-base sm:text-xl font-extrabold text-[#d95926]/80 tracking-tight">{{ awayAbbr }}</span>
+            <div v-else class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-brand-red/12 border border-brand-red/25 flex items-center justify-center">
+              <span class="text-base sm:text-xl font-extrabold text-brand-red/80 tracking-tight">{{ awayAbbr }}</span>
             </div>
           </div>
-          <h1 class="text-xs sm:text-base font-semibold text-zinc-100 text-center leading-tight">{{ game.away_name }}</h1>
+          <h1 class="team-name text-xs sm:text-sm font-semibold text-zinc-100 text-center">{{ game.away_name }}</h1>
           <p v-if="sport === 'football' && game.away_formation" class="text-[10px] sm:text-xs text-zinc-500">{{ game.away_formation }}</p>
         </div>
       </div>
@@ -483,6 +483,24 @@ const betSheetProbPct = computed(() => {
 </script>
 
 <style scoped>
+/*
+ * "New York Knicks" and "San Antonio Spurs" wrapped to THREE lines in the
+ * 160px name column and pushed the whole scorecard out of shape. Two lines
+ * max, balanced so a two-word name does not break as 1 + 1 orphan, and
+ * ellipsed past that.
+ */
+.team-name {
+  line-height: 1.2;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
 .game-header-card {
   /* Background/border come from the shared .panel-glass class (panels.css);
      this rule only adds the extra outer glow .panel-glass doesn't define. */

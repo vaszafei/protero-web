@@ -144,52 +144,9 @@
 
       <!-- Basketball Stats from sport_stats -->
       <div v-if="!isFootball && hasBballStats">
-        <!-- Quarter Scores -->
-        <div v-if="quarters" class="mb-4">
-          <div class="overflow-x-auto">
-            <table class="w-full text-center text-sm">
-              <thead>
-                <tr>
-                  <th class="text-left pb-2.5 w-9"></th>
-                  <th
-                    v-for="(_, i) in quarters" :key="i"
-                    class="pb-2.5 px-1 text-xs font-semibold"
-                    :class="i >= 4 ? 'text-amber-400' : 'text-zinc-400'"
-                  >{{ i < 4 ? 'Q' + (i + 1) : 'OT' + (i - 3) }}</th>
-                  <th class="pb-2.5 px-1 text-xs font-bold text-zinc-300">T</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="py-1.5 pr-2">
-                    <img v-if="homeLogo" :src="homeLogo" class="w-7 h-7 object-contain" :alt="game.home_name" @error="(e) => e.target.style.display='none'" />
-                    <span v-else class="text-zinc-300 text-xs font-bold">{{ game.home_name?.split(' ').pop()?.slice(0, 3) }}</span>
-                  </td>
-                  <td
-                    v-for="(q, i) in quarters" :key="'h'+i"
-                    class="py-1.5 px-1 tabular-nums font-semibold"
-                    :class="q[0] > q[1] ? 'text-zinc-100' : 'text-zinc-500'"
-                  >{{ q[0] }}</td>
-                  <td class="py-1.5 px-1 tabular-nums font-bold text-zinc-100">{{ game.home_goals }}</td>
-                </tr>
-                <tr>
-                  <td class="py-1.5 pr-2">
-                    <img v-if="awayLogo" :src="awayLogo" class="w-7 h-7 object-contain" :alt="game.away_name" @error="(e) => e.target.style.display='none'" />
-                    <span v-else class="text-zinc-300 text-xs font-bold">{{ game.away_name?.split(' ').pop()?.slice(0, 3) }}</span>
-                  </td>
-                  <td
-                    v-for="(q, i) in quarters" :key="'a'+i"
-                    class="py-1.5 px-1 tabular-nums font-semibold"
-                    :class="q[1] > q[0] ? 'text-zinc-100' : 'text-zinc-500'"
-                  >{{ q[1] }}</td>
-                  <td class="py-1.5 px-1 tabular-nums font-bold text-zinc-100">{{ game.away_goals }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div v-if="quarters" class="border-t border-edge my-2" />
+        <!-- Quarter scores are NOT repeated here: `QuarterFlow` in the centre
+             column plots the running margin and carries the same table under
+             it. This panel starts at the shooting splits. -->
 
         <!-- Shooting (made/attempted with inline percentage) -->
         <div class="space-y-0">
@@ -199,20 +156,20 @@
           </div>
           <div class="grid grid-cols-[64px_1fr_64px] items-center gap-2">
             <div class="text-right">
-              <span class="text-[13px] font-semibold text-[#e8a0a0] tabular-nums">{{ shot.homeMade }}/{{ shot.homeAtt }}</span>
+              <span class="text-[13px] font-semibold text-brand-blue tabular-nums">{{ shot.homeMade }}/{{ shot.homeAtt }}</span>
               <span class="block text-[10px] text-zinc-500 tabular-nums">{{ shot.homePct }}%</span>
             </div>
             <div class="flex items-center gap-0">
               <div class="flex-1 h-[5px] bg-surface-light/60 rounded-l-full overflow-hidden flex justify-end">
-                <div class="h-full rounded-l-full bg-gradient-to-l from-[#f82828]/60 to-[#f82828]/30" :style="{ width: shot.homePct + '%' }" />
+                <div class="h-full rounded-l-full bg-gradient-to-l from-brand-blue/60 to-brand-blue/25" :style="{ width: shot.homePct + '%' }" />
               </div>
               <div class="w-px h-3 bg-zinc-600/60 flex-shrink-0" />
               <div class="flex-1 h-[5px] bg-surface-light/60 rounded-r-full overflow-hidden">
-                <div class="h-full rounded-r-full bg-gradient-to-r from-[#0848a8]/30 to-[#0848a8]/60" :style="{ width: shot.awayPct + '%' }" />
+                <div class="h-full rounded-r-full bg-gradient-to-r from-brand-red/25 to-brand-red/60" :style="{ width: shot.awayPct + '%' }" />
               </div>
             </div>
             <div class="text-left">
-              <span class="text-[13px] font-semibold text-[#a0b8e8] tabular-nums">{{ shot.awayMade }}/{{ shot.awayAtt }}</span>
+              <span class="text-[13px] font-semibold text-brand-red tabular-nums">{{ shot.awayMade }}/{{ shot.awayAtt }}</span>
               <span class="block text-[10px] text-zinc-500 tabular-nums">{{ shot.awayPct }}%</span>
             </div>
           </div>

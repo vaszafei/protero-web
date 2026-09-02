@@ -1,0 +1,125 @@
+/*
+ * ΠροΤερο design tokens — the single palette.
+ *
+ * Before this file there were FOUR competing definitions of the brand red/blue:
+ * the logo itself (#f02020 / #0040a0, sampled from public/proteroLogo.png —
+ * 60.4% white, 23.5% red, 8.7% blue), the splash screen (#f82828 / #0848a8),
+ * `utils/viz.ts`'s VIZ_BRAND pair (#fd2528 / #2d6fd4), and 22 component files
+ * carrying raw hex. A fifth, `utils/design-tokens.ts`, was imported by nothing.
+ *
+ * Everything below is derived from the logo and validated:
+ *
+ *   node scripts/validate_palette.js "#4d8fff,#f8514f" --balanced
+ *   → L 0.662 / 0.666, ΔL 0.004, contrast 5.25:1 / 4.93:1, ΔE(deutan) 0.308
+ *
+ * The pair that shipped until 2026-09-02 passed every check EXCEPT lightness
+ * balance (ΔL 0.081), which is precisely why the league Analysis "Home vs Away"
+ * bar read as an alert rather than two series. Re-run the validator with
+ * --balanced before changing any categorical hex here.
+ *
+ * ── The brand rule ────────────────────────────────────────────────────────
+ * Red is HOSTILE: the away side, a loss, a failing gate, money lost.
+ * Blue is HOME and neutral-positive: the home side, the model, a live process.
+ * Green is MONEY-POSITIVE only — never a series colour.
+ * This is what keeps the logo's red a semantic instead of decoration. A red
+ * that means five different things means nothing.
+ */
+
+:root {
+  /* ── Brand ─────────────────────────────────────────────────────────────
+     `-pure` is the logo as sampled. It is legible on WHITE and is used only
+     for the wordmark and for large fills that carry no text. Never set it as
+     a text or a 1px-stroke colour on a dark surface: #0040a0 scores 1.76:1 on
+     the panel, far under the 3:1 graphical-object floor.
+     `-lit` is the dark-surface-safe pair — the one marks and text use. */
+  --brand-red-pure: #f02020;
+  --brand-blue-pure: #0040a0;
+  --brand-red: #f8514f;
+  --brand-blue: #4d8fff;
+
+  /* Hover/active steps — same hue, one lightness step up. */
+  --brand-red-hi: #ff6b6b;
+  --brand-blue-hi: #7aabff;
+
+  /* Tints for fills behind text, and hairlines. Alpha over the surface, so a
+     tint composites correctly on any of the three surface steps. */
+  --brand-red-tint: rgba(248, 81, 79, 0.14);
+  --brand-blue-tint: rgba(77, 143, 255, 0.14);
+  --brand-red-edge: rgba(248, 81, 79, 0.35);
+  --brand-blue-edge: rgba(77, 143, 255, 0.35);
+
+  /* ── Surfaces ──────────────────────────────────────────────────────────
+     Three steps, and only three. `base` is the page, `panel` is a card,
+     `lift` is the one element per page that should be looked at first. */
+  --surface-base: #14161b;
+  --surface: #1c1f27;
+  --surface-panel: #252830;
+  --surface-lift: #232732;
+  --surface-hover: #2d3139;
+
+  /* The panel gradient — kept from panels.css so the existing look survives. */
+  --panel-grad: linear-gradient(165deg, rgba(37, 40, 48, 0.5), rgba(24, 27, 34, 0.98));
+
+  /* ── Edges ─────────────────────────────────────────────────────────────── */
+  --edge: #2a2f3a;
+  --edge-lit: #353c48;
+  --edge-soft: rgba(42, 47, 58, 0.4);
+
+  /* ── Ink ───────────────────────────────────────────────────────────────
+     Five steps. `strong` is a headline figure, `mute` is a unit or an n,
+     `faint` is a caption you are not meant to read first. */
+  --ink-strong: #f4f5f7;
+  --ink: #e4e7ec;
+  --ink-soft: #a1a1aa;
+  --ink-mute: #71717a;
+  --ink-faint: #52525b;
+
+  /* ── Semantic ──────────────────────────────────────────────────────────
+     Money and state. `positive` is deliberately NOT the brand blue: a wallet
+     in profit and a home team must never be the same colour. */
+  --positive: #34d399;
+  --positive-tint: rgba(52, 211, 153, 0.14);
+  --negative: var(--brand-red);
+  --negative-tint: var(--brand-red-tint);
+  --warning: #fab219;
+  --warning-tint: rgba(250, 178, 25, 0.14);
+  --neutral-tint: rgba(255, 255, 255, 0.06);
+
+  /* ── Data marks ────────────────────────────────────────────────────────
+     Mirrors utils/viz.ts so a CSS bar and an SVG polyline in the same panel
+     cannot drift apart. viz.ts stays the source for anything computed in JS. */
+  --viz-home: #3987e5;
+  --viz-away: #d95926;
+  --viz-third: #199e70;
+  --viz-grid: #343a47;
+  --viz-surface: var(--surface);
+
+  /* ── Motion ────────────────────────────────────────────────────────────
+     Durations and easings as tokens so a transition can be tuned in one
+     place. Every consumer must still ship its own prefers-reduced-motion
+     kill-switch — a token cannot do that for you. */
+  --ease-rise: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-glide: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.55, 0, 0.55, 0.2);
+  --dur-fast: 160ms;
+  --dur: 240ms;
+  --dur-slow: 420ms;
+
+  /* ── Geometry ──────────────────────────────────────────────────────────── */
+  --r-sm: 0.3rem;
+  --r: 0.5rem;
+  --r-lg: 0.75rem;
+  --r-pill: 999px;
+
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 26px -20px rgba(0, 0, 0, 0.9);
+  --shadow-panel-hover: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 14px 30px -18px rgba(0, 0, 0, 0.95);
+  --shadow-lift: 0 8px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-modal: 0 24px 64px -12px rgba(0, 0, 0, 0.75);
+
+  /* ── Layout ────────────────────────────────────────────────────────────
+     This is a desktop operator console. 1760px is wide enough for a 12-column
+     grid at a readable column width and stops a 27" monitor rendering one
+     centred strip with two empty thirds. */
+  --page-max: 1760px;
+  --gutter: 1rem;
+}
