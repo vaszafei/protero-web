@@ -7,6 +7,9 @@ shipped (team trajectory). See `../docs/sessions/2026-09-03-frontend-redesign-ph
 Four things below changed as a result — §0 fact 5 is resolved and a sixth added, §1.1 and
 §1.2 are done, and §2 has four new entries.
 
+- **Next session's brief (Phases 4–6):** `NEXT-SESSION.md` — every claim in it re-verified
+  2026-09-03, including one correction: the §1.5 RLS item below is wrong and acting on it
+  would be a security regression. Read that before Phase 6.
 - **The plan:** `/home/zafnitlab/.claude/plans/drifting-strolling-pancake.md`
 - **What shipped and why:** `../docs/sessions/2026-09-02-frontend-redesign-phase-0-2.md`
 - Frontend commits go to `protero-web`; the migration went to the `protero` repo.
