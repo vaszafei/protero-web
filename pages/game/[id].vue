@@ -199,6 +199,23 @@
                   </div>
                 </div>
 
+                <!-- Shot chart (completed basketball with located shots) -->
+                <div v-else-if="activeTab === 'shots'">
+                  <GameShotChart
+                    v-if="shotData?.available"
+                    :shots="shotData.shots"
+                    :teams="shotData.teams"
+                    :coord-system="shotData.coord_system"
+                    :court="shotData.court"
+                    :home-name="data.game.home_name"
+                    :away-name="data.game.away_name"
+                    :excludes="shotData.excludes"
+                  />
+                  <div v-else class="text-center py-10 text-zinc-500 text-sm">
+                    {{ shotData?.reason || 'No shot locations available' }}
+                  </div>
+                </div>
+
                 <!-- Market board (scheduled football) — the price, our number,
                      and whether the gap is one we have evidence for. The raw
                      alt-line ladder sits underneath it, unchanged. -->
@@ -291,6 +308,7 @@ import FantasyProjections from '~/components/game/FantasyProjections.vue'
 import PlayerPropsUpload from '~/components/PlayerPropsUpload.vue'
 import GameBasketballTeamRail from '~/components/game/BasketballTeamRail.vue'
 import GameQuarterFlow from '~/components/game/QuarterFlow.vue'
+import GameShotChart from '~/components/game/ShotChart.vue'
 import GameGameLeaders from '~/components/game/GameLeaders.vue'
 import GameMarketBoard from '~/components/game/MarketBoard.vue'
 import GamePostMortem from '~/components/game/PostMortem.vue'
@@ -373,10 +391,17 @@ const tabs = computed(() => {
     if (gameSport.value === 'football') {
       return []
     }
-    return [
+    const bt = [
       { key: 'stats', label: 'Game Stats', badge: null },
       { key: 'players', label: 'Player Stats', badge: null },
     ]
+    // Only EuroLeague 2025-2026 is backfilled, so most fixtures have no shot
+    // rows at all — the tab appears when there is something behind it rather
+    // than opening onto an empty court.
+    if (hasShots.value) {
+      bt.push({ key: 'shots', label: 'Shot Chart', badge: shotData.value?.shots?.length ?? null })
+    }
+    return bt
   }
   if (gameSport.value === 'football') return [
     { key: 'market', label: 'Market', badge: null },
@@ -563,6 +588,40 @@ watch(() => data.value?.game, (game) => {
 }, { immediate: true })
 
 // ─── H2H data (for scheduled games) ────────────────────────
+/**
+ * Shot locations, fetched on demand rather than with the fixture.
+ *
+ * A EuroLeague game carries ~160 located field goals and the endpoint returns
+ * one object per shot, so bundling this into the page payload would grow every
+ * fixture request — including the football ones, which can never have shots —
+ * to pay for a tab most visitors never open. It is therefore requested once,
+ * the first time the fixture is known to be a completed basketball game, and
+ * cached in the ref afterwards.
+ */
+const shotData = ref<Record<string, any> | null>(null)
+const shotsLoading = ref(false)
+const hasShots = computed(() => (shotData.value?.shots?.length ?? 0) > 0)
+
+async function loadShots() {
+  const g = data.value?.game
+  if (!g || shotData.value || shotsLoading.value) return
+  if (!isCompleted.value || gameSport.value !== 'basketball') return
+  shotsLoading.value = true
+  try {
+    shotData.value = await $fetch(`/api/game/${g.id}/shots`)
+  } catch (e) {
+    console.warn('Shot chart fetch failed:', e)
+    // Leave `shotData` null: the tab simply does not appear, which is the same
+    // outcome as a fixture with no shots and needs no separate error state.
+  } finally {
+    shotsLoading.value = false
+  }
+}
+
+watch(() => data.value?.game, (game) => {
+  if (game) loadShots()
+}, { immediate: true })
+
 const h2hData = ref(null)
 const h2hLoading = ref(false)
 

@@ -138,8 +138,12 @@ const zones = computed(() => {
   }))
 })
 
+// These are the BOXSCORE's zone totals, which every basketball fixture has.
+// Per-shot coordinates are a different feed and exist only where the shot
+// backfill has run (EuroLeague 2025-2026), so this panel does not depend on
+// them — where they do exist the Shot Chart tab plots them individually.
 const courtNote = computed(() =>
-  'Zone totals for this game, not a shot chart — the feed carries makes and attempts, no shot coordinates. Shading compares each zone with the opposing team in this fixture.'
+  'Zone totals for this game, not a shot chart — these are makes and attempts per zone, not individual shot locations. Shading compares each zone with the opposing team in this fixture.'
 )
 
 interface Factor {
