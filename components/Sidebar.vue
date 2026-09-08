@@ -54,6 +54,18 @@
 
       <NuxtLink 
         v-if="isAdmin"
+        to="/fantasy" 
+        class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
+        active-class="bg-surface-light text-white"
+        @click="$emit('navigate')"
+      >
+        <Sparkles :size="18" />
+        <span class="text-sm font-medium">Fantasy DFS</span>
+      </NuxtLink>
+
+
+      <NuxtLink 
+        v-if="isAdmin"
         to="/gates" 
         class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] mt-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-light transition-colors"
         active-class="bg-surface-light text-white"
@@ -105,7 +117,7 @@
 </template>
 
 <script setup>
-import { LayoutGrid, CalendarDays, User, LogOut, Shield, ShieldCheck, Trophy, Wallet } from 'lucide-vue-next'
+import { LayoutGrid, CalendarDays, User, LogOut, Shield, ShieldCheck, Trophy, Wallet, Sparkles } from 'lucide-vue-next'
 
 defineEmits(['navigate'])
 

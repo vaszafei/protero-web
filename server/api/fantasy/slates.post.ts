@@ -50,6 +50,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{
     csv: string
     tournament: string
+    league_key?: string
     contest?: Record<string, any>
   }>(event)
 
@@ -84,6 +85,7 @@ export default defineEventHandler(async (event) => {
     .from('fantasy_slates')
     .insert({
       tournament: body.tournament,
+      league_key: body.league_key || null,
       source_player_csv: null,
       contest_name: c.name || null,
       field_size: c.field_size || null,

@@ -15,6 +15,26 @@ const loading = ref(true)
 // ── slate intake ──────────────────────────────────────────────────────────
 const csvText = ref('')
 const tournament = ref('Greek Super League')
+const leagueKey = ref('greek_super_league')
+
+// Known contests (owner-confirmed). Selecting a league pre-fills the
+// contest parameters with its known rules, where they are resolved.
+const LEAGUES = [
+  { key: 'greek_super_league', label: 'Greek Super League' },
+  { key: 'champions_league', label: 'Champions League' },
+  { key: 'europa_league', label: 'Europa League' },
+  { key: 'conference_league', label: 'Conference League' },
+]
+const LEAGUE_CONTEST_DEFAULTS: Record<string, Record<string, any>> = {
+  greek_super_league: {
+    name: 'Greek Freeroll', field_size: 344, prize_pool: '€500.00',
+    salary_cap: 65, salary_cap_unit: 'M', lineup_size: 6,
+  },
+  champions_league: {
+    name: 'CL Satellite', field_size: 4984, prize_pool: '€115.00',
+    salary_cap: 63, salary_cap_unit: 'M', lineup_size: 6,
+  },
+}
 const contest = reactive({
   name: '',
   field_size: undefined as number | undefined,
@@ -24,6 +44,21 @@ const contest = reactive({
   lineup_size: undefined as number | undefined,
   formation: '',
 })
+
+function onLeagueChange() {
+  const league = LEAGUES.find(l => l.key === leagueKey.value)
+  if (league) tournament.value = league.label
+  const def = LEAGUE_CONTEST_DEFAULTS[leagueKey.value]
+  if (def) {
+    contest.name = def.name
+    contest.field_size = def.field_size
+    contest.prize_pool = def.prize_pool
+    contest.salary_cap = def.salary_cap
+    contest.salary_cap_unit = def.salary_cap_unit ?? ''
+    contest.lineup_size = def.lineup_size
+    contest.formation = def.formation ?? ''
+  }
+}
 const uploading = ref(false)
 const joinResult = ref<{
   slate_id: number
@@ -55,6 +90,7 @@ async function uploadSlate() {
       body: {
         csv: csvText.value,
         tournament: tournament.value,
+        league_key: leagueKey.value,
         contest: {
           name: contest.name || null,
           field_size: contest.field_size ?? null,
@@ -105,6 +141,15 @@ function formatWhen(iso: string | null): string {
       <!-- Slate intake -->
       <div class="rounded-xl border border-edge bg-surface p-4">
         <h2 class="text-sm font-bold text-zinc-100 mb-2">Slate intake</h2>
+        <div class="mb-2">
+          <label class="text-[11px] text-zinc-500 uppercase tracking-wider">League</label>
+          <USelect
+            v-model="leagueKey"
+            :options="LEAGUES.map(l => ({ label: l.label, value: l.key }))"
+            class="mt-1"
+            @change="onLeagueChange"
+          />
+        </div>
         <div class="mb-2">
           <label class="text-[11px] text-zinc-500 uppercase tracking-wider">Tournament</label>
           <UInput v-model="tournament" class="mt-1" />
@@ -206,6 +251,7 @@ function formatWhen(iso: string | null): string {
           <span class="text-[10px] text-zinc-600">#{{ s.id }}</span>
         </div>
         <div class="text-[11px] text-zinc-500 mt-1 space-y-0.5">
+          <div v-if="s.league_key" class="text-zinc-400 font-mono">{{ s.league_key }}</div>
           <div v-if="s.contest_name">{{ s.contest_name }}</div>
           <div v-if="s.field_size">field {{ s.field_size }} · prize {{ s.prize_pool }}</div>
           <div v-if="s.salary_cap != null">cap {{ s.salary_cap }}{{ s.salary_cap_unit || '' }}</div>

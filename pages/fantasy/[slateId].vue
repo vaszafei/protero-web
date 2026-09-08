@@ -88,6 +88,48 @@ function lineupStatusClass(status: string) {
     <div v-if="loading" class="text-sm text-zinc-600 py-16 text-center">loading…</div>
 
     <template v-else-if="data">
+      <!-- Generate picks (§F.4) -->
+      <div class="rounded-xl border border-edge bg-surface p-4 mb-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-bold text-zinc-100">Best picks</h2>
+            <p class="text-[11px] text-zinc-500 mt-0.5">
+              Runs the optimiser (MILP + field reconstruction). The projection is
+              the M4-failed model — these are mean-projection picks, not a
+              demonstrated edge.
+            </p>
+          </div>
+          <UButton :loading="generating" @click="generatePicks" size="sm">
+            Generate picks
+          </UButton>
+        </div>
+
+        <!-- generated lineups -->
+        <div v-if="data.entries?.length" class="mt-3 space-y-2">
+          <div
+            v-for="e in data.entries"
+            :key="e.id"
+            class="rounded-lg border border-edge bg-surface/60 p-3"
+          >
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-200">{{ e.name }} — {{ e.projected_score?.toFixed(1) }} pts</span>
+              <span v-if="e.p_in_money != null" class="text-zinc-500">P(top-20%) {{ (e.p_in_money * 100).toFixed(1) }}%</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <span
+                v-for="p in parseLineup(e.lineup)"
+                :key="p.source_id"
+                class="px-2 py-1 rounded bg-surface text-[11px] text-zinc-300 border border-edge"
+              >
+                {{ p.name }} <span class="text-zinc-500">· {{ p.club_code }} {{ p.position }} · {{ p.price_m }}M</span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="mt-3 text-xs text-zinc-600">
+          No picks generated yet.
+        </div>
+      </div>
       <!-- Projections table (§F.3) — no fabricated numbers -->
       <div class="rounded-xl border border-edge bg-surface overflow-hidden mb-4">
         <div class="p-3 border-b border-edge text-xs text-zinc-400">
