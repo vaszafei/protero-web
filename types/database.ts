@@ -1,4 +1,3 @@
-Connecting to 127.0.0.1 54322
 export type Json =
   | string
   | number
@@ -641,37 +640,60 @@ export type Database = {
       fantasy_entries: {
         Row: {
           created_at: string
+          created_by: number | null
+          entry_type: string
           id: number
           lineup: Json
           name: string | null
           p_in_money: number | null
           projected_score: number | null
           slate_id: number
+          user_id: number | null
         }
         Insert: {
           created_at?: string
+          created_by?: number | null
+          entry_type?: string
           id?: number
           lineup: Json
           name?: string | null
           p_in_money?: number | null
           projected_score?: number | null
           slate_id: number
+          user_id?: number | null
         }
         Update: {
           created_at?: string
+          created_by?: number | null
+          entry_type?: string
           id?: number
           lineup?: Json
           name?: string | null
           p_in_money?: number | null
           projected_score?: number | null
           slate_id?: number
+          user_id?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fantasy_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fantasy_entries_slate_id_fkey"
             columns: ["slate_id"]
             isOneToOne: false
             referencedRelation: "fantasy_slates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fantasy_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1010,6 +1032,7 @@ export type Database = {
           field_size: number | null
           formation: string | null
           id: number
+          league_key: string | null
           lineup_size: number | null
           prize_pool: string | null
           salary_cap: number | null
@@ -1023,6 +1046,7 @@ export type Database = {
           field_size?: number | null
           formation?: string | null
           id?: number
+          league_key?: string | null
           lineup_size?: number | null
           prize_pool?: string | null
           salary_cap?: number | null
@@ -1036,6 +1060,7 @@ export type Database = {
           field_size?: number | null
           formation?: string | null
           id?: number
+          league_key?: string | null
           lineup_size?: number | null
           prize_pool?: string | null
           salary_cap?: number | null

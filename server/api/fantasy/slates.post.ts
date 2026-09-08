@@ -18,6 +18,7 @@
  */
 import { requireUserId } from '~/server/utils/auth'
 import { getSupabase } from '~/server/utils/supabase'
+import { fantasyClubTeamId } from '~/utils/fantasyClubs'
 
 const POSITION_GROUP: Record<string, string> = {
   goalkeeper: 'GK', defender: 'DEF', midfielder: 'MID', forward: 'FWD',
@@ -127,6 +128,7 @@ export default defineEventHandler(async (event) => {
       price: parseFloat(r[iPrice]) || 0,
       mapped_player_id: mapped?.player_id || null,
       map_confidence: mapped?.confidence ?? null,
+      club_team_id: fantasyClubTeamId(r[iClub]),
     }
   })
 
