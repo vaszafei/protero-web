@@ -92,10 +92,13 @@ function lineupStatusClass(status: string) {
       <div class="rounded-xl border border-edge bg-surface overflow-hidden mb-4">
         <div class="p-3 border-b border-edge text-xs text-zinc-400">
           Projections are not shown — the projection model did not clear its M4
-          holdout gate (see the plan's Track M). Once the optimiser gate (D5) is
-          resolved and a holdout-passing model exists, per-player minutes
-          distribution, projected points interval, price and points-per-credit
-          render here.
+          holdout gate (see the plan's Track M), and the O3 optimiser
+          degenerates to the max-score lineup, so no per-player interval is
+          shown rather than a number that would over-trust the forward priors.
+          The optimiser is built (D5 resolved; see <NuxtLink to="/fantasy"
+          class="text-zinc-300 underline">the fantasy index</NuxtLink>) and the
+          honest next step is the forward experiment: enter a real freeroll and
+          capture <code class="text-zinc-300">Lineup</code> + finishing rank.
         </div>
         <table class="w-full text-xs">
           <thead>

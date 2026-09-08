@@ -95,8 +95,9 @@ function formatWhen(iso: string | null): string {
       <h1 class="text-xl sm:text-2xl font-bold text-white">Fantasy DFS</h1>
       <p class="text-zinc-500 text-xs sm:text-sm mt-0.5">
         Stoiximan football DFS operator console. Slate intake, the D3 join, and
-        contest parameters. The optimiser is gated on the salary-cap decision
-        (D5) and the projection model did not clear its holdout gate.
+        contest parameters. The optimiser is built (D5 resolved) but the
+        projection model did not clear its holdout gate — the honest next step
+        is the forward experiment.
       </p>
     </div>
 
@@ -154,13 +155,17 @@ function formatWhen(iso: string | null): string {
 
       <!-- Blocked tracks -->
       <div class="rounded-xl border border-edge bg-surface p-4">
-        <h2 class="text-sm font-bold text-zinc-100 mb-2">Blocked — owner decisions pending</h2>
+        <h2 class="text-sm font-bold text-zinc-100 mb-2">Status</h2>
         <ul class="text-xs text-zinc-400 space-y-2">
           <li>
-            <span class="text-zinc-200">D5 salary-cap units.</span>
-            The CSV prices are 3.5–13.8; screenshots say 65M (Greek) and 63M (CL).
-            Lineup size, formation, per-club cap and the cap unit are not published
-            anywhere public. The optimiser cannot run until these are entered here.
+            <span class="text-zinc-200">D5 salary-cap units — resolved.</span>
+            Owner lobby text (CL satellite, contest 1138584): 6 players, 63M
+            budget, max 3 per club, <span class="text-zinc-200">no position
+            restrictions</span>, no captain/vice, a cumulative stacking penalty
+            on a club's 2nd+ DEF/GK clean-sheet bonus, auto-replacement of
+            non-starters, and the tiebreak is lowest budget. Recorded in
+            <code class="text-zinc-300">ml.fantasy.rules</code>. The Greek
+            freeroll's rules are still unconfirmed.
           </li>
           <li>
             <span class="text-zinc-200">M4 holdout.</span>
@@ -168,6 +173,14 @@ function formatWhen(iso: string | null): string {
             last-5-match-mean baseline</span> on the full Greek 2025-26 holdout
             (n=10,367 player-matches) and stopped. A starters-only slice (+10.6%)
             is registered as a forward hypothesis, not a result.
+          </li>
+          <li>
+            <span class="text-zinc-200">Track O — optimiser built, verdict: no variance edge.</span>
+            The football MILP ran on the 2026-09-08 CL slate and degenerated to
+            the max-score lineup (5 FWD + 1 GK) — the variance machinery adds
+            nothing over the mean objective, exactly as the plan's §11 predicted.
+            The next step is the forward experiment (enter a real freeroll,
+            capture <code class="text-zinc-300">Lineup</code> + finishing rank).
           </li>
         </ul>
       </div>
