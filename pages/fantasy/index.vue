@@ -7,6 +7,8 @@
  * owner resolving D5's salary-cap units, and the projection model failed its
  * M4 holdout against the naive baseline, so neither number is fabricated here.
  */
+definePageMeta({ layout: 'default', middleware: 'auth' })
+
 const api = useApi()
 
 const slates = ref<any[]>([])

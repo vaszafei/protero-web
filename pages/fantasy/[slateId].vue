@@ -6,22 +6,14 @@
  * gate, so no projection number is shown rather than a fabricated one. Result
  * capture is live — it is the only real validation the system will ever get.
  */
+definePageMeta({ layout: 'default', middleware: 'auth' })
+
 const route = useRoute()
 const slateId = route.params.slateId as string
 
 const data = ref<{ slate: any; players: any[]; entries: any[] } | null>(null)
 const loading = ref(true)
-
-// result capture (§F.5)
-const result = reactive({
-  entry_id: undefined as number | undefined,
-  actual_rank: undefined as number | undefined,
-  winning_score: undefined as number | undefined,
-  own_score: undefined as number | undefined,
-  field_size: undefined as number | undefined,
-})
-const saving = ref(false)
-const saved = ref(false)
+const generating = ref(false)
 
 async function load() {
   loading.value = true
@@ -33,6 +25,45 @@ async function load() {
     loading.value = false
   }
 }
+
+async function generatePicks() {
+  generating.value = true
+  try {
+    await $fetch(`/api/fantasy/slates/${slateId}/generate`, {
+      method: 'POST',
+      body: { n_lineups: 5 },
+    })
+    // poll until entries land (generation is detached)
+    for (let i = 0; i < 40; i++) {
+      await new Promise(r => setTimeout(r, 1500))
+      await load()
+      if (data.value?.entries?.length) break
+    }
+  } catch (e: any) {
+    alert(`Generate failed: ${e?.data?.statusMessage || e?.message || e}`)
+  } finally {
+    generating.value = false
+  }
+}
+
+function parseLineup(lineup: any): any[] {
+  if (Array.isArray(lineup)) return lineup
+  if (typeof lineup === 'string') {
+    try { return JSON.parse(lineup) } catch { return [] }
+  }
+  return []
+}
+
+// result capture (§F.5)
+const result = reactive({
+  entry_id: undefined as number | undefined,
+  actual_rank: undefined as number | undefined,
+  winning_score: undefined as number | undefined,
+  own_score: undefined as number | undefined,
+  field_size: undefined as number | undefined,
+})
+const saving = ref(false)
+const saved = ref(false)
 
 async function saveResult() {
   if (!result.entry_id) return
