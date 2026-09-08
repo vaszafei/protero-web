@@ -255,6 +255,7 @@ function formatWhen(iso: string | null): string {
         <div class="text-[11px] text-zinc-500 mt-1 space-y-0.5">
           <div v-if="s.league_key" class="text-zinc-400 font-mono">{{ s.league_key }}</div>
           <div v-if="s.contest_name">{{ s.contest_name }}</div>
+          <div v-if="s.target_date" class="text-zinc-300">{{ s.target_date }}</div>
           <div v-if="s.field_size">field {{ s.field_size }} · prize {{ s.prize_pool }}</div>
           <div v-if="s.salary_cap != null">cap {{ s.salary_cap }}{{ s.salary_cap_unit || '' }}</div>
           <div class="text-zinc-600">{{ formatWhen(s.created_at) }}</div>
