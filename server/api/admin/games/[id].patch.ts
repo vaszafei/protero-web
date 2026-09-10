@@ -1,6 +1,10 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireAdmin } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
+  // Operator-only surface: this runs on the service-role client, which bypasses RLS.
+  await requireAdmin(event)
+
   // Check authentication (allow if cookie exists or in development)
   const authCookie = getCookie(event, 'admin_auth')
   const isDev = process.env.NODE_ENV === 'development'

@@ -1,5 +1,6 @@
 import { getSupabase } from '~/server/utils/supabase'
 import { recentSeasons } from '~/utils/season'
+import { requireAdmin } from '~/server/utils/auth'
 
 interface PropInput {
   player_name: string
@@ -330,6 +331,9 @@ function analyzeBestAltLine(
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 export default defineEventHandler(async (event) => {
+  // Operator-only surface: this runs on the service-role client, which bypasses RLS.
+  await requireAdmin(event)
+
   const gameId = parseInt(getRouterParam(event, 'id') || '0')
   if (!gameId) throw createError({ statusCode: 400, message: 'Game ID required' })
 

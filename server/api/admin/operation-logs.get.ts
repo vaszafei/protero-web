@@ -1,6 +1,10 @@
 import { getRecentOperations } from '~/server/utils/operations'
+import { requireAdmin } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
+  // Operator-only surface: this runs on the service-role client, which bypasses RLS.
+  await requireAdmin(event)
+
   try {
     const query = getQuery(event)
     const limit = query.limit ? parseInt(query.limit as string) : 20

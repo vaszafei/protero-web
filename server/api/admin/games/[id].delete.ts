@@ -1,6 +1,10 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireAdmin } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
+  // Operator-only surface: this runs on the service-role client, which bypasses RLS.
+  await requireAdmin(event)
+
   const id = getRouterParam(event, 'id')
 
   if (!id) {

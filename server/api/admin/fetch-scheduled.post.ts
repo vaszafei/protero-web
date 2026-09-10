@@ -1,5 +1,6 @@
 import { getSupabase } from '~/server/utils/supabase'
 import { currentSeason } from '~/utils/season'
+import { requireAdmin } from '~/server/utils/auth'
 
 // API-Football Configuration
 const RAPIDAPI_KEY = "a2c93fa021mshda33fad170583f4p146558jsn8ae48020d8ea"
@@ -103,6 +104,9 @@ async function gameExists(leagueKey: string, round: number, homeTeamId: number, 
 }
 
 export default defineEventHandler(async (event) => {
+  // Operator-only surface: this runs on the service-role client, which bypasses RLS.
+  await requireAdmin(event)
+
   try {
     const authCookie = getCookie(event, 'admin_auth')
     const isDev = process.env.NODE_ENV === 'development'
