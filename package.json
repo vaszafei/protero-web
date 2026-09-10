@@ -31,7 +31,7 @@
     "@supabase/supabase-js": "^2.91.1",
     "bcryptjs": "^3.0.3",
     "lucide-vue-next": "^0.562.0",
-    "nuxt": "^3.8.0",
+    "nuxt": "^3.21.11",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
@@ -39,5 +39,8 @@
     "autoprefixer": "^10.4.23",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19"
+  },
+  "overrides": {
+    "h3": "^1.15.11"
   }
 }
