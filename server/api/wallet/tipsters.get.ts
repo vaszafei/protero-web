@@ -35,19 +35,24 @@ import { getSupabase } from '~/server/utils/supabase'
 export default defineEventHandler(async () => {
   const supabase = getSupabase()
 
-  const [sourcesRes, coverageRes, walletsRes] = await Promise.all([
+  const [sourcesRes, coverageRes, userMirrorRes, walletsRes] = await Promise.all([
     supabase.from('tipster_sources').select('key, name, base_url, notes, robots_ok_at'),
     supabase.from('v_tipster_wallet_coverage').select('*'),
+    // The user-mirror wallet (W54) lives in a separate view — its source data is
+    // user_real_bets + stoiximan_leg_binding, not the tipster tables. Same column
+    // shape, so it merges into `authors` unchanged; it is NOT a tipster source and
+    // gets no `sources` entry.
+    supabase.from('v_user_mirror_wallet_coverage').select('*'),
     supabase.from('wallets').select('id, name, persona_name, bio, archetype, lifecycle'),
   ])
 
-  for (const r of [sourcesRes, coverageRes, walletsRes]) {
+  for (const r of [sourcesRes, coverageRes, userMirrorRes, walletsRes]) {
     if (r.error) throw createError({ statusCode: 500, message: r.error.message })
   }
 
   const walletById = new Map((walletsRes.data || []).map((w: any) => [w.id, w]))
 
-  const authors = (coverageRes.data || []).map((c: any) => {
+  const authors = [...(coverageRes.data || []), ...(userMirrorRes.data || [])].map((c: any) => {
     const w = walletById.get(c.wallet_id)
     return {
       wallet_id: c.wallet_id,

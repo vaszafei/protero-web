@@ -117,15 +117,19 @@ export const VERDICT_TITLE: Record<FamilyVerdict, string> = {
  *   incubation — a strategy we run in incubation (`lifecycle='incubation'`):
  *                accrues settled rows but is never a track record, rendered
  *                with n and a p-value, never a headline ROI
- *   mirror     — an external tipster's published picks replayed at a flat unit
+ *   mirror     — an external tipster's PUBLISHED picks replayed at a flat unit
+ *   user_mirror— a real bettor's ACTUAL Stoiximan slips at their real stakes
+ *                (`lifecycle='user_mirror'`, W54). Real euros, not ours; scored
+ *                as its own cohort with a coverage caveat, never as a claim.
  *   legacy     — kept as a fallback only. Wallets 2-25 were deleted 2026-08-23
  *                (CD #38) and every surviving wallet is `lifecycle='trader'`, so
  *                this branch returns nothing today. The roster drops empty
  *                cohorts, so an unexpected legacy row would surface rather than
  *                render silently as one of ours.
  */
-export function cohortOf(w: { archetype?: string | null; lifecycle?: string | null }): 'ours' | 'incubation' | 'mirror' | 'legacy' {
+export function cohortOf(w: { archetype?: string | null; lifecycle?: string | null }): 'ours' | 'incubation' | 'mirror' | 'user_mirror' | 'legacy' {
   if (w.archetype === 'external_tipster') return 'mirror'
+  if (w.lifecycle === 'user_mirror') return 'user_mirror'
   if (w.lifecycle === 'incubation') return 'incubation'
   return w.lifecycle === 'trader' ? 'ours' : 'legacy'
 }
@@ -134,6 +138,7 @@ export const COHORT_LABEL: Record<ReturnType<typeof cohortOf>, string> = {
   ours: 'Trader personas',
   incubation: 'Incubation',
   mirror: 'Mirrored tipsters',
+  user_mirror: 'User mirror',
   legacy: 'Legacy',
 }
 

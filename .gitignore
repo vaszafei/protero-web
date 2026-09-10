@@ -37,3 +37,7 @@ supabase/.temp/
 # Page-audit harness output (tools/audit)
 results.json
 shots/
+
+# one-off Stoiximan probes / scratch (the real capture scripts are tracked)
+pw-stoiximan-probe-cursor.mjs
+shot-tmp.mjs

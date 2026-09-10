@@ -212,12 +212,17 @@ const rows = computed(() => {
  * Three cohorts, because there are three kinds of thing in this table and
  * mixing them corrupts both the reading and the statistics.
  *
- *   ours    — strategies we run. `lifecycle='trader'`, not an external mirror.
- *   mirror  — an external tipster's published picks, replayed at a flat unit
- *             (`archetype='external_tipster'`). Reference data, never a
- *             strategy of ours, and never comparable to a wallet we operate:
- *             its ROI covers only the fraction of the source we could bind.
- *   legacy  — history, frozen at the 2026-07-28 cutover.
+ *   ours       — strategies we run. `lifecycle='trader'`, not an external mirror.
+ *   incubation — strategies we run in incubation; accrue rows, never a claim.
+ *   mirror     — an external tipster's published picks, replayed at a flat unit
+ *                (`archetype='external_tipster'`). Reference data, never a
+ *                strategy of ours, and never comparable to a wallet we operate:
+ *                its ROI covers only the fraction of the source we could bind.
+ *   user_mirror— a real bettor's ACTUAL Stoiximan slips at their real stakes
+ *                (`lifecycle='user_mirror'`, W54). Real euros, not ours; its
+ *                figures carry a binding-coverage caveat and are NOT that
+ *                bettor's real record.
+ *   legacy     — history, frozen at the 2026-07-28 cutover.
  *
  * `lifecycle` is the DB's own answer and `is_active` is not — several trader
  * personas are active with no picker built, and several legacy wallets still
@@ -230,7 +235,8 @@ const rows = computed(() => {
 const groups = computed(() => {
   const all = rows.value
   const inCohort = k => all.filter(r => cohortOf(r.raw) === k)
-  const [ours, incubation, mirror, legacy] = ['ours', 'incubation', 'mirror', 'legacy'].map(inCohort)
+  const [ours, incubation, mirror, userMirror, legacy] =
+    ['ours', 'incubation', 'mirror', 'user_mirror', 'legacy'].map(inCohort)
   const byVolume = (a, b) => (b.perf.n_wagers - a.perf.n_wagers) || (a.id - b.id)
 
   return [
@@ -242,6 +248,9 @@ const groups = computed(() => {
     { key: 'mirror', label: 'Mirrored tipsters',
       hint: 'external picks replayed at a flat 1.00 — reference data, not our strategies',
       rows: mirror.sort(byVolume), showCoverage: true },
+    { key: 'user_mirror', label: 'User mirror',
+      hint: "a real bettor's actual slips at real stakes — coverage-capped, not their real record",
+      rows: userMirror.sort(byVolume), showCoverage: true },
     { key: 'legacy', label: 'Legacy', hint: 'history; frozen at the cutover',
       rows: legacy.sort(byVolume), showCoverage: false },
   ]

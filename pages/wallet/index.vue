@@ -93,9 +93,10 @@ const totals = computed(() => {
   const acc = { ours: zero(), mirror: zero() }
   for (const p of performance.value) {
     const c = cohortById.get(p.wallet_id)
-    // 'incubation' is excluded from fleet totals entirely: it accrues rows but
-    // is not a track record and must not appear in any headline number.
-    if (c === 'incubation') continue
+    // 'incubation' and 'user_mirror' are excluded from fleet totals entirely:
+    // incubation accrues rows but is not a track record; user_mirror is a real
+    // bettor's money, not ours. Neither may appear in a headline number.
+    if (c === 'incubation' || c === 'user_mirror') continue
     // 'legacy' rolls into `ours`: it is our own history, frozen but ours.
     const bucket = c === 'mirror' ? 'mirror' : 'ours'
     acc[bucket].wagers += Number(p.n_wagers || 0)
