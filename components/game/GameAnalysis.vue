@@ -221,6 +221,30 @@
       </div>
     </div>
 
+    <!-- ===== SAME-GAME CORRELATIONS ===== -->
+    <div v-if="correlations && correlations.status === 'available'" class="border-t border-edge/50 pt-3.5 sm:pt-4">
+      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">
+        Same-Game Correlations
+        <span class="normal-case text-zinc-600 font-normal">· Monte-Carlo sim, not a price</span>
+      </h4>
+      <div class="grid grid-cols-3 sm:grid-cols-4 gap-1 mb-2">
+        <div v-for="(p, leg) in correlations.marginals" :key="leg" class="trend-card">
+          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ leg }}</span>
+          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ p == null ? '-' : (p * 100).toFixed(1) + '%' }}</span>
+        </div>
+      </div>
+      <div class="space-y-1">
+        <div
+          v-for="j in correlations.joints"
+          :key="j.legs.join('+')"
+          class="flex items-center justify-between px-2.5 py-1.5 rounded bg-surface-light/50"
+        >
+          <span class="text-[11px] text-zinc-400 truncate">{{ j.legs.join(' + ') }}</span>
+          <span class="text-[11px] font-bold text-zinc-200 tabular-nums">{{ j.joint_p == null ? '-' : (j.joint_p * 100).toFixed(1) + '%' }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== H2H SECTION ===== -->
     <div class="border-t border-edge/50 pt-3.5 sm:pt-4">
       <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Head to Head</h4>
@@ -555,6 +579,12 @@ const FORMAT_LABELS: Record<string, string> = {
 function formatLabel(format: string) {
   return FORMAT_LABELS[format] || format
 }
+
+// ─── Same-Game Correlations ─────────────────────────────────
+// `analysis.correlations` (Track C, ml/slips/slip_sim.py Monte-Carlo sim,
+// computed live per request — football only). Descriptive only (C2):
+// never a price, never feeds a mask or a stake.
+const correlations = computed(() => props.analysis?.correlations || null)
 </script>
 
 <style scoped>
