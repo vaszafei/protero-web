@@ -109,13 +109,23 @@
 
     </template>
 
-    <!-- No Prediction -->
+    <!-- No Prediction — honest about WHY when the analysis record has loaded:
+         a coverage league or cup is "not bet, not modelled" (CD #3), which is
+         a true and useful statement, not the same thing as "not generated
+         yet". Falls back to the generic message while analysis is loading or
+         for an enabled league whose predict step just hasn't run yet. -->
     <div v-else class="text-center py-12">
       <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-surface-light flex items-center justify-center">
         <UIcon name="i-heroicons-light-bulb" class="w-6 h-6 text-zinc-600" />
       </div>
-      <p class="text-sm font-medium text-zinc-400">No prediction yet</p>
-      <p class="text-xs text-zinc-600 mt-1">Predictions are generated before game day</p>
+      <template v-if="analysis?.betting && !analysis.betting.enabled">
+        <p class="text-sm font-medium text-zinc-400">Not bet</p>
+        <p class="text-xs text-zinc-600 mt-1 max-w-xs mx-auto">{{ analysis.betting.reason }}</p>
+      </template>
+      <template v-else>
+        <p class="text-sm font-medium text-zinc-400">No prediction yet</p>
+        <p class="text-xs text-zinc-600 mt-1">Predictions are generated before game day</p>
+      </template>
     </div>
 
     <!-- Player Prop Picks (basketball only) -->
@@ -128,11 +138,15 @@
 import { computed } from 'vue'
 import PlayerPropPicks from '~/components/game/PlayerPropPicks.vue'
 import { betLabelShort } from '~/utils/bet-label'
+import { parsePrediction } from '~/utils/prediction-label'
 
 const props = defineProps({
   game: { type: Object, required: true },
   prediction: { type: Object, default: null },
-  sport: { type: String, default: 'football' }
+  sport: { type: String, default: 'football' },
+  // Unified per-fixture analysis record — only used here for `betting`, so
+  // the empty state can say WHY there's no pick instead of just "not yet".
+  analysis: { type: Object, default: null }
 })
 
 const { isAdmin } = useAuth()
@@ -173,84 +187,63 @@ const pickShort = computed(() => {
 const bballOdds = computed(() => props.game.sport_stats?.odds || null)
 
 // ─── Outcome ─────────────────────────────────────────────
-const outcomeLabel = computed(() => {
-  if (!props.prediction?.prediction) return '?'
-  const p = props.prediction.prediction.toUpperCase()
-  const ouLine = bballOdds.value?.over_under?.line
-  if (p === '1' || p === 'HOME' || p === 'H') return props.game.home_name
-  if (p === '2' || p === 'AWAY' || p === 'A') return props.game.away_name
-  if (p === 'X' || p === 'DRAW') return 'Draw'
-  if (p.includes('OVER_TOTAL') || p.includes('OVER_ALT')) return ouLine ? `Over ${ouLine}` : 'Over'
-  if (p.includes('UNDER_TOTAL') || p.includes('UNDER_ALT')) return ouLine ? `Under ${ouLine}` : 'Under'
-  if (p.includes('HOME_WIN')) return props.game.home_name
-  if (p.includes('SPREAD_COVER')) return 'Spread Cover'
-  return props.prediction.prediction
-})
+// Canonical parse — same function GameAnalysis.vue uses for its odds-cell
+// highlight, so the two can no longer disagree about what a prediction code
+// means (this used to be 5 separate `.toUpperCase()` pattern matches here
+// alone, with a 6th, differently-branched one in GameAnalysis).
+const parsed = computed(() => parsePrediction(props.prediction?.prediction, {
+  homeTeam: props.game.home_name,
+  awayTeam: props.game.away_name,
+  ouLine: bballOdds.value?.over_under?.line,
+}))
 
-const outcomeColor = computed(() => {
-  if (!props.prediction?.prediction) return 'text-zinc-300'
-  const p = props.prediction.prediction.toUpperCase()
-  if (p === '1' || p === 'HOME' || p === 'H' || p.includes('HOME_WIN')) return 'text-[#f82828]'
-  if (p === '2' || p === 'AWAY' || p === 'A') return 'text-[#4d8fff]'
-  if (p.includes('UNDER')) return 'text-purple-400'
-  if (p.includes('OVER')) return 'text-emerald-400'
-  return 'text-zinc-200'
-})
+const outcomeLabel = computed(() => parsed.value.label)
 
+const SIDE_COLOR = {
+  home: 'text-[#f82828]',
+  away: 'text-[#4d8fff]',
+  draw: 'text-zinc-200',
+  under: 'text-purple-400',
+  over: 'text-emerald-400',
+  spread: 'text-zinc-200',
+}
+const outcomeColor = computed(() => SIDE_COLOR[parsed.value.side || ''] || 'text-zinc-300')
+
+const SIDE_ACCENT = {
+  under: 'verdict-under',
+  over: 'verdict-over',
+  home: 'verdict-home',
+  away: 'verdict-away',
+}
 // Accent class for the verdict card border/bg
-const verdictAccentClass = computed(() => {
-  if (!props.prediction?.prediction) return ''
-  const p = props.prediction.prediction.toUpperCase()
-  if (p.includes('UNDER')) return 'verdict-under'
-  if (p.includes('OVER')) return 'verdict-over'
-  if (p === '1' || p === 'HOME' || p === 'H' || p.includes('HOME_WIN')) return 'verdict-home'
-  if (p === '2' || p === 'AWAY' || p === 'A') return 'verdict-away'
-  return 'verdict-default'
-})
+const verdictAccentClass = computed(() => SIDE_ACCENT[parsed.value.side || ''] || 'verdict-default')
 
-const verdictBgCircle = computed(() => {
-  const p = (props.prediction?.prediction || '').toUpperCase()
-  if (p.includes('UNDER')) return 'bg-purple-500'
-  if (p.includes('OVER')) return 'bg-emerald-500'
-  if (p.includes('HOME')) return 'bg-red-500'
-  if (p.includes('AWAY')) return 'bg-blue-500'
-  return 'bg-zinc-500'
-})
+const SIDE_BG_CIRCLE = {
+  under: 'bg-purple-500',
+  over: 'bg-emerald-500',
+  home: 'bg-red-500',
+  away: 'bg-blue-500',
+}
+const verdictBgCircle = computed(() => SIDE_BG_CIRCLE[parsed.value.side || ''] || 'bg-zinc-500')
 
+const MARKET_LABEL = {
+  total: 'O/U Market',
+  spread: 'Spread Market',
+  moneyline: 'Moneyline',
+}
 // Market label for sub-text
-const marketLabel = computed(() => {
-  if (!props.prediction?.prediction) return ''
-  const p = props.prediction.prediction.toUpperCase()
-  if (p.includes('OVER_TOTAL') || p.includes('OVER_ALT')) return 'O/U Market'
-  if (p.includes('UNDER_TOTAL') || p.includes('UNDER_ALT')) return 'O/U Market'
-  if (p.includes('SPREAD')) return 'Spread Market'
-  if (p.includes('HOME_WIN') || p === '1' || p === '2' || p === 'X') return 'Moneyline'
-  return 'Main Market'
-})
+const marketLabel = computed(() => MARKET_LABEL[parsed.value.market] || 'Main Market')
 
 // The decimal odds for the predicted outcome (so user knows at what price to bet)
 const predictionOdds = computed(() => {
-  if (!props.prediction?.prediction) return null
-  const p = props.prediction.prediction.toUpperCase()
   const odds = bballOdds.value
-
-  if (p.includes('UNDER_TOTAL') || p.includes('UNDER_ALT')) {
-    const v = odds?.over_under?.under || props.game.odds_under
-    return v ? Number(v).toFixed(2) : null
-  }
-  if (p.includes('OVER_TOTAL') || p.includes('OVER_ALT')) {
-    const v = odds?.over_under?.over || props.game.odds_over
-    return v ? Number(v).toFixed(2) : null
-  }
-  if (p === '1' || p === 'HOME' || p === 'H' || p.includes('HOME_WIN')) {
-    const v = odds?.moneyline?.home || props.game.odds_home
-    return v ? Number(v).toFixed(2) : null
-  }
-  if (p === '2' || p === 'AWAY' || p === 'A') {
-    const v = odds?.moneyline?.away || props.game.odds_away
-    return v ? Number(v).toFixed(2) : null
-  }
-  return null
+  const v = {
+    under: odds?.over_under?.under || props.game.odds_under,
+    over: odds?.over_under?.over || props.game.odds_over,
+    home: odds?.moneyline?.home || props.game.odds_home,
+    away: odds?.moneyline?.away || props.game.odds_away,
+  }[parsed.value.side || '']
+  return v ? Number(v).toFixed(2) : null
 })
 
 // ─── Confidence ──────────────────────────────────────────

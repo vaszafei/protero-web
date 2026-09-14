@@ -82,3 +82,14 @@ export function disabledReason(leagueKey: string, market: string): string {
   }
   return 'not bet — no holdout evidence for this cell'
 }
+
+/** Every enabled cell, flattened — `[{ league_key, market, source }, …]`. */
+export function enabledCells(): { league_key: string; market: string; source: ProbSource }[] {
+  const out: { league_key: string; market: string; source: ProbSource }[] = []
+  for (const [league_key, markets] of Object.entries(LEAGUE_ENABLED_MARKETS)) {
+    for (const [market, source] of Object.entries(markets)) {
+      out.push({ league_key, market, source })
+    }
+  }
+  return out
+}

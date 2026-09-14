@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { enabledCells } from '~/server/utils/football-masks'
 
 /**
  * GET /api/dashboard — the operator control room readout.
@@ -17,21 +18,33 @@ import { getSupabase } from '~/server/utils/supabase'
  *   - Open exposure is the stake sitting on unsettled wagers. Parlay legs are
  *     excluded from the singles sum for the same reason: the money at risk is
  *     the parlay's `total_stake`, counted once.
- *   - MIRRORED TIPSTER WALLETS ARE NOT OURS. W33-W47 replay an external
- *     tipster's published picks at a flat 1.00 (`ml/tipsters/project_bets.py`,
- *     2026-08-23). They are `bets` rows and they settle through the same
- *     engine, but nobody staked that money. Counting them as exposure, as
- *     slate, or in the week's P&L makes this readout describe a bankroll that
- *     does not exist — so every "ours" figure here filters on
- *     `archetype <> 'external_tipster'`, and the mirrors are surfaced
- *     separately.
+ *   - MIRRORED WALLETS ARE NOT OURS. W33-W47 replay an external tipster's
+ *     published picks at a flat 1.00 (`ml/tipsters/project_bets.py`,
+ *     2026-08-23); W54 replays a real bettor's ACTUAL Stoiximan slips at their
+ *     real stakes (`lifecycle='user_mirror'`). Both are `bets` rows that settle
+ *     through the same engine, but nobody on our side staked that money.
+ *     Counting them as exposure, as slate, or in the week's P&L makes this
+ *     readout describe a bankroll that does not exist — so every "ours" figure
+ *     here filters on `archetype <> 'external_tipster' AND lifecycle <>
+ *     'user_mirror'`, and the mirrors are surfaced separately.
  *   - The regression gates (scripts/gates.sh) persist only a summary row in
  *     `gate_runs` via common.gate_recorder (roadmap A4), so they are NOT
  *     reported here. /gates renders them from that table.
+ *   - `wallet_scorecards` is a SECOND basis and is forwarded as `risk`, never
+ *     as performance. Its writer (`common/wallet_scorecard.py`) selects
+ *     `bets WHERE status IN ('won','lost')` with no `parlay_legs` exclusion, so
+ *     on a wallet that parlays it counts legs as wagers. Today that is only the
+ *     mirrors (33-36, 48-51), which this fleet already drops — so every fleet
+ *     row's scorecard rests on the same wagers as the RPC, and W26 reads 64/13.79%
+ *     on both. Re-check that if a fleet wallet ever starts writing parlays; ROI
+ *     and the verdict must keep coming from the RPC either way.
  */
 
 /** A pipeline that has not written a run in this many hours is stale. */
 const PIPELINE_STALE_HOURS = 36
+
+/** `wallet_scorecards.window_days` sentinel for "every settled wager". */
+const LIFETIME_WINDOW = -1
 
 export default defineEventHandler(async () => {
   const supabase = getSupabase()
@@ -48,6 +61,9 @@ export default defineEventHandler(async () => {
     settledRes,
     runsRes,
     riskRes,
+    scorecardRes,
+    calibrationRes,
+    currencyRes,
   ] = await Promise.all([
     // Fleet performance — the RPC is the only sanctioned source of these numbers.
     supabase.rpc('get_wallet_performance'),
@@ -104,9 +120,27 @@ export default defineEventHandler(async () => {
       .lte('date', sevenDaysAhead)
       .order('date', { ascending: true })
       .limit(200),
+
+    // Risk-adjusted read of the same settled wagers, from `common.wallet_scorecard`.
+    // Newest-first and de-duped per wallet below: the writer stamps every wallet
+    // in one batch, so the newest rows cover the whole roster.
+    supabase
+      .from('wallet_scorecards')
+      .select('wallet_id, computed_at, n_bets, sharpe, max_drawdown_pct, pct_green_days, verdict')
+      .eq('window_days', LIFETIME_WINDOW)
+      .order('computed_at', { ascending: false })
+      .limit(200),
+
+    // Model vs the closing line, paired per fixture, for the 13 cells the mask
+    // actually bets. The cells are passed in rather than known to the database
+    // — `masks.py` is the source of truth and `football-masks.ts` its one
+    // sanctioned mirror.
+    supabase.rpc('line_scores_model_vs_close', { p_cells: enabledCells() }),
+
+    supabase.rpc('line_scores_currency'),
   ])
 
-  for (const r of [perfRes, walletsRes, openSinglesRes, openParlaysRes, settledRes, runsRes, riskRes]) {
+  for (const r of [perfRes, walletsRes, openSinglesRes, openParlaysRes, settledRes, runsRes, riskRes, scorecardRes, calibrationRes, currencyRes]) {
     if (r.error) throw createError({ statusCode: 500, message: r.error.message })
   }
 
@@ -135,9 +169,30 @@ export default defineEventHandler(async () => {
   const walletById = new Map(wallets.map((w: any) => [w.id, w]))
   const perfById = new Map(performance.map((p: any) => [p.wallet_id, p]))
 
-  /** True for a mirrored external tipster — a wallet nobody actually staked. */
-  const isMirror = (walletId: number) =>
-    walletById.get(walletId)?.archetype === 'external_tipster'
+  // ── Risk scorecards, newest per wallet ───────────────────────────────
+  // Only the three columns that carry per-wallet information are forwarded.
+  // `clv_avg` is NULL for every wallet (odds_snapshots is too sparse to pair),
+  // `calmar` is |roi| / max_dd and so degenerates to |roi| wherever max_dd hits
+  // its 1.0 cap, and `brier_ema` / `gamma_value` / `regime_flag` come from
+  // `_regime_info`, which ignores its wallet_id argument and reads one global
+  // `gamma_state` row — the same number stamped on all 24 wallets, football and
+  // basketball alike. Rendering any of those per wallet would invent a
+  // distinction the table does not hold.
+  const scorecardByWallet = new Map<number, any>()
+  for (const sc of (scorecardRes.data || [])) {
+    if (!scorecardByWallet.has(sc.wallet_id)) scorecardByWallet.set(sc.wallet_id, sc)
+  }
+
+  /**
+   * True for a wallet whose money is not ours: a mirrored external tipster
+   * (W33-W47, flat 1.00 replay) or a user-mirror (W54, a real bettor's real
+   * Stoiximan stakes). Real `bets` rows, same engine, but nobody on our side
+   * staked them — so they stay out of exposure / slate / weekly P&L / fleet.
+   */
+  const isMirror = (walletId: number) => {
+    const w = walletById.get(walletId)
+    return w?.archetype === 'external_tipster' || w?.lifecycle === 'user_mirror'
+  }
 
   const ourOpenSingles = openSingleWagers.filter((b: any) => !isMirror(b.wallet_id))
   const ourOpenParlays = openParlays.filter((p: any) => !isMirror(p.wallet_id))
@@ -244,11 +299,12 @@ export default defineEventHandler(async () => {
   })
 
   // ── Fleet: wallets that have written something, or are meant to ──────
-  // Mirrors are excluded: 15 of them would swamp a seven-wallet control room
-  // with rows an operator cannot act on. They live on /wallet, where the
-  // coverage that qualifies their numbers is rendered beside them.
+  // Mirrors are excluded: 15 external-tipster mirrors + W54 (user mirror)
+  // would swamp a seven-wallet control room with rows an operator cannot act
+  // on. They live on /wallet, where the coverage that qualifies their numbers
+  // is rendered beside them.
   const fleet = wallets
-    .filter((w: any) => w.archetype !== 'external_tipster')
+    .filter((w: any) => w.archetype !== 'external_tipster' && w.lifecycle !== 'user_mirror')
     .map((w: any) => ({
       id: w.id,
       name: w.persona_name || w.name,
@@ -256,11 +312,45 @@ export default defineEventHandler(async () => {
       lifecycle: w.lifecycle,
       is_active: w.is_active,
       perf: perfById.get(w.id) || null,
+      risk: riskOf(scorecardByWallet.get(w.id)),
     }))
     .filter((w: any) => w.lifecycle === 'trader' || (w.perf && Number(w.perf.n_wagers) > 0))
 
+  // ── Calibration: are we anywhere near the close on the cells we bet? ──
+  // Sorted by skill against the close, best first. Every one of them is
+  // currently negative, which is the standing finding (0 of 98 cells beat the
+  // close) rendered on the cells that carry money rather than asserted.
+  const calibration = {
+    cells: (calibrationRes.data || [])
+      .map((c: any) => ({
+        league_key: c.league_key,
+        market: c.market,
+        source: c.source,
+        n: Number(c.n),
+        first_date: c.first_date,
+        last_date: c.last_date,
+        brier_ours: c.brier_ours == null ? null : Number(c.brier_ours),
+        brier_close: c.brier_close == null ? null : Number(c.brier_close),
+        bss: c.bss == null ? null : Number(c.bss),
+      }))
+      .sort((a: any, b: any) => (b.bss ?? -Infinity) - (a.bss ?? -Infinity)),
+    // Cells the mask enables that the spine has never scored — they render as
+    // "no rows", never as a zero.
+    missing: enabledCells()
+      .filter((c) => !(calibrationRes.data || []).some(
+        (r: any) => r.league_key === c.league_key && r.market === c.market))
+      .map((c) => `${c.league_key}/${c.market}`),
+    currency: (currencyRes.data || []).map((r: any) => ({
+      source: r.source,
+      n_graded: Number(r.n_graded),
+      last_date: r.last_date,
+      unscored_completed: Number(r.unscored_completed),
+    })),
+  }
+
   return {
     generated_at: now.toISOString(),
+    calibration,
     exposure: {
       n_wagers: exposure.n_wagers,
       n_singles: exposure.n_singles,
@@ -277,6 +367,25 @@ export default defineEventHandler(async () => {
     },
   }
 })
+
+/**
+ * One wallet's risk read, or null.
+ *
+ * `sharpe` / `max_drawdown_pct` / `pct_green_days` are only written at n>=10,
+ * so a young wallet returns nulls beside a real `n_bets` — which is the honest
+ * shape, not an omission.
+ */
+function riskOf(sc: any) {
+  if (!sc) return null
+  return {
+    computed_at: sc.computed_at,
+    n_bets: Number(sc.n_bets ?? 0),
+    sharpe: sc.sharpe == null ? null : Number(sc.sharpe),
+    max_drawdown_pct: sc.max_drawdown_pct == null ? null : Number(sc.max_drawdown_pct),
+    pct_green_days: sc.pct_green_days == null ? null : Number(sc.pct_green_days),
+    verdict: sc.verdict || null,
+  }
+}
 
 function sum(xs: number[]): number {
   return xs.reduce((a, b) => a + b, 0)

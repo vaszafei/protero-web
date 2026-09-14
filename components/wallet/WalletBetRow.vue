@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-light/30 hover:bg-surface-light/50 transition-colors"
+    class="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-surface-light/30 hover:bg-surface-light/50 transition-colors"
     :class="bet.game_id ? 'cursor-pointer' : 'cursor-default'"
     @click="onClick"
   >

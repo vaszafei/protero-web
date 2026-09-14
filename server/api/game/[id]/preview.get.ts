@@ -1,4 +1,6 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { fetchRawRecentFixtures, buildFormSide } from '~/server/utils/team-form'
+import { fetchTwinRatings } from '~/server/utils/twin-ratings'
 
 /**
  * Pre-match context for the two side rails.
@@ -24,26 +26,11 @@ import { getSupabase } from '~/server/utils/supabase'
  * ride along and the rail plots the club against them. `effective_games` is the
  * twin's own honesty column — a rating fitted on very little evidence is shown
  * with that fact attached rather than as a confident number.
+ *
+ * The form/twin queries themselves live in `server/utils/team-form.ts` and
+ * `server/utils/twin-ratings.ts` — shared with `analysis.get.ts` so the two
+ * endpoints can never disagree about a club's recent record or rating.
  */
-
-const FORM_N = 6
-
-const toNum = (v: any): number | null => {
-  if (v == null || v === '') return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
-}
-
-interface FormEntry {
-  game_id: number
-  date: string
-  league_key: string
-  opponent: string
-  home: boolean
-  gf: number
-  ga: number
-  result: 'W' | 'D' | 'L'
-}
 
 export default defineEventHandler(async (event) => {
   const gameId = Number(getRouterParam(event, 'id'))
@@ -70,99 +57,14 @@ export default defineEventHandler(async (event) => {
     return { game_id: gameId, league_key: game.league_key, home: null, away: null, league: null }
   }
 
-  const [formRes, twinRes, peerRes] = await Promise.all([
-    // Both clubs' recent fixtures in one round trip. `FORM_N * 3` is a ceiling
-    // per club before filtering, not a page — the slice to six happens below,
-    // after the two clubs are separated.
-    supabase
-      .from('games')
-      .select('id, date, league_key, status, home_team_id, away_team_id, home_goals, away_goals, home_team:teams!home_team_id(name), away_team:teams!away_team_id(name)')
-      .or(`home_team_id.in.(${teamIds.join(',')}),away_team_id.in.(${teamIds.join(',')})`)
-      .eq('status', 'completed')
-      .lt('date', game.date)
-      .order('date', { ascending: false })
-      .limit(FORM_N * 8),
-    supabase
-      .from('twin_team')
-      .select('team_id, name, attack, defence, attack_var, defence_var, effective_games, league_changed, current_league, evidence_league, total_games')
-      .in('team_id', teamIds),
-    // The peer distribution the ratings are read against.
-    supabase
-      .from('twin_team')
-      .select('attack, defence')
-      .eq('current_league', game.league_key)
-      .not('attack', 'is', null),
+  const [rawFixtures, twin] = await Promise.all([
+    fetchRawRecentFixtures(supabase, teamIds, game.date),
+    fetchTwinRatings(supabase, teamIds, game.league_key),
   ])
 
-  for (const [name, res] of [['games', formRes], ['twin_team', twinRes], ['peers', peerRes]] as const) {
-    if (res.error) {
-      throw createError({ statusCode: 500, message: `${name} query failed: ${res.error.message}` })
-    }
-  }
-
-  const twinById = new Map<number, any>()
-  for (const t of (twinRes.data || []) as any[]) twinById.set(Number(t.team_id), t)
-
-  /** Mean and SD of the competition's fitted ratings, for the rail's scale. */
-  const peers = (peerRes.data || []) as any[]
-  const stat = (key: 'attack' | 'defence') => {
-    const xs = peers.map((p) => toNum(p[key])).filter((x): x is number => x != null)
-    if (xs.length < 4) return null
-    const mean = xs.reduce((a, b) => a + b, 0) / xs.length
-    const sd = Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length)
-    return { mean, sd, n: xs.length, min: Math.min(...xs), max: Math.max(...xs) }
-  }
-
   function sideFor(teamId: number, name: string) {
-    const form: FormEntry[] = []
-    for (const g of (formRes.data || []) as any[]) {
-      if (form.length >= FORM_N) break
-      const isHome = Number(g.home_team_id) === teamId
-      const isAway = Number(g.away_team_id) === teamId
-      if (!isHome && !isAway) continue
-      const hg = toNum(g.home_goals)
-      const ag = toNum(g.away_goals)
-      // A completed row with no score is not a result. Skipping it keeps a
-      // scoreless scrape out of the form line instead of scoring it 0-0.
-      if (hg == null || ag == null) continue
-      const gf = isHome ? hg : ag
-      const ga = isHome ? ag : hg
-      form.push({
-        game_id: Number(g.id),
-        date: g.date,
-        league_key: g.league_key,
-        opponent: (isHome ? g.away_team : g.home_team)?.name || 'Unknown',
-        home: isHome,
-        gf,
-        ga,
-        result: gf > ga ? 'W' : gf === ga ? 'D' : 'L',
-      })
-    }
-
-    const t = twinById.get(teamId) || null
-    const attack = t ? toNum(t.attack) : null
-    const defence = t ? toNum(t.defence) : null
-    return {
-      team_id: teamId,
-      name,
-      form,
-      twin: t
-        ? {
-            attack,
-            defence,
-            attack_sd: toNum(t.attack_var) != null ? Math.sqrt(Math.max(toNum(t.attack_var)!, 0)) : null,
-            defence_sd: toNum(t.defence_var) != null ? Math.sqrt(Math.max(toNum(t.defence_var)!, 0)) : null,
-            effective_games: toNum(t.effective_games),
-            total_games: toNum(t.total_games),
-            league_changed: !!t.league_changed,
-            current_league: t.current_league,
-            evidence_league: t.evidence_league,
-            // The twin writes a row with NULL ratings for a club it declined to
-            // fit. That is a deliberate abstention, not missing data.
-            fitted: attack != null && defence != null,
-          }
-        : null,
-    }
+    const { form } = buildFormSide(teamId, name, rawFixtures, game.date)
+    return { team_id: teamId, name, form, twin: twin.sideFor(teamId) }
   }
 
   return {
@@ -171,6 +73,6 @@ export default defineEventHandler(async (event) => {
     kickoff: game.date,
     home: sideFor(Number(game.home_team_id), game.home_name?.name || ''),
     away: sideFor(Number(game.away_team_id), game.away_name?.name || ''),
-    league: { attack: stat('attack'), defence: stat('defence') },
+    league: twin.league,
   }
 })

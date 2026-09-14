@@ -342,6 +342,27 @@ const twinById = computed(() => {
   return m
 })
 
+/**
+ * The team ids that actually appear in this season's fixture list.
+ *
+ * A twin's `current_league` is the league the club was LAST seen in, not the
+ * league it currently plays in — so the twin roster for a competition includes
+ * every club that ever dropped out of it. On Greek Super League 2026/27 that
+ * turned a 14-team league into a 29-row table listing Kalloni (last played
+ * 2016), Kerkyra (2018) and twelve more, all at 0/0/0.
+ *
+ * Scheduled fixtures count, so a promoted club still appears before it has
+ * kicked a ball — which is the case the unranked block below exists to serve.
+ */
+const seasonRoster = computed(() => {
+  const s = new Set()
+  for (const g of props.allGames) {
+    if (g.home_team_id) s.add(g.home_team_id)
+    if (g.away_team_id) s.add(g.away_team_id)
+  }
+  return s
+})
+
 const rows = computed(() => {
   const seen = new Set()
   const out = []
@@ -377,6 +398,7 @@ const rows = computed(() => {
   // archive they are clubs from a roster that season never had.
   for (const c of props.isCurrentSeason ? props.clubs : []) {
     if (seen.has(c.team_id)) continue
+    if (!seasonRoster.value.has(c.team_id)) continue
     out.push({
       key: c.team_id,
       teamId: c.team_id,

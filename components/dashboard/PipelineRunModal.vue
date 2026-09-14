@@ -1,10 +1,16 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-    <div class="panel-elevated rounded-lg max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+  <UModal
+    :model-value="isOpen"
+    @update:model-value="$emit('close')"
+    :ui="{ width: 'sm:max-w-2xl', background: 'bg-surface' }"
+  >
+    <div class="panel-elevated rounded-lg w-full max-h-[85vh] flex flex-col overflow-hidden">
       <!-- Header -->
       <header class="panel-head">
         <h2 class="panel-title">Run pipeline</h2>
-        <button @click="close" class="panel-link ml-auto hover:text-zinc-100 text-zinc-400 text-sm leading-none">Close</button>
+        <button class="btn btn-ghost btn-icon ml-auto" title="Close" @click="$emit('close')">
+          <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
+        </button>
       </header>
 
       <!-- Pipeline chooser -->
@@ -30,16 +36,26 @@
       <div class="flex-1 overflow-y-auto px-4 py-3">
         <!-- Action row -->
         <div class="flex items-center gap-3 mb-3">
-          <button
-            class="refresh-btn"
-            :disabled="busy"
-            @click="startRun"
-          >
-            <span class="refresh-icon" :class="busy ? 'animate-spin' : ''">▶</span>
+          <button class="btn btn-brand" :disabled="busy" @click="startRun">
+            <UIcon
+              :name="busy ? 'i-heroicons-arrow-path' : 'i-heroicons-play'"
+              class="w-3.5 h-3.5"
+              :class="busy ? 'animate-spin' : ''"
+            />
             {{ busy ? 'Running…' : run ? 'Run again' : `Run ${selected}` }}
           </button>
           <span v-if="run" class="text-[10px] text-zinc-600 tabular-nums">
             last run {{ fmtWhen(run.started_at) }}
+          </span>
+          <span
+            v-if="run?.active"
+            class="text-[10px] tabular-nums ml-auto"
+            :class="live ? 'text-emerald-400/70' : 'text-zinc-600'"
+            :title="live
+              ? 'Subscribed to phase_runs — phases land as the runner writes them.'
+              : 'Realtime did not connect; falling back to a 2s poll.'"
+          >
+            {{ live ? 'live' : 'polling' }}
           </span>
         </div>
 
@@ -113,14 +129,29 @@
         {{ error }}
       </p>
     </div>
-  </div>
+  </UModal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+/**
+ * The on-demand pipeline trigger and its live readout.
+ *
+ * Telemetry arrives over Realtime (`pipeline_runs` + `phase_runs` were added to
+ * the `supabase_realtime` publication in 20260903120000) and the modal re-reads
+ * `/api/pipeline/runs` on every event, rather than trusting the payload: both
+ * tables are admin-RLS'd, so an event is a NUDGE, not a data source.
+ *
+ * The poll is deliberately kept, at two cadences. A subscription can fail two
+ * ways — it can never reach SUBSCRIBED (socket down), and it can reach
+ * SUBSCRIBED and deliver nothing (Realtime evaluates our custom-JWT RLS policy
+ * per subscriber). The first is caught by the status callback; only a heartbeat
+ * catches the second, so a live channel still polls slowly.
+ */
+import { ref, computed, watch, onUnmounted } from 'vue'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 
 const props = defineProps<{ isOpen: boolean }>()
-const emit = defineEmits<{ close: [] }>()
+defineEmits<{ close: [] }>()
 
 const pipelines = ['football', 'basketball'] as const
 const selected = ref<'football' | 'basketball'>('football')
@@ -130,14 +161,17 @@ const error = ref<string | null>(null)
 const run = ref<any>(null)
 const phases = ref<any[]>([])
 const expanded = ref<Set<string>>(new Set())
+const live = ref(false)
+
+/** Realtime is authoritative when it connects; the poll is the safety net. */
+const POLL_MS_FALLBACK = 2000
+const POLL_MS_HEARTBEAT = 15000
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let pollMs = 0
+let coalesceTimer: ReturnType<typeof setTimeout> | null = null
+let channel: RealtimeChannel | null = null
 let disposed = false
-
-function close() {
-  stopPolling()
-  emit('close')
-}
 
 function selectPipeline(p: 'football' | 'basketball') {
   if (busy.value) return
@@ -169,7 +203,6 @@ async function startRun() {
       body: { pipeline: selected.value, dry_run: dryRun.value },
     })
     await fetchRun()
-    startPolling()
   } catch (e: any) {
     error.value = e?.data?.message || e?.message || 'Failed to start pipeline'
   } finally {
@@ -177,16 +210,43 @@ async function startRun() {
   }
 }
 
-function startPolling() {
+/**
+ * Several phases can land in the same tick; one re-read serves all of them.
+ */
+function nudge() {
+  if (disposed || coalesceTimer) return
+  coalesceTimer = setTimeout(() => {
+    coalesceTimer = null
+    fetchRun()
+  }, 250)
+}
+
+function subscribe() {
+  if (channel) return
+  const supabase = useSupabaseClient()
+  channel = supabase
+    .channel('pipeline-telemetry')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'phase_runs' }, nudge)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_runs' }, nudge)
+    .subscribe((status) => {
+      live.value = status === 'SUBSCRIBED'
+      startPolling(live.value ? POLL_MS_HEARTBEAT : POLL_MS_FALLBACK)
+    })
+}
+
+function unsubscribe() {
+  if (!channel) return
+  const supabase = useSupabaseClient()
+  supabase.removeChannel(channel)
+  channel = null
+  live.value = false
+}
+
+function startPolling(intervalMs: number) {
+  if (pollTimer && pollMs === intervalMs) return
   stopPolling()
-  pollTimer = setInterval(async () => {
-    if (disposed) return
-    await fetchRun()
-    // Stop once the run has resolved to a terminal status and is no longer active.
-    if (run.value && !run.value.active && run.value.status !== 'running') {
-      stopPolling()
-    }
-  }, 2000)
+  pollMs = intervalMs
+  pollTimer = setInterval(fetchRun, intervalMs)
 }
 
 function stopPolling() {
@@ -194,7 +254,28 @@ function stopPolling() {
     clearInterval(pollTimer)
     pollTimer = null
   }
+  pollMs = 0
 }
+
+/**
+ * Nothing runs while the modal is shut. Opening it also fetches once — the
+ * modal used to render its "no run yet" explainer over a pipeline that had run
+ * an hour ago, because the first read only happened on a tab switch or a run.
+ */
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open) {
+      fetchRun()
+      startPolling(POLL_MS_FALLBACK)
+      subscribe()
+    } else {
+      unsubscribe()
+      stopPolling()
+    }
+  },
+  { immediate: true },
+)
 
 function truncate(s: string, n = 120): string {
   return s.length > n ? s.slice(0, n) + '…' : s
@@ -258,26 +339,8 @@ function phaseStatusClass(status: string): string {
 
 onUnmounted(() => {
   disposed = true
+  if (coalesceTimer) clearTimeout(coalesceTimer)
+  unsubscribe()
   stopPolling()
 })
 </script>
-
-<style scoped>
-.refresh-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.75rem;
-  border-radius: 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  background: linear-gradient(165deg, rgba(41, 45, 54, 0.6), rgba(28, 31, 39, 0.9));
-  border: 1px solid #2a2f3a;
-  color: rgb(161, 161, 170);
-  transition: color 160ms ease, border-color 160ms ease, transform 140ms ease;
-}
-.refresh-btn:hover:not(:disabled) { color: rgb(228, 231, 236); border-color: rgba(57, 135, 229, 0.4); }
-.refresh-btn:active:not(:disabled) { transform: scale(0.97); }
-.refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.refresh-icon { display: inline-block; font-size: 0.85rem; line-height: 1; }
-</style>

@@ -1,13 +1,13 @@
 <template>
   <div class="p-3 sm:p-6 max-w-[1600px] mx-auto min-h-screen pb-20 lg:pb-6">
     <!-- Breadcrumb + identity -->
-    <div class="mb-4">
+    <div class="mb-3">
       <NuxtLink to="/wallet" class="text-[11px] text-zinc-500 hover:text-zinc-300">← All wallets</NuxtLink>
 
-      <div v-if="wallet" class="mt-2 flex items-end justify-between gap-4 flex-wrap">
+      <div v-if="wallet" class="mt-1.5 flex items-start justify-between gap-4 flex-wrap">
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
-            <h1 class="text-xl sm:text-2xl font-bold text-white truncate">{{ meta.longName }}</h1>
+            <h1 class="text-lg sm:text-xl font-bold text-white truncate">{{ meta.longName }}</h1>
             <span class="text-xs text-zinc-600 tabular-nums">W{{ wallet.id }}</span>
             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-surface-light text-zinc-400 border border-edge">
               {{ meta.badge }}
@@ -16,25 +16,40 @@
               {{ COHORT_LABEL[cohort] }}
             </span>
           </div>
-          <p v-if="wallet.bio" class="text-[11px] text-zinc-500 leading-relaxed mt-1 max-w-3xl">
+          <p v-if="wallet.bio" class="text-[11px] text-zinc-500 leading-snug mt-0.5 max-w-3xl">
             {{ wallet.bio }}
           </p>
         </div>
 
-        <!-- Sibling picker: an operator comparing wallets should not have to
-             walk back to the index for every one. -->
-        <div v-if="siblings.length > 1" class="flex items-center gap-1.5 flex-wrap justify-end max-w-lg">
-          <NuxtLink
-            v-for="s in siblings" :key="s.id"
-            :to="`/wallet/${s.id}`"
-            class="px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
-            :class="s.id === wallet.id
-              ? 'bg-blue-500/15 text-blue-300'
-              : 'bg-surface-light/40 text-zinc-500 hover:text-zinc-300'"
-          >W{{ s.id }}</NuxtLink>
+        <div class="flex items-center gap-2 flex-wrap justify-end max-w-lg">
+          <!-- User-mirror wallet: log a new real-money slip (with screenshot)
+               straight from here. It lands in `user_real_bets`; the backend
+               mirror chain (bind → project → settle) still runs separately. -->
+          <UButton
+            v-if="cohort === 'user_mirror'"
+            icon="i-heroicons-plus"
+            size="2xs"
+            color="primary"
+            @click="showAddBet = true"
+          >Add Bet</UButton>
+
+          <!-- Sibling picker: an operator comparing wallets should not have to
+               walk back to the index for every one. -->
+          <div v-if="siblings.length > 1" class="flex items-center gap-1.5 flex-wrap">
+            <NuxtLink
+              v-for="s in siblings" :key="s.id"
+              :to="`/wallet/${s.id}`"
+              class="px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
+              :class="s.id === wallet.id
+                ? 'bg-blue-500/15 text-blue-300'
+                : 'bg-surface-light/40 text-zinc-500 hover:text-zinc-300'"
+            >W{{ s.id }}</NuxtLink>
+          </div>
         </div>
       </div>
     </div>
+
+    <WalletAddRealBetModal v-model="showAddBet" :wallet-id="walletId" @saved="onBetLogged" />
 
     <div v-if="loading" class="flex justify-center py-20">
       <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
@@ -48,27 +63,33 @@
     </div>
 
     <template v-else>
-      <div class="grid lg:grid-cols-3 gap-4 mb-4">
+      <!-- One dense top row on xl: identity above, then hero (narrow) + equity
+           chart (wide) + P&L breakdown (medium). The breakdown was a
+           full-width block below this row until 2026-09-10 — on a wide screen
+           that was ~400px of scroll past a half-empty hero. It stacks below xl. -->
+      <div class="grid xl:grid-cols-12 gap-4 mb-4">
         <WalletHero
-          class="lg:col-span-1"
+          class="xl:col-span-3"
           :wallet="wallet"
           :performance="perf"
-          :sparkline-points="sparklinePoints"
           :verdict="scored.verdict"
           :family="scored.family"
           :coverage="coverage"
         />
         <WalletPerformanceChart
-          class="lg:col-span-2"
+          class="xl:col-span-5"
           :points="historyPoints"
           :model-value="historyDays"
           :loading="historyLoading"
           :seed="parseFloat(wallet.initial_balance || 0)"
           @update:days="setHistoryDays"
         />
+        <WalletBreakdown
+          class="xl:col-span-4"
+          :breakdown="breakdown"
+          :loading="breakdownLoading"
+        />
       </div>
-
-      <WalletBreakdown class="mb-4" :breakdown="breakdown" :loading="breakdownLoading" />
 
       <div class="rounded-xl bg-surface border border-edge overflow-hidden">
         <WalletBetFilterBar
@@ -169,6 +190,8 @@ const parlaysLoading = ref(false)
 const breakdown = ref(null)
 const breakdownLoading = ref(false)
 
+const showAddBet = ref(false)
+
 const historyDays = ref(0)
 const historyPoints = ref([])
 const historyLoading = ref(false)
@@ -184,9 +207,11 @@ const coverage = computed(() =>
 const cohort = computed(() => wallet.value ? cohortOf(wallet.value) : 'legacy')
 
 const cohortClass = computed(() => ({
-  ours:   'bg-emerald-500/10 text-emerald-300',
-  mirror: 'bg-sky-500/10 text-sky-300',
-  legacy: 'bg-zinc-700/40 text-zinc-400',
+  ours:        'bg-emerald-500/10 text-emerald-300',
+  incubation:  'bg-amber-500/10 text-amber-300',
+  mirror:      'bg-sky-500/10 text-sky-300',
+  user_mirror: 'bg-violet-500/10 text-violet-300',
+  legacy:      'bg-zinc-700/40 text-zinc-400',
 }[cohort.value]))
 
 /** The other wallets in the same cohort, most-traded first. */
@@ -210,8 +235,6 @@ const scored = computed(() => {
   })))
   return { verdict: family.verdictById.get(wallet.value.id) ?? 'n<10', family }
 })
-
-const sparklinePoints = computed(() => historyPoints.value.slice(-30))
 
 async function loadRoster() {
   const [walletsData, p, tips] = await Promise.all([
@@ -295,6 +318,18 @@ function setHistoryDays(d) {
 
 function prevPage() { betsPage.value--; loadBets() }
 function nextPage() { betsPage.value++; loadBets() }
+
+/**
+ * A slip was logged. It is in `user_real_bets` now, not yet in `bets` — the
+ * mirror chain (bind → project → settle) runs backend-side — so refresh the
+ * bet lists / breakdown but expect no change until that runs.
+ */
+function onBetLogged() {
+  loadBets()
+  loadParlays()
+  loadBreakdown()
+  loadHistory()
+}
 
 // Re-runs on sibling navigation — /wallet/40 → /wallet/41 reuses the component.
 watch(walletId, async (id) => {

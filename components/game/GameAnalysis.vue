@@ -155,6 +155,72 @@
       </div>
     </div>
 
+    <!-- ===== SCHEDULE & LEAGUE TRENDS ===== -->
+    <div v-if="timeContext || trends" class="border-t border-edge/50 pt-3.5 sm:pt-4">
+      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Schedule &amp; Trends</h4>
+
+      <div v-if="timeContext" class="grid grid-cols-2 sm:grid-cols-4 gap-1 mb-2">
+        <div class="trend-card">
+          <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Kickoff Day</span>
+          <span class="text-sm font-bold text-zinc-200">{{ timeContext.kickoff.day_of_week }}</span>
+        </div>
+        <div class="trend-card">
+          <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Time (UTC)</span>
+          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatHourUtc(timeContext.kickoff.hour_utc) }}</span>
+        </div>
+        <div class="trend-card">
+          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ game.home_name?.split(' ')[0] }} Rest</span>
+          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatRestDays(timeContext.rest_days.home) }}</span>
+        </div>
+        <div class="trend-card">
+          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ game.away_name?.split(' ')[0] }} Rest</span>
+          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatRestDays(timeContext.rest_days.away) }}</span>
+        </div>
+      </div>
+
+      <div v-if="hasCongestion" class="grid grid-cols-2 gap-1 mb-2">
+        <div class="trend-card">
+          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ game.home_name?.split(' ')[0] }} last 10d</span>
+          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatCongestion(timeContext.congestion_10d.home) }}</span>
+        </div>
+        <div class="trend-card">
+          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ game.away_name?.split(' ')[0] }} last 10d</span>
+          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatCongestion(timeContext.congestion_10d.away) }}</span>
+        </div>
+      </div>
+
+      <div v-if="trends && trends.status === 'available'" class="grid grid-cols-2 gap-1">
+        <div class="trend-card">
+          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">League Home Win %</span>
+          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ (trends.home_win_rate * 100).toFixed(1) }}%</span>
+          <span class="text-[9px] text-zinc-600 tabular-nums">n={{ trends.n }}</span>
+        </div>
+        <div class="trend-card">
+          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">League Avg {{ isBball ? 'Total' : 'Goals' }}</span>
+          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ trends.avg_total_score }}</span>
+          <span class="text-[9px] text-zinc-600 tabular-nums">n={{ trends.n }}</span>
+        </div>
+      </div>
+      <p v-else-if="trends" class="text-[11px] text-zinc-500">
+        League trend sample too small (n={{ trends.n }} &lt; 30)
+      </p>
+    </div>
+
+    <!-- ===== COMPETITION FORMAT ===== -->
+    <div v-if="competition" class="border-t border-edge/50 pt-3.5 sm:pt-4">
+      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Competition Format</h4>
+      <div class="flex flex-wrap gap-1.5">
+        <span class="competition-pill">{{ formatLabel(competition.format) }}</span>
+        <span class="competition-pill">{{ competition.season_convention === 'calendar_year' ? 'Calendar-Year Season' : 'Cross-Year Season' }}</span>
+        <span v-if="competition.two_legged" class="competition-pill">Two-Legged Ties</span>
+        <span v-if="competition.extra_time" class="competition-pill">Extra Time</span>
+        <span v-if="competition.penalties" class="competition-pill">Penalties</span>
+        <span v-if="competition.away_goals_rule" class="competition-pill">Away Goals Rule</span>
+        <span v-if="competition.periods" class="competition-pill">{{ competition.periods }} × {{ competition.period_length }}min</span>
+        <span v-if="competition.ot_rules" class="competition-pill">{{ competition.ot_rules }}</span>
+      </div>
+    </div>
+
     <!-- ===== H2H SECTION ===== -->
     <div class="border-t border-edge/50 pt-3.5 sm:pt-4">
       <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Head to Head</h4>
@@ -238,12 +304,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { parsePrediction } from '~/utils/prediction-label'
 
 const props = defineProps({
   game: { type: Object, required: true },
   sport: { type: String, default: 'football' },
-  h2h: { type: Object, default: null },
-  h2hLoading: { type: Boolean, default: false },
+  // The unified per-fixture analysis record (`/api/game/[id]/analysis`) — h2h,
+  // predicted score and pace/trend all come from here now, server-computed by
+  // team_id, instead of a browser-side by-name Supabase query. See
+  // `docs/plans/unified-analysis-layer.md` §4 (Track C).
+  analysis: { type: Object, default: null },
+  analysisLoading: { type: Boolean, default: false },
   prediction: { type: Object, default: null },
   // Football's odds now live in the dedicated Market tab (OddsLadder), so the
   // odds section here renders only for basketball.
@@ -251,6 +322,23 @@ const props = defineProps({
 })
 
 const isBball = computed(() => props.sport === 'basketball')
+const h2hLoading = computed(() => props.analysisLoading)
+
+// Adapter onto the server's `analysis.h2h` shape — keeps every computed below
+// (and the template's bare `h2h.summary.*` bindings) unchanged.
+const h2h = computed(() => {
+  const a = props.analysis?.h2h
+  if (!a) return null
+  return {
+    summary: {
+      totalMatches: a.summary.total_matches,
+      homeTeamWins: a.summary.home_wins,
+      awayTeamWins: a.summary.away_wins,
+      draws: a.summary.draws,
+    },
+    matches: a.matches,
+  }
+})
 
 // ─── Odds ────────────────────────────────────────────────
 const bballOdds = computed(() => props.game.sport_stats?.odds || null)
@@ -267,14 +355,15 @@ const spreadAwaySign = computed(() => {
 })
 
 // ─── Recommended market highlight ────────────────────────
+// Canonical parse — same function GamePrediction.vue uses, so the two can no
+// longer disagree about what a prediction code means.
 const recommendedMarket = computed(() => {
-  if (!props.prediction?.prediction) return null
-  const p = props.prediction.prediction.toUpperCase()
-  if (p.includes('OVER_TOTAL') || p.includes('OVER_ALT') || p === 'OVER') return 'over'
-  if (p.includes('UNDER_TOTAL') || p.includes('UNDER_ALT') || p === 'UNDER') return 'under'
-  if (p === '1' || p === 'HOME' || p === 'H' || p.includes('HOME_WIN')) return 'home'
-  if (p === '2' || p === 'AWAY' || p === 'A') return 'away'
-  return null
+  const line = isBball.value ? bballOdds.value?.over_under?.line : null
+  return parsePrediction(props.prediction?.prediction, {
+    homeTeam: props.game.home_name,
+    awayTeam: props.game.away_name,
+    ouLine: line,
+  }).side
 })
 
 const mlOdds = computed(() => {
@@ -311,23 +400,23 @@ function formatOdds(v) {
 
 // ─── H2H ─────────────────────────────────────────────────
 const homeWinPct = computed(() => {
-  if (!props.h2h?.summary?.totalMatches) return 0
-  return Math.round((props.h2h.summary.homeTeamWins / props.h2h.summary.totalMatches) * 100)
+  if (!h2h.value?.summary?.totalMatches) return 0
+  return Math.round((h2h.value.summary.homeTeamWins / h2h.value.summary.totalMatches) * 100)
 })
 
 const awayWinPct = computed(() => {
-  if (!props.h2h?.summary?.totalMatches) return 0
-  return Math.round((props.h2h.summary.awayTeamWins / props.h2h.summary.totalMatches) * 100)
+  if (!h2h.value?.summary?.totalMatches) return 0
+  return Math.round((h2h.value.summary.awayTeamWins / h2h.value.summary.totalMatches) * 100)
 })
 
 const drawPct = computed(() => {
-  if (!props.h2h?.summary?.totalMatches) return 0
+  if (!h2h.value?.summary?.totalMatches) return 0
   return 100 - homeWinPct.value - awayWinPct.value
 })
 
 const completedH2HMatches = computed(() => {
-  const matches = props.h2h?.matches || []
-  return matches.filter((m) => m.home_goals != null && m.away_goals != null)
+  // The server already filters to completed meetings (`not home_goals is null`).
+  return h2h.value?.matches || []
 })
 
 const h2hAvgGoals = computed(() => {
@@ -407,45 +496,65 @@ function formatFormRecord(pills: ('W'|'L'|'D')[]) {
   return `${w}W ${d}D ${l}L`
 }
 
-// ─── Predicted Score (derived from h2h avgs + win prob) ──
+// ─── Predicted Score / Pace / Trends ──────────────────────
+// Computed server-side now (`analysis.derived`) from the same h2h matches and
+// the same ±15%-tilt-by-win-prob math this component used to run itself —
+// moved so post-mortem/other future consumers of the analysis record see the
+// identical number, not a second copy of this arithmetic.
 const predictedScore = computed(() => {
-  const matches = completedH2HMatches.value
-  if (!matches.length) return null
-  // Base: each side's average score in this matchup.
-  const homeAvg = parseFloat(h2hHomeGoals.value)
-  const awayAvg = parseFloat(h2hAwayGoals.value)
-  if (isNaN(homeAvg) || isNaN(awayAvg)) return null
-  // Tilt by prediction win prob if available (capped to ±15%).
-  const hp = props.prediction?.home_win_prob
-  let homeAdj = homeAvg
-  let awayAdj = awayAvg
-  if (typeof hp === 'number' && isFinite(hp)) {
-    const tilt = Math.max(-0.15, Math.min(0.15, hp - 0.5))
-    homeAdj = homeAvg * (1 + tilt)
-    awayAdj = awayAvg * (1 - tilt)
-  }
-  // Football rounds to integer; basketball keeps integer (whole points).
-  return {
-    home: Math.round(homeAdj),
-    away: Math.round(awayAdj),
-  }
+  const d = props.analysis?.derived?.predicted_score
+  return d ? { home: d.home, away: d.away } : null
 })
 
-// ─── Pace / Trends ──────────────────────────────────────
 const paceTrend = computed(() => {
-  const matches = completedH2HMatches.value
-  if (matches.length < 2) return null
-  const totals = matches.map((m: any) => Number(m.home_goals) + Number(m.away_goals))
-  const avg = totals.reduce((a, b) => a + b, 0) / totals.length
-  const isBballGame = isBball.value
-  let label: string
-  if (isBballGame) {
-    label = avg >= 220 ? 'Fast' : avg >= 200 ? 'Normal' : 'Slow'
-  } else {
-    label = avg >= 3 ? 'High' : avg >= 2 ? 'Medium' : 'Low'
-  }
-  return { label, avgTotal: avg.toFixed(1) }
+  const d = props.analysis?.derived?.pace_trend
+  return d ? { label: d.label, avgTotal: d.avg_total } : null
 })
+
+// ─── Schedule Context / League Trends ─────────────────────
+// Both blocks are computed server-side in `analysis.time_context` /
+// `analysis.trends` (Track C) — this just renders them.
+const timeContext = computed(() => {
+  const tc = props.analysis?.time_context
+  return tc && tc.status === 'available' ? tc : null
+})
+
+const trends = computed(() => props.analysis?.trends || null)
+
+const hasCongestion = computed(() => {
+  const c = timeContext.value?.congestion_10d
+  return !!c && (c.home != null || c.away != null)
+})
+
+function formatHourUtc(h: number | null) {
+  return h == null ? '-' : `${String(h).padStart(2, '0')}:00`
+}
+
+function formatRestDays(d: number | null) {
+  return d == null ? '-' : `${d}d`
+}
+
+function formatCongestion(n: number | null) {
+  return n == null ? '-' : `${n} games`
+}
+
+// ─── Competition Format ────────────────────────────────────
+// `analysis.competition` (Track B's `competition_rules` registry, read-only).
+const competition = computed(() => {
+  const c = props.analysis?.competition
+  return c && c.status === 'available' ? c : null
+})
+
+const FORMAT_LABELS: Record<string, string> = {
+  league: 'League',
+  knockout: 'Knockout',
+  group_knockout: 'Group + Knockout',
+  playoff: 'Playoff',
+}
+
+function formatLabel(format: string) {
+  return FORMAT_LABELS[format] || format
+}
 </script>
 
 <style scoped>
@@ -525,5 +634,10 @@ const paceTrend = computed(() => {
 /* Trend cards */
 .trend-card {
   @apply bg-surface-light rounded-lg px-2.5 py-2 flex flex-col items-center gap-0.5;
+}
+
+/* Competition format pills */
+.competition-pill {
+  @apply bg-surface-light rounded-full px-2.5 py-1 text-[10px] font-medium text-zinc-300;
 }
 </style>

@@ -15,16 +15,16 @@
         <button
           @click="reload"
           :disabled="loading"
-          class="refresh-btn"
+          class="btn btn-ghost btn-icon"
           title="Reload dashboard data"
         >
-          <span class="refresh-icon" :class="loading ? 'animate-spin' : ''">↻</span>
+          <UIcon name="i-heroicons-arrow-path" class="w-3.5 h-3.5" :class="loading ? 'animate-spin' : ''" />
         </button>
         <button
-          class="run-btn"
+          class="btn btn-brand"
           @click="runModalOpen = true"
         >
-          <span class="run-icon">▶</span>
+          <UIcon name="i-heroicons-play" class="w-3.5 h-3.5" />
           Run pipeline
         </button>
       </div>
@@ -60,6 +60,7 @@
         <div class="space-y-4">
           <OpsHealth :pipelines="data.pipelines" />
           <OpsFleet :fleet="data.fleet" />
+          <OpsCalibration :calibration="data.calibration" />
         </div>
       </div>
 
@@ -87,6 +88,7 @@ import OpsLiveSlate from '~/components/ops/OpsLiveSlate.vue'
 import OpsFleet from '~/components/ops/OpsFleet.vue'
 import OpsHealth from '~/components/ops/OpsHealth.vue'
 import OpsBlindSpots from '~/components/ops/OpsBlindSpots.vue'
+import OpsCalibration from '~/components/ops/OpsCalibration.vue'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
@@ -113,41 +115,6 @@ useHead({ title: 'Control room · Protero' })
 </script>
 
 <style scoped>
-.refresh-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.75rem;
-  border-radius: 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  background: linear-gradient(165deg, rgba(41, 45, 54, 0.6), rgba(28, 31, 39, 0.9));
-  border: 1px solid #2a2f3a;
-  color: rgb(161, 161, 170);
-  transition: color 160ms ease, border-color 160ms ease, transform 140ms ease;
-}
-.refresh-btn:hover:not(:disabled) { color: rgb(228, 231, 236); border-color: rgba(57, 135, 229, 0.4); }
-.refresh-btn:active:not(:disabled) { transform: scale(0.97); }
-.refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.refresh-icon { display: inline-block; font-size: 0.85rem; line-height: 1; }
-
-.run-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.75rem;
-  border-radius: 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  background: linear-gradient(165deg, rgba(57, 135, 229, 0.28), rgba(57, 135, 229, 0.12));
-  border: 1px solid rgba(57, 135, 229, 0.45);
-  color: rgb(190, 215, 245);
-  transition: color 160ms ease, border-color 160ms ease, transform 140ms ease;
-}
-.run-btn:hover { color: rgb(226, 238, 255); border-color: rgba(57, 135, 229, 0.75); }
-.run-btn:active { transform: scale(0.97); }
-.run-icon { display: inline-block; font-size: 0.7rem; line-height: 1; }
-
 /* Panes fade-slide in on load, matching the league page's entrance motion. */
 .tab-anim {
   animation: pane-in 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
@@ -157,6 +124,6 @@ useHead({ title: 'Control room · Protero' })
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tab-anim, .refresh-btn { animation: none; transition: none; }
+  .tab-anim { animation: none; }
 }
 </style>

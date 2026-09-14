@@ -18,43 +18,51 @@
       No settled singles to break down.
     </div>
 
-    <div v-else class="p-2 sm:p-3">
+    <div v-else class="p-2 sm:p-2.5">
+      <!-- Bar sits under a single-line label+figures row (was a stacked block
+           ~44px tall; now ~28px). Rows past the 8th collapse behind a toggle. -->
       <div
-        v-for="r in rows" :key="r.label"
-        class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 items-center px-1.5 py-1.5 rounded hover:bg-surface-light/30"
+        v-for="r in visibleRows" :key="r.label"
+        class="px-1.5 py-1 rounded hover:bg-surface-light/30"
       >
-        <div class="min-w-0">
-          <div class="flex items-baseline gap-2">
-            <span class="text-[12px] text-zinc-200 truncate">{{ pretty(r.label) }}</span>
-            <span class="text-[10px] text-zinc-600 tabular-nums flex-shrink-0">
-              n={{ r.n }} · {{ Number(r.win_rate_pct).toFixed(0) }}% won
-            </span>
-          </div>
-          <!-- One bar, signed from a shared centre so slices are comparable
-               to each other rather than each to itself. -->
-          <div class="relative h-1.5 mt-1 rounded-full bg-surface-light/50 overflow-hidden">
-            <div
-              class="absolute inset-y-0"
-              :class="Number(r.pnl) >= 0 ? 'bg-emerald-500/60' : 'bg-red-500/60'"
-              :style="barStyle(r)"
-            ></div>
-            <div class="absolute inset-y-0 w-px bg-zinc-600/70" style="left:50%"></div>
-          </div>
-        </div>
-        <div class="text-right tabular-nums">
-          <div class="text-[12px] font-semibold" :class="signClass(r.pnl)">{{ signed(r.pnl) }}</div>
-          <!-- A slice this thin has no ROI worth printing; say so rather than
-               rendering ±100% off three wagers. -->
-          <div class="text-[10px]" :class="r.n < MIN_N ? 'text-zinc-600' : signClass(r.roi_pct)">
+        <div class="flex items-baseline gap-2">
+          <span class="text-[12px] text-zinc-200 truncate">{{ pretty(r.label) }}</span>
+          <span class="text-[10px] text-zinc-600 tabular-nums flex-shrink-0 ml-auto">
+            n={{ r.n }}
+          </span>
+          <span class="text-[12px] font-semibold tabular-nums flex-shrink-0 w-16 text-right" :class="signClass(r.pnl)">
+            {{ signed(r.pnl) }}
+          </span>
+          <span
+            class="text-[10px] tabular-nums flex-shrink-0 w-14 text-right"
+            :class="r.n < MIN_N ? 'text-zinc-600' : signClass(r.roi_pct)"
+          >
             {{ r.n < MIN_N ? 'thin' : (r.roi_pct == null ? '—' : signed(r.roi_pct) + '%') }}
-          </div>
+          </span>
+        </div>
+        <!-- One bar, signed from a shared centre so slices are comparable
+             to each other rather than each to itself. -->
+        <div class="relative h-1 mt-0.5 rounded-full bg-surface-light/50 overflow-hidden">
+          <div
+            class="absolute inset-y-0"
+            :class="Number(r.pnl) >= 0 ? 'bg-emerald-500/60' : 'bg-red-500/60'"
+            :style="barStyle(r)"
+          ></div>
+          <div class="absolute inset-y-0 w-px bg-zinc-600/70" style="left:50%"></div>
         </div>
       </div>
 
-      <p class="text-[10px] text-zinc-600 mt-3 px-1.5 leading-relaxed">
-        {{ basis }} A slice under {{ MIN_N }} wagers shows its P&amp;L but not an ROI —
-        at that n the ROI is a coin-flip's worth of noise, and 1 SE of a cell's return in this
-        project runs ±10–20pp.
+      <button
+        v-if="rows.length > COLLAPSE_AT"
+        @click="expanded = !expanded"
+        class="text-[10px] text-zinc-500 hover:text-zinc-300 px-1.5 mt-1.5"
+      >
+        {{ expanded ? 'Show less' : `+${rows.length - COLLAPSE_AT} more` }}
+      </button>
+
+      <p class="text-[10px] text-zinc-600 mt-2 px-1.5 leading-snug">
+        {{ basis }} A slice under {{ MIN_N }} wagers shows P&amp;L but no ROI — at that n
+        1 SE of the cell's return runs ±10–20pp.
       </p>
     </div>
   </div>
@@ -72,6 +80,9 @@ const props = defineProps({
 /** Below this a slice's ROI is noise; the P&L still shows. */
 const MIN_N = 15
 
+/** Rows past this collapse behind a "+N more" toggle. */
+const COLLAPSE_AT = 8
+
 const CUTS = [
   { key: 'league', label: 'Competition' },
   { key: 'market', label: 'Market' },
@@ -79,6 +90,7 @@ const CUTS = [
 ]
 
 const cut = ref('league')
+const expanded = ref(false)
 
 const available = computed(() =>
   CUTS.filter(c => (props.breakdown?.cuts?.[c.key] || []).length > 0))
@@ -89,7 +101,12 @@ watch(available, list => {
   if (list.length && !list.some(c => c.key === cut.value)) cut.value = list[0].key
 }, { immediate: true })
 
+// Reset the collapse when the operator switches cut.
+watch(cut, () => { expanded.value = false })
+
 const rows = computed(() => props.breakdown?.cuts?.[cut.value] || [])
+const visibleRows = computed(() =>
+  expanded.value ? rows.value : rows.value.slice(0, COLLAPSE_AT))
 
 const basis = computed(() => props.breakdown?.basis
   ? props.breakdown.basis.charAt(0).toUpperCase() + props.breakdown.basis.slice(1) + '.'

@@ -147,28 +147,44 @@ export const useApi = () => {
       ${opts.includeBets ? `,bets!left(id,wallet_id,bet_type,stake,odds,status,profit,notes,sport,strategy)` : ''}
     `
 
-    let q = supabase
-      .from('games')
-      .select(selectCols)
-      .gte('date', fromDate)
-      .lte('date', toDate)
+    // Paged, because PostgREST caps a response at 1,000 rows silently. The
+    // dashboard's default 74-day window across every league/sport is ~3,900
+    // rows — a single request truncated at row 1,000 sorted by date ascending,
+    // which cut off partway through TODAY and left every later date blank
+    // with no error anywhere (same failure mode as the league page fetcher).
+    const PAGE = 1000
+    const MAX_PAGES = 20
+    const games: any[] = []
+    for (let page = 0; page < MAX_PAGES; page++) {
+      let q = supabase
+        .from('games')
+        .select(selectCols)
+        .gte('date', fromDate)
+        .lte('date', toDate)
 
-    // A date window spans leagues of BOTH season conventions — European
-    // football is on 2026-2027 while argentina_primera and brazil_serie_a are
-    // on 2026-2026 — so pinning one season here drops the calendar-year
-    // leagues entirely (248 fixtures in the dashboard's own window). Only
-    // constrain the season when the caller asked for a specific one; otherwise
-    // accept either, since `from`/`to` already bound the query.
-    q = opts.season
-      ? q.eq('season', opts.season)
-      : q.in('season', currentSeasons())
+      // A date window spans leagues of BOTH season conventions — European
+      // football is on 2026-2027 while argentina_primera and brazil_serie_a are
+      // on 2026-2026 — so pinning one season here drops the calendar-year
+      // leagues entirely (248 fixtures in the dashboard's own window). Only
+      // constrain the season when the caller asked for a specific one; otherwise
+      // accept either, since `from`/`to` already bound the query.
+      q = opts.season
+        ? q.eq('season', opts.season)
+        : q.in('season', currentSeasons())
 
-    if (opts.leagues && opts.leagues.length > 0) {
-      q = q.in('league_key', opts.leagues)
+      if (opts.leagues && opts.leagues.length > 0) {
+        q = q.in('league_key', opts.leagues)
+      }
+
+      const { data, error } = await q
+        .order('date', { ascending: true })
+        .range(page * PAGE, page * PAGE + PAGE - 1)
+
+      if (error) throw error
+      if (!data?.length) break
+      games.push(...data)
+      if (data.length < PAGE) break
     }
-
-    const { data: games, error } = await q.order('date', { ascending: true })
-    if (error) throw error
 
     // Parlay legs are stored in `bets` with `notes.parlay_id` set. Strip them
     // here — the dashboard parlays toggle renders them grouped instead.

@@ -232,8 +232,8 @@
                   <GameAnalysis
                     :game="data.game"
                     :sport="gameSport"
-                    :h2h="h2hData"
-                    :h2h-loading="h2hLoading"
+                    :analysis="analysisData"
+                    :analysis-loading="analysisLoading"
                     :prediction="data.prediction"
                     :show-odds="gameSport !== 'football'"
                   />
@@ -245,6 +245,7 @@
                     :game="data.game"
                     :prediction="data.prediction"
                     :sport="gameSport"
+                    :analysis="analysisData"
                   />
                 </div>
 
@@ -622,34 +623,32 @@ watch(() => data.value?.game, (game) => {
   if (game) loadShots()
 }, { immediate: true })
 
-const h2hData = ref(null)
-const h2hLoading = ref(false)
+// Unified per-fixture analysis record (`/api/game/[id]/analysis`, unified-
+// analysis-layer Track C) — h2h, predicted score and pace/trend for the
+// Analysis tab. Lazy-loaded the first time either tab that needs it opens,
+// then cached per game id (switching Analysis <-> Prediction doesn't refetch).
+const analysisData = ref<Record<string, any> | null>(null)
+const analysisLoading = ref(false)
+let analysisLoadedForGameId: number | null = null
 
-async function loadH2H() {
-  if (!data.value?.game || isCompleted.value) return
-  // Use bundled h2h when available
-  const bundled = (data.value as Record<string, any>)?.h2h
-  if (bundled && (bundled.matches?.length || bundled.summary)) {
-    h2hData.value = bundled
-    return
-  }
-  const g = data.value.game
-  h2hLoading.value = true
+async function loadAnalysis() {
+  const g = data.value?.game
+  if (!g) return
+  if (analysisLoadedForGameId === g.id) return
+  analysisLoading.value = true
   try {
-    const res = await api.fetchH2H(g.home_name, g.away_name, 20)
-    h2hData.value = res
+    analysisData.value = await $fetch(`/api/game/${g.id}/analysis`)
+    analysisLoadedForGameId = g.id
   } catch (e) {
-    console.warn('H2H fetch failed:', e)
+    console.warn('Analysis fetch failed:', e)
+    analysisData.value = null
   } finally {
-    h2hLoading.value = false
+    analysisLoading.value = false
   }
 }
 
-// Auto-load H2H for scheduled games
-watch(() => data.value?.game, (game) => {
-  if (game && game.status !== 'completed') {
-    loadH2H()
-  }
+watch(() => [data.value?.game?.id, activeTab.value], ([, tab]) => {
+  if (tab === 'analysis' || tab === 'prediction') loadAnalysis()
 }, { immediate: true })
 
 // SEO
