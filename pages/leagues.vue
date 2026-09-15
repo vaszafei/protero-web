@@ -5,8 +5,9 @@
       <div>
         <h1 class="text-xl sm:text-2xl font-bold text-white">Competitions</h1>
         <p class="text-zinc-500 text-xs sm:text-sm mt-0.5 max-w-3xl">
-          Every competition we hold a fixture for, ranked by the twin's fitted
-          <span class="text-zinc-400">level</span>. Open one for its digital twin.
+          Every competition we hold a fixture for, ranked by the twin's fitted scoring
+          <span class="text-zinc-400">level</span> — how many goals the environment produces, not how
+          strong it is. Open one for its digital twin.
         </p>
       </div>
       <div v-if="summary" class="flex items-center gap-5 text-xs">
@@ -67,7 +68,7 @@
           <thead>
             <tr class="bg-surface-light/40 text-zinc-500">
               <th class="text-left font-medium px-3 py-2">Competition</th>
-              <th class="text-left font-medium px-2 py-2 w-40" title="Fitted strength of the competition — comparable within its group, not across groups">Level</th>
+              <th class="text-left font-medium px-2 py-2 w-40" title="Fitted SCORING level: log goals per team per game, after team ratings are absorbed. Not a strength ranking — a high-scoring second tier outranks a low-scoring first tier.">Level</th>
               <th class="text-right font-medium px-2 py-2 w-20" title="Home-advantage term, in log-goals">Home</th>
               <th class="text-right font-medium px-2 py-2 w-20" title="How far apart the competition's clubs are. Zero for cups, which pool tiers.">Spread</th>
               <th class="text-right font-medium px-2 py-2 w-20">Goals</th>
@@ -138,10 +139,14 @@
       </section>
 
       <p class="text-[10px] text-zinc-600 leading-relaxed mt-3 max-w-4xl">
-        <span class="text-zinc-500">Level</span> is the twin's fitted strength of the competition — one
-        scale within each group above, which is the point of the entity layer. It is grouped rather than
-        ranked as one list because a cup pools clubs from every tier, so its level sits above every
-        league's without the competition being stronger. <span class="text-zinc-500">BET</span> means the ledger carries wagers on it;
+        <span class="text-zinc-500">Level</span> is the twin's fitted <em>scoring</em> level — log goals
+        per team per game (<code>ml/twins/league.py</code>), fitted jointly with team ratings so it is the
+        goal rate the environment adds once the clubs are accounted for. <strong>It is not a strength
+        ranking.</strong> 2. Bundesliga sits above Bundesliga and La Liga 2 above La Liga because those
+        divisions score more, not because they are better; the twin exposes no cross-league strength
+        scalar today. It is grouped rather than ranked as one list because a cup pools clubs from every
+        tier, so its level sits above every league's without the competition being stronger.
+        <span class="text-zinc-500">BET</span> means the ledger carries wagers on it;
         <span class="text-zinc-500">DATA</span> means we hold fixtures but bet none — the domestic cups
         exist so the twin can separate a club's rating from its division's level, and are never bet.
         Twin ratings are context, never a price.
@@ -196,7 +201,8 @@ const rows = computed(() => {
       if (q && !l.name.toLowerCase().includes(q) && !l.key.includes(q)) return false
       return true
     })
-    // Fitted competitions first, strongest down; unfitted ones by corpus size.
+    // Fitted competitions first, highest-scoring down; unfitted ones by corpus
+    // size. NOT a strength order — `level` is log goals/team/game.
     .sort((a, b) => {
       if (a.level != null && b.level != null) return b.level - a.level
       if (a.level != null) return -1
