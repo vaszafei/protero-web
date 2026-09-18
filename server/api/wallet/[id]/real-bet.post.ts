@@ -13,7 +13,10 @@
  *
  * Body: identical to POST /api/user-real-bets (placed_at, bet_type, stake,
  * total_odds, status?, legs[], bookmaker?, bookmaker_external_id?, notes?,
- * screenshot_url?). Idempotent on (user_id, bookmaker, bookmaker_external_id).
+ * screenshot_url?). Idempotent on (user_id, bookmaker, bookmaker_external_id);
+ * a slip sent without an id is keyed `manual:<uuid>`. A leg may carry
+ * `game_id` (the fixture the operator bound it to in the modal) — that is how
+ * a hand-entered leg, which has no betradar_match_id, reaches the projector.
  */
 import { requireAdmin } from '~/server/utils/auth'
 import { getSupabase } from '~/server/utils/supabase'
@@ -28,6 +31,8 @@ interface Leg {
   odds: number
   result?: 'pending' | 'won' | 'lost' | 'void'
   score?: string
+  /** Fixture the operator bound this leg to (Option A); resolves without a betradar id. */
+  game_id?: number
 }
 
 interface Body {
@@ -95,12 +100,23 @@ export default defineEventHandler(async (event) => {
   const status = body.status || 'pending'
   const { payout, profit } = computePayoutAndProfit(body.stake, body.total_odds, status)
   const bookmaker = body.bookmaker || 'Stoiximan'
+  // A slip typed without its Stoiximan id still gets a key: idempotent on
+  // re-submit, and `manual:` marks it as hand-entered (a NULL id means the
+  // owner's analysis notes, which the coverage view excludes — migration
+  // 20260918170000). A later feed pull with the real id will not collide;
+  // that slip simply appears twice until one is deleted, visibly.
+  const externalId = body.bookmaker_external_id || `manual:${crypto.randomUUID()}`
+  for (const leg of body.legs) {
+    if (leg.game_id != null && !Number.isInteger(Number(leg.game_id))) {
+      throw createError({ statusCode: 400, statusMessage: 'leg.game_id must be an integer games.id' })
+    }
+  }
 
   const row = {
     user_id: targetUserId,
     placed_at: body.placed_at,
     bookmaker,
-    bookmaker_external_id: body.bookmaker_external_id || null,
+    bookmaker_external_id: externalId,
     bet_type: body.bet_type,
     stake: body.stake,
     total_odds: body.total_odds,
@@ -118,7 +134,7 @@ export default defineEventHandler(async (event) => {
       .select('id')
       .eq('user_id', targetUserId)
       .eq('bookmaker', bookmaker)
-      .eq('bookmaker_external_id', body.bookmaker_external_id)
+      .eq('bookmaker_external_id', externalId)
       .maybeSingle()
 
     if (existing) {

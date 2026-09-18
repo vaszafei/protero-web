@@ -98,7 +98,10 @@
 
         <div>
           <div class="flex items-center justify-between mb-2">
-            <h4 class="text-sm font-semibold text-white">Legs ({{ form.legs.length }})</h4>
+            <div>
+              <h4 class="text-sm font-semibold text-white">Legs ({{ form.legs.length }})</h4>
+              <p class="text-[10px] text-zinc-500">Type market and selection exactly as Stoiximan prints them — the mirror projector maps those labels.</p>
+            </div>
             <UButton size="2xs" icon="i-heroicons-plus" @click="addLeg">Add Leg</UButton>
           </div>
           <div class="space-y-2">
@@ -113,10 +116,36 @@
                 <USelect v-model="leg.sport" :options="sportLegOptions" placeholder="Sport" />
                 <UInput v-model="leg.league" placeholder="League (e.g. la_liga)" />
               </div>
-              <UInput v-model="leg.match" placeholder="Match (e.g. Osasuna vs Barcelona)" />
+              <div class="grid grid-cols-[1fr_auto_auto] gap-2">
+                <UInput v-model="leg.match" placeholder="Match as printed (e.g. Οσασούνα - Μπαρτσελόνα)" />
+                <UInput v-model="leg.match_date" type="date" />
+                <UButton size="xs" variant="soft" color="primary" icon="i-heroicons-magnifying-glass"
+                         :loading="leg._searching" :disabled="!leg.match || !leg.match_date"
+                         @click="findFixture(leg)">Bind</UButton>
+              </div>
+              <!-- Option A binding: the operator picks a fixture from candidates; a leg
+                   is never bound on a name alone. `game_id` rides on the leg JSON and
+                   is what project_stoiximan resolves a hand-entered leg through. -->
+              <div v-if="leg.game_id" class="flex items-center gap-2 text-[11px]">
+                <span class="text-green-400">✓ fixture #{{ leg.game_id }}</span>
+                <span class="text-zinc-400 truncate">{{ leg._bound_label }}</span>
+                <UButton size="2xs" variant="ghost" color="gray" icon="i-heroicons-x-mark" @click="unbind(leg)" />
+              </div>
+              <div v-else-if="leg._candidates" class="space-y-1">
+                <p v-if="!leg._candidates.length" class="text-[11px] text-amber-400">
+                  No fixture found within the window — check the spelling or the date; the slip can still be saved unbound.
+                </p>
+                <button v-for="c in leg._candidates" :key="c.game_id" type="button"
+                        class="w-full text-left text-[11px] px-2 py-1 rounded bg-surface-light/60 hover:bg-surface-light border border-edge"
+                        @click="bind(leg, c)">
+                  <span class="text-zinc-200">{{ c.home }} v {{ c.away }}</span>
+                  <span class="text-zinc-500"> · {{ c.league_key }} · {{ c.date.slice(0, 16).replace('T', ' ') }}</span>
+                  <span v-if="c.matched === 'one'" class="text-amber-400"> · one side matched</span>
+                </button>
+              </div>
               <div class="grid grid-cols-2 gap-2">
-                <UInput v-model="leg.market" placeholder="Market (e.g. FINAL_RESULT)" />
-                <UInput v-model="leg.selection" placeholder="Selection (e.g. Barcelona)" />
+                <UInput v-model="leg.market" placeholder="Market as printed (e.g. Τελικό Αποτέλεσμα)" />
+                <UInput v-model="leg.selection" placeholder="Selection as printed (e.g. Over 2.5)" />
               </div>
               <div class="grid grid-cols-3 gap-2">
                 <UInput v-model.number="leg.odds" type="number" step="0.01" min="1" placeholder="Odds" />
@@ -245,7 +274,13 @@ const statusOptionsForm = [
 ]
 
 function emptyLeg() {
-  return { sport: 'football', league: '', match: '', market: '', selection: '', odds: 1, result: 'pending', score: '' }
+  return {
+    sport: 'football', league: '', match: '', match_date: '', market: '', selection: '',
+    odds: 1, result: 'pending', score: '',
+    game_id: null as number | null,
+    // transient UI state, stripped before save
+    _candidates: null as any[] | null, _searching: false, _bound_label: '',
+  }
 }
 function emptyForm() {
   return {
@@ -279,7 +314,9 @@ watch(open, (isOpen) => {
       status: b.status,
       notes: b.notes || '',
       screenshot_url: b.screenshot_url || '',
-      legs: Array.isArray(b.legs) && b.legs.length ? b.legs.map((l: any) => ({ ...emptyLeg(), ...l })) : [emptyLeg()],
+      legs: Array.isArray(b.legs) && b.legs.length
+        ? b.legs.map((l: any) => ({ ...emptyLeg(), ...l, _bound_label: l.game_id ? `bound` : '' }))
+        : [emptyLeg()],
     }
   } else {
     form.value = emptyForm()
@@ -302,6 +339,42 @@ function autoComputeOdds() {
 function addLeg() { form.value.legs.push(emptyLeg()) }
 function removeLeg(i: number) {
   if (form.value.legs.length > 1) form.value.legs.splice(i, 1)
+}
+
+async function findFixture(leg: any) {
+  leg._searching = true
+  leg._candidates = null
+  try {
+    const res = await $fetch<{ candidates: any[] }>('/api/fixtures/search', {
+      query: { q: leg.match, date: leg.match_date, sport: leg.sport },
+    })
+    leg._candidates = res.candidates
+  } catch (e: any) {
+    leg._candidates = []
+    toast.add({ title: 'Fixture search failed', description: e?.data?.statusMessage || e.message, color: 'red' })
+  } finally {
+    leg._searching = false
+  }
+}
+function bind(leg: any, c: any) {
+  leg.game_id = c.game_id
+  leg._bound_label = `${c.home} v ${c.away} · ${c.league_key} · ${c.date.slice(0, 10)}`
+  leg._candidates = null
+}
+function unbind(leg: any) {
+  leg.game_id = null
+  leg._bound_label = ''
+}
+/** The leg as stored: no transient `_` fields, `game_id` only when bound. */
+function cleanLeg(l: any) {
+  const out: any = {}
+  for (const [k, v] of Object.entries(l)) {
+    if (k.startsWith('_')) continue
+    if (k === 'game_id' && !v) continue
+    if (k === 'match_date' && !v) continue
+    out[k] = v
+  }
+  return out
 }
 
 async function onFileSelected(e: Event) {
@@ -361,7 +434,7 @@ async function save() {
       status: form.value.status,
       notes: form.value.notes,
       screenshot_url: form.value.screenshot_url || undefined,
-      legs: form.value.legs,
+      legs: form.value.legs.map(cleanLeg),
     }
     if (editingBet.value) {
       await $fetch(`/api/user-real-bets/${editingBet.value.id}`, {
@@ -380,7 +453,7 @@ async function save() {
     }
     toast.add({
       title: editingBet.value ? 'Bet updated' : 'Slip logged',
-      description: editingBet.value ? undefined : 'Run the mirror chain (bind → project → settle) to reflect it in W54.',
+      description: editingBet.value ? undefined : 'Run project_stoiximan --apply → settle_stoiximan to reflect it in W54 (bound legs need no bind step).',
       color: 'green',
     })
     open.value = false
