@@ -4,15 +4,15 @@
     class="group flex flex-col rounded-lg border border-edge hover:border-primary-500 transition-all cursor-pointer bg-surface relative overflow-hidden h-full"
   >
     <!-- Time chip - small, top-right corner -->
-    <span class="absolute top-1 right-1 px-1 py-px bg-emerald-600/80 text-white text-[9px] font-medium rounded">
+    <span class="absolute top-1 right-1 px-1 py-px bg-emerald-600/80 text-white text-[10px] font-medium rounded">
       {{ formatTime(game.date) }}
     </span>
 
     <!-- FT / Prediction badge - top-left corner -->
     <div class="absolute top-1 left-1 flex items-center gap-0.5">
-      <span v-if="game.home_goals !== null" class="px-1 py-px bg-zinc-700 text-zinc-300 text-[9px] font-medium rounded">FT</span>
+      <span v-if="game.home_goals !== null" class="px-1 py-px bg-zinc-700 text-zinc-300 text-[10px] font-medium rounded">FT</span>
       <span v-if="game.prediction" :class="[
-        'px-1 py-px text-[9px] font-bold rounded',
+        'px-1 py-px text-[10px] font-bold rounded',
         game.home_goals !== null
           ? (isPredictionWin(game) ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400')
           : 'bg-orange-400/15 text-orange-400'
@@ -25,9 +25,9 @@
       <div class="flex flex-col items-center gap-0.5 min-w-0">
         <img v-if="getTeamLogoUrl(game.home_key)" :src="getTeamLogoUrl(game.home_key)" loading="lazy" width="24" height="24" class="w-6 h-6 object-contain" :title="game.home_name" />
         <div v-else class="w-6 h-6 rounded-full bg-[#0848a8]/20 flex items-center justify-center">
-          <span class="text-[8px] text-zinc-400 font-bold">H</span>
+          <span class="text-[9px] text-zinc-400 font-bold">H</span>
         </div>
-        <span class="text-[9px] text-zinc-300 font-medium leading-tight text-center line-clamp-1 max-w-[52px]" :title="game.home_name">{{ game.home_name }}</span>
+        <span class="text-[10px] text-zinc-300 font-medium leading-tight text-center line-clamp-1 max-w-[52px]" :title="game.home_name">{{ game.home_name }}</span>
       </div>
 
       <!-- Score or VS -->
@@ -42,9 +42,9 @@
       <div class="flex flex-col items-center gap-0.5 min-w-0">
         <img v-if="getTeamLogoUrl(game.away_key)" :src="getTeamLogoUrl(game.away_key)" loading="lazy" width="24" height="24" class="w-6 h-6 object-contain" :title="game.away_name" />
         <div v-else class="w-6 h-6 rounded-full bg-[#f82828]/15 flex items-center justify-center">
-          <span class="text-[8px] text-zinc-400 font-bold">A</span>
+          <span class="text-[9px] text-zinc-400 font-bold">A</span>
         </div>
-        <span class="text-[9px] text-zinc-300 font-medium leading-tight text-center line-clamp-1 max-w-[52px]" :title="game.away_name">{{ game.away_name }}</span>
+        <span class="text-[10px] text-zinc-300 font-medium leading-tight text-center line-clamp-1 max-w-[52px]" :title="game.away_name">{{ game.away_name }}</span>
       </div>
     </div>
 
@@ -54,15 +54,15 @@
     <!-- Odds Row (dashboard style) -->
     <div v-if="game.home_odds" class="flex items-center justify-center gap-3 px-2 py-1.5">
       <div class="flex flex-col items-center">
-        <span class="text-[8px] text-zinc-600 uppercase font-medium leading-none">1</span>
+        <span class="text-[9px] text-zinc-600 uppercase font-medium leading-none">1</span>
         <span class="text-[10px] font-semibold text-zinc-300 tabular-nums">{{ Number(game.home_odds).toFixed(2) }}</span>
       </div>
       <div v-if="game.draw_odds" class="flex flex-col items-center">
-        <span class="text-[8px] text-zinc-600 uppercase font-medium leading-none">X</span>
+        <span class="text-[9px] text-zinc-600 uppercase font-medium leading-none">X</span>
         <span class="text-[10px] font-semibold text-zinc-300 tabular-nums">{{ Number(game.draw_odds).toFixed(2) }}</span>
       </div>
       <div class="flex flex-col items-center">
-        <span class="text-[8px] text-zinc-600 uppercase font-medium leading-none">2</span>
+        <span class="text-[9px] text-zinc-600 uppercase font-medium leading-none">2</span>
         <span class="text-[10px] font-semibold text-zinc-300 tabular-nums">{{ Number(game.away_odds).toFixed(2) }}</span>
       </div>
     </div>
@@ -70,7 +70,7 @@
     <!-- Bet stake indicator -->
     <div v-if="game.bet_id" class="flex justify-center pb-1">
       <span :class="[
-        'px-1.5 py-px text-[9px] font-bold rounded',
+        'px-1.5 py-px text-[10px] font-bold rounded',
         game.home_goals !== null
           ? (isPredictionWin(game) ? 'bg-green-600 text-white' : 'bg-red-600 text-white')
           : 'bg-zinc-600 text-white'

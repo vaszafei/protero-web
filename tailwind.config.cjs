@@ -49,6 +49,38 @@ module.exports = {
         positive: '#34d399',
         negative: '#f8514f',
         warning: '#fab219',
+        // Nuxt UI's `primary` (app.config.ts). A full 50–950 scale on the logo
+        // blue so buttons, focus rings and toggles carry the wordmark's hue
+        // instead of Tailwind's stock blue. 500 is the dark-surface-safe step
+        // (`brand.blue.DEFAULT`), 800 is the logo ink itself.
+        protero: {
+          50: '#eef4ff',
+          100: '#dce8ff',
+          200: '#bcd3ff',
+          300: '#92b7ff',
+          400: '#6ea0ff',
+          500: '#4d8fff',
+          600: '#2f72f2',
+          700: '#1f5ad6',
+          800: '#0040a0',
+          900: '#0a3580',
+          950: '#071f4f',
+        },
+      },
+      // Readability. On the #1c1f27 panel, stock zinc-600 text scored 2.1:1
+      // and zinc-500 3.4:1 — 740 captions and labels under any legibility
+      // floor. Only the TEXT utilities are lifted; bg-/border-zinc-* keep the
+      // stock values. Mirrors --ink-faint / --ink-mute in tokens.css.
+      //   700 → 3.1:1 · 600 → 4.1:1 (4.5 on the page) · 500 → 5.2:1
+      textColor: {
+        zinc: {
+          700: '#6b6b76',
+          600: '#7e7e8a',
+          500: '#8f8f9b',
+        },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       maxWidth: {
         page: '1760px',

@@ -28,9 +28,6 @@
  */
 export const VIZ_CAT = ['#3987e5', '#d95926', '#199e70'] as const
 
-/** Home / away, named so a template never has to remember the slot order. */
-export const VIZ_HOME = VIZ_CAT[0]
-export const VIZ_AWAY = VIZ_CAT[1]
 
 /**
  * Brand pair — the ΠΡΟΤΕΡΟ wordmark's own blue/red. Re-sampled from
@@ -56,6 +53,20 @@ export const VIZ_AWAY = VIZ_CAT[1]
  */
 export const VIZ_BRAND_HOME = '#4d8fff'
 export const VIZ_BRAND_AWAY = '#f8514f'
+
+/**
+ * Home / away, named so a template never has to remember the slot order.
+ *
+ * The logo pair above, not VIZ_CAT[0..1]: home/away is exactly the
+ * "two sides of this app" case the brand pair was validated for, and it is the
+ * brand rule in tokens.css (blue = home, red = away). Re-validated 2026-09-29:
+ *   node scripts/validate_palette.js "#4d8fff,#f8514f" --mode dark \
+ *        --surface "#1c1f27" --pairs all --balanced   → ALL CHECKS PASS
+ * The pair does NOT extend to three series — adding #199e70 fails protan on
+ * red/green — so VIZ_CAT stays the three-series set.
+ */
+export const VIZ_HOME = VIZ_BRAND_HOME
+export const VIZ_AWAY = VIZ_BRAND_AWAY
 
 /** The raw wordmark inks. Legible on WHITE only — never a mark on a dark surface. */
 export const VIZ_BRAND_HOME_PURE = '#0040a0'

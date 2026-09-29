@@ -114,19 +114,19 @@
                 <div v-if="getOdds(game)" class="flex items-center gap-2 flex-shrink-0">
                   <!-- Moneyline -->
                   <div v-if="getOdds(game)?.moneyline" class="flex flex-col items-center gap-0.5">
-                    <span class="text-[8px] text-zinc-600 uppercase font-medium leading-none">ML</span>
+                    <span class="text-[9px] text-zinc-600 uppercase font-medium leading-none">ML</span>
                     <span :class="['text-[10px] font-semibold tabular-nums px-0.5 rounded transition-all', getOddsHighlight(game, 'home')]">{{ getOdds(game).moneyline.home?.toFixed(2) }}</span>
                     <span :class="['text-[10px] font-semibold tabular-nums px-0.5 rounded transition-all', getOddsHighlight(game, 'away')]">{{ getOdds(game).moneyline.away?.toFixed(2) }}</span>
                   </div>
                   <!-- Spread -->
                   <div v-if="getOdds(game)?.handicap?.line" class="flex flex-col items-center gap-0.5">
-                    <span class="text-[8px] text-zinc-600 uppercase font-medium leading-none">SPR</span>
+                    <span class="text-[9px] text-zinc-600 uppercase font-medium leading-none">SPR</span>
                     <span :class="['text-[10px] font-semibold tabular-nums px-0.5 rounded transition-all', getOddsHighlight(game, 'spread')]">{{ getOdds(game).handicap.line > 0 ? '+' : '' }}{{ getOdds(game).handicap.line }}</span>
                     <span :class="['text-[10px] font-semibold tabular-nums px-0.5 rounded transition-all', getOddsHighlight(game, 'spread')]">{{ getOdds(game).handicap.line > 0 ? '' : '+' }}{{ -(getOdds(game).handicap.line) }}</span>
                   </div>
                   <!-- O/U -->
                   <div v-if="getOdds(game)?.over_under?.line" class="flex flex-col items-center gap-0.5">
-                    <span class="text-[8px] text-zinc-600 uppercase font-medium leading-none">O/U</span>
+                    <span class="text-[9px] text-zinc-600 uppercase font-medium leading-none">O/U</span>
                     <span :class="['text-[10px] font-semibold tabular-nums px-0.5 rounded transition-all', getOddsHighlight(game, 'over')]">O {{ getOdds(game).over_under.line }}</span>
                     <span :class="['text-[10px] font-semibold tabular-nums px-0.5 rounded transition-all', getOddsHighlight(game, 'under')]">U {{ getOdds(game).over_under.line }}</span>
                   </div>
@@ -136,7 +136,7 @@
                 <template v-else-if="game.odds_home">
                   <div class="w-px bg-edge/40 mx-2.5 self-stretch"></div>
                   <div class="flex flex-col items-center justify-center gap-0.5 flex-shrink-0">
-                    <span class="text-[8px] text-zinc-600 uppercase font-medium leading-none">ML</span>
+                    <span class="text-[9px] text-zinc-600 uppercase font-medium leading-none">ML</span>
                     <span class="text-[10px] font-semibold text-zinc-300 tabular-nums">{{ game.odds_home?.toFixed(2) }}</span>
                     <span class="text-[10px] font-semibold text-zinc-300 tabular-nums">{{ game.odds_away?.toFixed(2) }}</span>
                   </div>
@@ -149,7 +149,7 @@
                   v-for="bet in getGameBets(game)"
                   :key="bet.id"
                   :class="[
-                    'flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold',
+                    'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold',
                     bet.status === 'won' ? 'bg-emerald-500/15 text-emerald-400' :
                     bet.status === 'lost' ? 'bg-red-500/15 text-red-400' :
                     'bg-amber-500/10 text-amber-400'
@@ -170,7 +170,7 @@
                 v-else-if="getPredictionChip(game)"
                 class="px-2.5 pb-1.5 flex flex-wrap gap-1 border-t border-edge/20 pt-1"
               >
-                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
                   <span class="font-bold">{{ getPredictionChip(game)?.label }}</span>
                   <span v-if="getPredictionChip(game)?.ev != null" class="text-blue-400/70">•</span>
                   <span v-if="getPredictionChip(game)?.ev != null" class="text-emerald-400">EV {{ getPredictionChip(game)?.ev }}</span>
@@ -324,6 +324,7 @@ const formatTime = (dateStr: string) => {
 }
 
 import { getTeamLogoUrl, getLeagueLogoUrl } from '~/utils/teamLogo'
+import { prettyLeagueKey } from '~/utils/league-name'
 
 // Sport stats odds
 function getOdds(game: any) {
@@ -427,7 +428,7 @@ watch(() => Object.keys(gamesByLeague.value), (keys) => {
 
 const getLeagueName = (leagueKey: string) => {
   const league = props.leagues.find(l => l.key === leagueKey)
-  return league?.name || leagueKey
+  return league?.name || prettyLeagueKey(leagueKey)
 }
 
 const getLeaguePredictionCount = (leagueKey: string) => {

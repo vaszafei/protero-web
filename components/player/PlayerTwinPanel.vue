@@ -8,7 +8,7 @@
           implies an edge; it only says where this player sits among their peers.
         </p>
       </div>
-      <span v-if="twin.state_as_of" class="flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] bg-surface-light text-zinc-500 tabular-nums">
+      <span v-if="twin.state_as_of" class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] bg-surface-light text-zinc-500 tabular-nums">
         state as of {{ twin.state_as_of.slice(0, 10) }}
       </span>
     </div>

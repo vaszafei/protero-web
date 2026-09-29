@@ -62,15 +62,15 @@
           <!-- Odds -->
           <div v-if="match.home_odds || match.away_odds" class="flex gap-1 flex-shrink-0">
             <div class="bg-surface-light rounded px-2.5 py-1 text-center">
-              <div class="text-[8px] text-zinc-500 font-medium uppercase leading-none">H</div>
+              <div class="text-[9px] text-zinc-500 font-medium uppercase leading-none">H</div>
               <div class="text-[11px] font-bold text-zinc-200 tabular-nums leading-tight">{{ match.home_odds || '-' }}</div>
             </div>
             <div v-if="match.draw_odds" class="bg-surface-light rounded px-2.5 py-1 text-center">
-              <div class="text-[8px] text-zinc-500 font-medium uppercase leading-none">D</div>
+              <div class="text-[9px] text-zinc-500 font-medium uppercase leading-none">D</div>
               <div class="text-[11px] font-bold text-zinc-200 tabular-nums leading-tight">{{ match.draw_odds || '-' }}</div>
             </div>
             <div class="bg-surface-light rounded px-2.5 py-1 text-center">
-              <div class="text-[8px] text-zinc-500 font-medium uppercase leading-none">A</div>
+              <div class="text-[9px] text-zinc-500 font-medium uppercase leading-none">A</div>
               <div class="text-[11px] font-bold text-zinc-200 tabular-nums leading-tight">{{ match.away_odds || '-' }}</div>
             </div>
           </div>
@@ -78,8 +78,8 @@
           <div class="flex-1 bg-[rgba(8,72,168,0.08)] border border-[rgba(8,72,168,0.2)] rounded flex items-center justify-between px-2.5 py-1">
             <span class="text-base font-bold text-zinc-100 tabular-nums">{{ match.projection.home }}</span>
             <div class="flex flex-col items-center">
-              <span class="text-[8px] font-semibold text-blue-400 uppercase leading-none">Proj</span>
-              <span class="text-[9px] text-zinc-500 tabular-nums leading-tight">{{ match.projection.total }}</span>
+              <span class="text-[9px] font-semibold text-blue-400 uppercase leading-none">Proj</span>
+              <span class="text-[10px] text-zinc-500 tabular-nums leading-tight">{{ match.projection.total }}</span>
             </div>
             <span class="text-base font-bold text-zinc-100 tabular-nums">{{ match.projection.away }}</span>
           </div>
@@ -88,14 +88,14 @@
         <!-- Stat Comparison — home@home vs away@away (center-out bars) -->
         <div class="mb-2" v-if="match.homeTeam && match.awayTeam">
           <div class="flex items-center justify-between mb-0.5">
-            <span class="text-[9px] text-zinc-500 font-medium">Home ({{ match.hStats.gp }}G)</span>
-            <span class="text-[9px] text-zinc-500 font-medium">Away ({{ match.aStats.gp }}G)</span>
+            <span class="text-[10px] text-zinc-500 font-medium">Home ({{ match.hStats.gp }}G)</span>
+            <span class="text-[10px] text-zinc-500 font-medium">Away ({{ match.aStats.gp }}G)</span>
           </div>
           <!-- PPG -->
           <div class="py-0.5">
             <div class="flex items-center justify-between text-[11px] mb-0.5">
               <span class="font-semibold text-[#e8a0a0] tabular-nums w-10">{{ match.hStats.ppg }}</span>
-              <span class="text-zinc-500 text-[9px] uppercase tracking-wider font-medium">PPG</span>
+              <span class="text-zinc-500 text-[10px] uppercase tracking-wider font-medium">PPG</span>
               <span class="font-semibold text-[#a0b8e8] tabular-nums w-10 text-right">{{ match.aStats.ppg }}</span>
             </div>
             <div class="flex items-center">
@@ -112,7 +112,7 @@
           <div class="py-0.5">
             <div class="flex items-center justify-between text-[11px] mb-0.5">
               <span class="font-semibold text-[#e8a0a0] tabular-nums w-10">{{ match.hStats.opp_ppg }}</span>
-              <span class="text-zinc-500 text-[9px] uppercase tracking-wider font-medium">OPP</span>
+              <span class="text-zinc-500 text-[10px] uppercase tracking-wider font-medium">OPP</span>
               <span class="font-semibold text-[#a0b8e8] tabular-nums w-10 text-right">{{ match.aStats.opp_ppg }}</span>
             </div>
             <div class="flex items-center">
@@ -129,7 +129,7 @@
           <div class="py-0.5">
             <div class="flex items-center justify-between text-[11px]">
               <span :class="['font-semibold tabular-nums w-10', match.hStats.netrtg > 0 ? 'text-green-400' : 'text-red-400']">{{ match.hStats.netrtg > 0 ? '+' : '' }}{{ match.hStats.netrtg }}</span>
-              <span class="text-zinc-500 text-[9px] uppercase tracking-wider font-medium">NET</span>
+              <span class="text-zinc-500 text-[10px] uppercase tracking-wider font-medium">NET</span>
               <span :class="['font-semibold tabular-nums w-10 text-right', match.aStats.netrtg > 0 ? 'text-green-400' : 'text-red-400']">{{ match.aStats.netrtg > 0 ? '+' : '' }}{{ match.aStats.netrtg }}</span>
             </div>
           </div>
@@ -137,7 +137,7 @@
           <div class="py-0.5">
             <div class="flex items-center justify-between text-[11px] mb-0.5">
               <span class="font-semibold text-[#e8a0a0] tabular-nums w-10">{{ match.hStats.pace }}</span>
-              <span class="text-zinc-500 text-[9px] uppercase tracking-wider font-medium">PACE</span>
+              <span class="text-zinc-500 text-[10px] uppercase tracking-wider font-medium">PACE</span>
               <span class="font-semibold text-[#a0b8e8] tabular-nums w-10 text-right">{{ match.aStats.pace }}</span>
             </div>
             <div class="flex items-center">
@@ -155,11 +155,11 @@
         <!-- Form -->
         <div v-if="match.homeForm.length > 0 || match.awayForm.length > 0" class="flex items-center justify-between">
           <div class="flex items-center gap-px">
-            <span v-for="(r, i) in match.homeForm" :key="'hf'+i" :class="['w-3.5 h-3.5 rounded-full text-[8px] font-bold flex items-center justify-center text-white', r === 'W' ? 'bg-green-500' : 'bg-red-500']">{{ r }}</span>
+            <span v-for="(r, i) in match.homeForm" :key="'hf'+i" :class="['w-3.5 h-3.5 rounded-full text-[9px] font-bold flex items-center justify-center text-white', r === 'W' ? 'bg-green-500' : 'bg-red-500']">{{ r }}</span>
           </div>
-          <span class="text-[9px] text-zinc-500 font-medium">Form</span>
+          <span class="text-[10px] text-zinc-500 font-medium">Form</span>
           <div class="flex items-center gap-px">
-            <span v-for="(r, i) in match.awayForm" :key="'af'+i" :class="['w-3.5 h-3.5 rounded-full text-[8px] font-bold flex items-center justify-center text-white', r === 'W' ? 'bg-green-500' : 'bg-red-500']">{{ r }}</span>
+            <span v-for="(r, i) in match.awayForm" :key="'af'+i" :class="['w-3.5 h-3.5 rounded-full text-[9px] font-bold flex items-center justify-center text-white', r === 'W' ? 'bg-green-500' : 'bg-red-500']">{{ r }}</span>
           </div>
         </div>
 
@@ -172,10 +172,10 @@
           <div class="mt-1.5 space-y-2">
             <!-- Home Recent -->
             <div>
-              <div class="text-[9px] text-zinc-500 font-medium mb-1">{{ match.home_name }}</div>
+              <div class="text-[10px] text-zinc-500 font-medium mb-1">{{ match.home_name }}</div>
               <div class="space-y-0.5">
                 <div v-for="(g, i) in match.homeRecent" :key="'hr'+i" class="flex items-center justify-between text-[10px] bg-surface-light rounded px-2 py-1">
-                  <span :class="['w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center text-white', g.result === 'W' ? 'bg-green-500' : 'bg-red-500']">{{ g.result }}</span>
+                  <span :class="['w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center text-white', g.result === 'W' ? 'bg-green-500' : 'bg-red-500']">{{ g.result }}</span>
                   <span class="text-zinc-400 flex-1 text-center truncate px-1">vs {{ g.opponent }}</span>
                   <span class="text-zinc-200 font-bold tabular-nums">{{ g.pf }}-{{ g.pa }}</span>
                 </div>
@@ -183,10 +183,10 @@
             </div>
             <!-- Away Recent -->
             <div>
-              <div class="text-[9px] text-zinc-500 font-medium mb-1">{{ match.away_name }}</div>
+              <div class="text-[10px] text-zinc-500 font-medium mb-1">{{ match.away_name }}</div>
               <div class="space-y-0.5">
                 <div v-for="(g, i) in match.awayRecent" :key="'ar'+i" class="flex items-center justify-between text-[10px] bg-surface-light rounded px-2 py-1">
-                  <span :class="['w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center text-white', g.result === 'W' ? 'bg-green-500' : 'bg-red-500']">{{ g.result }}</span>
+                  <span :class="['w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center text-white', g.result === 'W' ? 'bg-green-500' : 'bg-red-500']">{{ g.result }}</span>
                   <span class="text-zinc-400 flex-1 text-center truncate px-1">vs {{ g.opponent }}</span>
                   <span class="text-zinc-200 font-bold tabular-nums">{{ g.pf }}-{{ g.pa }}</span>
                 </div>

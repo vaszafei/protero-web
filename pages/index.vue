@@ -89,6 +89,9 @@ import OpsFleet from '~/components/ops/OpsFleet.vue'
 import OpsHealth from '~/components/ops/OpsHealth.vue'
 import OpsBlindSpots from '~/components/ops/OpsBlindSpots.vue'
 import OpsCalibration from '~/components/ops/OpsCalibration.vue'
+// Explicit: auto-import registers this as <DashboardPipelineRunModal>, so the
+// bare tag never resolved and "Run pipeline" opened nothing.
+import PipelineRunModal from '~/components/dashboard/PipelineRunModal.vue'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 

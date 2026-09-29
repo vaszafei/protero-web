@@ -43,12 +43,12 @@
             >
               <td class="px-3 py-2">
                 <div class="flex items-center gap-2">
-                  <span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-surface-light text-zinc-400 border border-edge">
+                  <span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-surface-light text-zinc-400 border border-edge">
                     {{ r.meta.badge }}
                   </span>
                   <span
                     v-if="r.sourceName"
-                    class="flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold"
+                    class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold"
                     :class="sourceClass(r.sourceKey)"
                     :title="`External source: ${r.sourceName}`"
                   >{{ r.sourceName }}</span>
@@ -113,7 +113,7 @@
                 W{{ r.id }} · {{ r.meta.badge }}
                 <span
                   v-if="r.sourceName"
-                  class="ml-1 px-1.5 py-0.5 rounded text-[9px] font-semibold"
+                  class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold"
                   :class="sourceClass(r.sourceKey)"
                 >{{ r.sourceName }}</span>
               </div>

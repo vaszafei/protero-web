@@ -1,5 +1,6 @@
 import { getSupabase } from '~/server/utils/supabase'
 import { isEnabled, probSourceFor, disabledReason } from '~/server/utils/football-masks'
+import { fitImpliedGoals, bookMargin } from '~/server/utils/market-implied'
 
 /**
  * The market board for one fixture: what the book thinks, what we think, and
@@ -83,7 +84,7 @@ export default defineEventHandler(async (event) => {
 
   const supabase = getSupabase()
 
-  const [gameRes, lsRes, predRes] = await Promise.all([
+  const [gameRes, lsRes, predRes, betsRes] = await Promise.all([
     supabase
       .from('games')
       .select(
@@ -102,11 +103,18 @@ export default defineEventHandler(async (event) => {
       .eq('game_id', gameId)
       .order('created_at', { ascending: false })
       .limit(1),
+    // Every wager on this fixture, singles and parlay legs alike — the page
+    // labels which is which and whose (mirrors are not our money).
+    supabase
+      .from('bets')
+      .select('id, wallet_id, bet_type, line, odds, stake, status, profit, placed_at, notes, wallets(persona_name, name, archetype)')
+      .eq('game_id', gameId)
+      .order('placed_at', { ascending: false }),
   ])
 
   // Fail loud — a swallowed PostgREST error rendering as an empty board is the
   // documented failure mode this app has already paid for twice.
-  for (const [name, res] of [['games', gameRes], ['line_scores', lsRes], ['predictions', predRes]] as const) {
+  for (const [name, res] of [['games', gameRes], ['line_scores', lsRes], ['predictions', predRes], ['bets', betsRes]] as const) {
     if (res.error) {
       throw createError({ statusCode: 500, message: `${name} query failed: ${res.error.message}` })
     }
@@ -148,6 +156,7 @@ export default defineEventHandler(async (event) => {
     return {
       ...m,
       market: mkt?.prob ?? null,
+      fairOdds: mkt?.prob ? Number((1 / mkt.prob).toFixed(2)) : null,
       marketSource: mkt?.source ?? null,
       devig: mkt?.devig ?? null,
       price: toNum(game[ODDS_COLUMN[m.key]]),
@@ -162,10 +171,109 @@ export default defineEventHandler(async (event) => {
     }
   }).filter((r) => r.market != null || r.price != null)
 
+  const marketOf = (k: string) => marketProb.get(k)?.prob ?? null
+  const priceOf = (k: string) => toNum(game[ODDS_COLUMN[k]])
+
+  /** Margin per group, off the prices — which market is cheapest to bet. */
+  const margins: Record<string, number | null> = {
+    '1X2': bookMargin(['home_win', 'draw', 'away_win'].map(priceOf)),
+    'Double chance': bookMargin(['dc_1x', 'dc_12', 'dc_x2'].map(priceOf), 2),
+    'Over/Under 1.5': bookMargin(['over_15', 'under_15'].map(priceOf)),
+    'Over/Under 2.5': bookMargin(['over_25', 'under_25'].map(priceOf)),
+    'Over/Under 3.5': bookMargin(['over_35', 'under_35'].map(priceOf)),
+    'Both teams to score': bookMargin(['btts', 'btts_no'].map(priceOf)),
+  }
+
+  const implied = fitImpliedGoals(Object.fromEntries(
+    ['home_win', 'draw', 'away_win', 'over_15', 'over_25', 'over_35', 'btts'].map((k) => [k, marketOf(k)]),
+  ) as Record<string, number>)
+
+  // The V6 writer stores model_details as a JSON string inside jsonb.
+  let details: any = prediction?.model_details ?? null
+  if (typeof details === 'string') {
+    try { details = JSON.parse(details) } catch { details = null }
+  }
+  const candidates = (Array.isArray(details?.all_bets) ? details.all_bets : details ? [details] : [])
+    .filter((b: any) => b && b.market)
+    .map((b: any) => ({
+      market: String(b.market),
+      selection: b.selection ?? null,
+      line: toNum(b.line),
+      model_prob: toNum(b.model_prob),
+      // Raw 1/odds as the picker saw it — NOT de-vigged. The de-vigged
+      // market number for the same key is `market_prob`.
+      implied_prob: toNum(b.implied_prob),
+      market_prob: marketOf(String(b.market)),
+      decimal_odds: toNum(b.decimal_odds),
+      enabled: isEnabled(leagueKey, String(b.market)),
+    }))
+
+  // A bet listed in parlay_legs is a LEG of a slip, not a wager (root CLAUDE.md);
+  // ask the table, never infer it from the wallet.
+  const betRows = (betsRes.data || []) as any[]
+  const legOf = new Map<number, { parlay_id: number; num_legs: number | null; parlay_odds: number | null }>()
+  if (betRows.length) {
+    const legRes = await supabase
+      .from('parlay_legs')
+      .select('bet_id, parlay_id, parlays(num_legs, parlay_odds)')
+      .in('bet_id', betRows.map((b) => b.id))
+    if (legRes.error) throw createError({ statusCode: 500, message: `parlay_legs query failed: ${legRes.error.message}` })
+    for (const l of (legRes.data || []) as any[]) {
+      legOf.set(Number(l.bet_id), {
+        parlay_id: Number(l.parlay_id),
+        num_legs: toNum(l.parlays?.num_legs),
+        parlay_odds: toNum(l.parlays?.parlay_odds),
+      })
+    }
+  }
+
+  const wagers = betRows.map((b) => {
+    // Prop bets carry the player and the analyst's reasoning in notes (JSON text).
+    let n: any = b.notes
+    if (typeof n === 'string') {
+      try { n = JSON.parse(n) } catch { n = null }
+    }
+    return {
+    id: b.id,
+    wallet_id: b.wallet_id,
+    wallet: b.wallets?.persona_name || b.wallets?.name || `W${b.wallet_id}`,
+    // external_tipster / user_mirror replay someone else's record — the page
+    // must never present those as our wagers.
+    archetype: b.wallets?.archetype ?? null,
+    bet_type: b.bet_type,
+    line: toNum(b.line),
+    odds: toNum(b.odds),
+    stake: toNum(b.stake),
+    status: b.status,
+    profit: toNum(b.profit),
+    placed_at: b.placed_at,
+    player: n?.player ?? null,
+    prop_market: n?.market ?? null,
+    direction: n?.direction ?? null,
+    p_hit: toNum(n?.p_hit),
+    analysis: typeof n?.analysis === 'string' ? n.analysis : null,
+    slip: legOf.get(Number(b.id)) ?? null,
+    }
+  })
+
   return {
     game_id: gameId,
     league_key: leagueKey,
     status: game.status,
+    margins,
+    implied,
+    pick: prediction
+      ? {
+          prediction: prediction.prediction,
+          model_version: prediction.model_version,
+          // Stored as fractions by every current writer (V6: EV per unit
+          // staked, so 1.36 = +136 %). Never guess the unit from magnitude.
+          expected_value: toNum(prediction.expected_value),
+          kelly_fraction: toNum(prediction.kelly_percentage),
+          candidates,
+        }
+      : null,
+    wagers,
     // Which of the three price bases actually backed this board, so the page
     // can say so rather than implying it compared against the close.
     basis: rows.find((r) => r.marketSource)?.marketSource ?? null,

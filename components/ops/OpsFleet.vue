@@ -26,7 +26,7 @@
             <td class="px-2 py-2">
               <span class="text-zinc-200 truncate inline-block max-w-[104px] align-bottom" :title="r.name">{{ r.name }}</span>
               <span class="ml-1.5 text-[10px] text-zinc-600">W{{ r.id }}</span>
-              <span v-if="r.silent" class="ml-1.5 px-1 py-0.5 rounded text-[9px] bg-zinc-700/40 text-zinc-500"
+              <span v-if="r.silent" class="ml-1.5 px-1 py-0.5 rounded text-[10px] bg-zinc-700/40 text-zinc-500"
                     title="Trader persona with no picker wired — it cannot place a bet">NO PICKER</span>
               <span v-if="hasRisk(r)" class="block mt-0.5 text-[10px] text-zinc-600 tabular-nums">
                 <span title="Mean daily P&amp;L over its standard deviation, annualised by √252. Days without a settled wager are not in the series.">

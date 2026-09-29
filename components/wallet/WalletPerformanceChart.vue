@@ -58,8 +58,8 @@
         </svg>
 
         <!-- Y-axis labels (overlay) -->
-        <div class="absolute left-1 top-0 text-[9px] text-zinc-600 tabular-nums">${{ formatNum(maxV) }}</div>
-        <div class="absolute left-1 bottom-0 text-[9px] text-zinc-600 tabular-nums">${{ formatNum(minV) }}</div>
+        <div class="absolute left-1 top-0 text-[10px] text-zinc-600 tabular-nums">${{ formatNum(maxV) }}</div>
+        <div class="absolute left-1 bottom-0 text-[10px] text-zinc-600 tabular-nums">${{ formatNum(minV) }}</div>
       </div>
 
       <!-- One footer row (was two, 2026-09-10). Left = start balance + date,

@@ -22,7 +22,7 @@
           </h2>
           <span
             v-if="user?.role === 'admin'"
-            class="text-[9px] font-bold text-red-300 uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 flex-shrink-0"
+            class="text-[10px] font-bold text-red-300 uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 flex-shrink-0"
           >Admin</span>
         </div>
         <p class="text-[11px] text-zinc-500 truncate mt-0.5">{{ user?.email || '—' }}</p>

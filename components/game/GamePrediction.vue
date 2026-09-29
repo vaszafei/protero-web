@@ -1,401 +1,680 @@
 <template>
-  <div class="space-y-3 sm:space-y-4">
-    <!-- Has Prediction -->
-    <template v-if="prediction">
-
-      <!-- ═══ CONSOLIDATED PICK CARD (ring + pick + EV/Kelly/Edge grid) ═══ -->
-      <div :class="['verdict-card rounded-xl px-3.5 sm:px-5 py-4 sm:py-5 relative overflow-hidden', verdictAccentClass]">
-        <!-- Background decoration -->
-        <div class="absolute inset-0 opacity-5 pointer-events-none">
-          <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full" :class="verdictBgCircle"></div>
-        </div>
-
-        <div class="flex items-start gap-3 sm:gap-4 relative">
-          <!-- Confidence ring -->
-          <div class="flex-shrink-0">
-            <svg class="block" :width="ringSize" :height="ringSize" viewBox="0 0 64 64">
-              <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(63,63,70,0.6)" stroke-width="6" />
-              <circle
-                cx="32" cy="32" r="28" fill="none" stroke-width="6" stroke-linecap="round"
-                :stroke="ringStroke"
-                :stroke-dasharray="ringCircumference"
-                :stroke-dashoffset="ringDashOffset"
-                transform="rotate(-90 32 32)"
-                style="transition: stroke-dashoffset 0.7s ease;"
-              />
-              <text x="32" y="36" text-anchor="middle" class="font-extrabold tabular-nums" :class="confidenceColor" style="font-size: 16px; fill: currentColor;">{{ confidence }}%</text>
-            </svg>
-            <p class="text-[9px] text-zinc-500 uppercase tracking-widest text-center mt-1 font-bold">Conf.</p>
-          </div>
-
-          <!-- Pick + odds + sub label -->
-          <div class="min-w-0 flex-1">
-            <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">AI Pick</p>
-            <div class="flex items-baseline gap-2 flex-wrap">
-              <span class="text-xl sm:text-2xl font-extrabold leading-tight tracking-tight truncate" :class="outcomeColor" :title="outcomeLabel">{{ pickShort }}</span>
-              <span v-if="predictionOdds" class="text-sm font-bold text-zinc-300 tabular-nums">@ {{ predictionOdds }}</span>
-            </div>
-            <p class="text-[10px] text-zinc-500 mt-1 font-medium truncate">
-              <span v-if="isAdmin">Model {{ prediction.model_version || '?' }} · </span>{{ marketLabel }}
-            </p>
-          </div>
-        </div>
-
-        <!-- EV / Kelly / Edge mini-grid -->
-        <div v-if="hasMetrics" class="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2 relative">
-          <div class="metric-cell rounded-lg px-2 sm:px-2.5 py-1.5">
-            <span class="text-[9px] text-zinc-500 block uppercase tracking-wider font-bold">EV</span>
-            <span v-if="prediction.expected_value != null" class="text-sm font-bold tabular-nums" :class="evPct > 0 ? 'text-emerald-400' : 'text-red-400'">
-              {{ evPct > 0 ? '+' : '' }}{{ evPct.toFixed(0) }}%
-            </span>
-            <span v-else class="text-sm font-bold text-zinc-600">—</span>
-          </div>
-          <div class="metric-cell rounded-lg px-2 sm:px-2.5 py-1.5">
-            <span class="text-[9px] text-zinc-500 block uppercase tracking-wider font-bold">Kelly</span>
-            <span v-if="prediction.kelly_percentage != null" class="text-sm font-bold text-indigo-400 tabular-nums">{{ (prediction.kelly_percentage * 100).toFixed(1) }}%</span>
-            <span v-else class="text-sm font-bold text-zinc-600">—</span>
-          </div>
-          <div class="metric-cell rounded-lg px-2 sm:px-2.5 py-1.5">
-            <span class="text-[9px] text-zinc-500 block uppercase tracking-wider font-bold">Edge</span>
-            <div v-if="prediction.expected_value != null" class="mt-1.5 w-full h-1.5 bg-surface-light rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-700" :class="evBarClass" :style="{ width: evBarWidth + '%' }"></div>
-            </div>
-            <span v-else class="text-sm font-bold text-zinc-600">—</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══ WIN PROBABILITIES ═══ -->
-      <div v-if="hasAnyProb">
-        <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Win Probabilities</h4>
-        <div class="space-y-1.5">
-          <!-- Home -->
-          <div class="flex items-center gap-2">
-            <span class="text-[11px] text-zinc-400 w-12 flex-shrink-0 truncate">{{ game.home_name?.split(' ').pop() }}</span>
-            <div class="flex-1 h-5 bg-surface-light rounded-full overflow-hidden relative">
-              <div class="h-full rounded-full bg-gradient-to-r from-[#f82828]/80 to-[#f82828]/50 transition-all duration-500" :style="{ width: (homeProb ?? 0) + '%' }"></div>
-              <span class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white/80">{{ homeProb != null ? homeProb + '%' : '—' }}</span>
-            </div>
-          </div>
-          <!-- Draw (football only) -->
-          <div v-if="!isBball" class="flex items-center gap-2">
-            <span class="text-[11px] text-zinc-400 w-12 flex-shrink-0">Draw</span>
-            <div class="flex-1 h-5 bg-surface-light rounded-full overflow-hidden relative">
-              <div class="h-full rounded-full bg-zinc-600/60 transition-all duration-500" :style="{ width: (drawProb ?? 0) + '%' }"></div>
-              <span class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white/80">{{ drawProb != null ? drawProb + '%' : '—' }}</span>
-            </div>
-          </div>
-          <!-- Away -->
-          <div class="flex items-center gap-2">
-            <span class="text-[11px] text-zinc-400 w-12 flex-shrink-0 truncate">{{ game.away_name?.split(' ').pop() }}</span>
-            <div class="flex-1 h-5 bg-surface-light rounded-full overflow-hidden relative">
-              <div class="h-full rounded-full bg-gradient-to-r from-[#0848a8]/80 to-[#4d8fff]/50 transition-all duration-500" :style="{ width: (awayProb ?? 0) + '%' }"></div>
-              <span class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white/80">{{ awayProb != null ? awayProb + '%' : '—' }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══ MARKET PREDICTIONS ═══ -->
-      <div v-if="markets.length > 0" class="border-t border-edge/50 pt-3">
-        <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Market Predictions</h4>
-        <div class="grid grid-cols-2 gap-1.5">
-          <div v-for="m in markets" :key="m.label" class="bg-surface-light rounded-lg px-3 py-2 text-center">
-            <span class="text-[10px] text-zinc-500 block">{{ m.label }}</span>
-            <span class="text-sm font-bold" :class="m.color">{{ m.value }}</span>
-          </div>
-        </div>
-      </div>
-
-    </template>
-
-    <!-- No Prediction — honest about WHY when the analysis record has loaded:
-         a coverage league or cup is "not bet, not modelled" (CD #3), which is
-         a true and useful statement, not the same thing as "not generated
-         yet". Falls back to the generic message while analysis is loading or
-         for an enabled league whose predict step just hasn't run yet. -->
-    <div v-else class="text-center py-12">
-      <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-surface-light flex items-center justify-center">
-        <UIcon name="i-heroicons-light-bulb" class="w-6 h-6 text-zinc-600" />
-      </div>
-      <template v-if="analysis?.betting && !analysis.betting.enabled">
-        <p class="text-sm font-medium text-zinc-400">Not bet</p>
-        <p class="text-xs text-zinc-600 mt-1 max-w-xs mx-auto">{{ analysis.betting.reason }}</p>
-      </template>
-      <template v-else>
-        <p class="text-sm font-medium text-zinc-400">No prediction yet</p>
-        <p class="text-xs text-zinc-600 mt-1">Predictions are generated before game day</p>
-      </template>
+  <div class="gp">
+    <!-- Status first: bet / not bet / not yet, and why. -->
+    <div class="gp-status" :class="statusTone.cls">
+      <span class="gp-status-tag">{{ statusTone.tag }}</span>
+      <span class="gp-status-text">{{ statusTone.text }}</span>
+      <span v-if="prediction?.model_version && isAdmin" class="gp-status-model">{{ prediction.model_version }}</span>
     </div>
 
-    <!-- Player Prop Picks (basketball only) -->
-    <PlayerPropPicks v-if="isBball && game.id" :game-id="game.id" />
+    <!-- ── Row 1: the pick, and what was struck on it ── -->
+    <div v-if="prediction || wagers.length" class="gp-row1">
+      <section v-if="prediction" class="panel panel-accent overflow-hidden gp-pick-panel">
+        <header class="panel-head">
+          <span class="panel-title">Our pick</span>
+          <span class="pill" :class="pickEnabled ? 'pill-good' : 'pill-dim'">{{ pickEnabled ? 'cell enabled' : 'cell not enabled' }}</span>
+          <span v-if="sourceLabel" class="panel-link">probability from {{ sourceLabel }}</span>
+        </header>
+        <div class="gp-pick">
+          <div class="gp-pick-id">
+            <span class="gp-pick-label" :style="{ color: sideColor }" :title="outcomeLabel">{{ pickShort }}</span>
+            <span v-if="pickPrice" class="gp-pick-price">@ {{ pickPrice.toFixed(2) }}</span>
+            <span class="gp-pick-sub">{{ marketLabel }}</span>
+          </div>
+          <div class="gp-metrics">
+            <div class="gp-metric">
+              <span class="gp-k">Model</span>
+              <span class="gp-v">{{ pct(modelP) }}</span>
+              <span class="gp-n">fair {{ odds(modelP) }}</span>
+            </div>
+            <div class="gp-metric">
+              <span class="gp-k">Market</span>
+              <span class="gp-v">{{ pct(marketP) }}</span>
+              <span class="gp-n">{{ marketP != null ? `fair ${odds(marketP)}` : 'no de-vig' }}</span>
+            </div>
+            <div class="gp-metric">
+              <span class="gp-k">Gap</span>
+              <span class="gp-v" :style="{ color: gapColor }">{{ gapPp == null ? '—' : signed(gapPp) + 'pp' }}</span>
+              <span class="gp-n">{{ ratioText }}</span>
+            </div>
+            <div class="gp-metric">
+              <span class="gp-k">EV</span>
+              <span class="gp-v" :class="evPct == null ? '' : evPct >= 0 ? 'gp-pos' : 'gp-neg'">{{ evPct == null ? '—' : signed(evPct, 0) + '%' }}</span>
+              <span class="gp-n">at the price</span>
+            </div>
+            <div class="gp-metric">
+              <span class="gp-k">Kelly</span>
+              <span class="gp-v">{{ kellyPct == null ? '—' : kellyPct.toFixed(2) + '%' }}</span>
+              <span class="gp-n">model's own</span>
+            </div>
+          </div>
+        </div>
+        <div v-if="modelP != null && marketP != null" class="gp-axis-wrap">
+          <div class="gp-axis">
+            <span class="gp-axis-gap" :style="{ left: `${Math.min(modelP, marketP) * 100}%`, width: `${Math.abs(modelP - marketP) * 100}%`, background: gapColor }" />
+            <span class="gp-axis-mkt" :style="{ left: `${marketP * 100}%` }" />
+            <span class="gp-axis-our" :style="{ left: `${modelP * 100}%`, borderColor: gapColor }" />
+          </div>
+          <span class="gp-axis-legend"><i class="gp-lg-mkt" />market <i class="gp-lg-our" :style="{ borderColor: gapColor }" />ours</span>
+        </div>
+        <p v-if="bigDisagreement" class="gp-warn">
+          Ours is {{ ratio?.toFixed(1) }}× the market's. A gap this wide is usually missing information
+          (team news, a stale rating), not an edge — check Analysis before trusting it.
+        </p>
+        <div v-if="otherCandidates.length" class="gp-cands">
+          <span class="gp-cand-h">Also scored</span>
+          <span v-for="c in otherCandidates" :key="c.market" class="gp-cand">
+            {{ c.selection || c.market }} {{ c.decimal_odds ? c.decimal_odds.toFixed(2) : '' }}
+            · {{ pct(c.model_prob) }} vs {{ pct(c.market_prob) }}
+            <span class="pill" :class="c.enabled ? 'pill-good' : 'pill-dim'">{{ c.enabled ? 'enabled' : 'not bet' }}</span>
+          </span>
+        </div>
+      </section>
 
+      <section v-if="wagers.length" class="panel overflow-hidden gp-wager-panel">
+        <header class="panel-head">
+          <span class="panel-title">Wagers on this fixture</span>
+          <span class="pill pill-dim tabular-nums">{{ wagers.length }}</span>
+        </header>
+        <div class="gp-wagers">
+          <div class="gp-wrow gp-wrow-h">
+            <span>Wallet</span><span>Bet</span><span class="r">Odds</span><span class="r">Stake / slip</span><span class="r">Result</span>
+          </div>
+          <div v-for="w in wagers" :key="w.id" class="gp-wrow">
+            <span class="gp-wallet">{{ w.wallet }}<span v-if="isMirror(w)" class="pill pill-dim">mirror</span></span>
+            <UiTooltip v-if="w.analysis" :width="320" :text="wagerTip(w)">
+              <span class="gp-trunc gp-help">{{ wagerLabel(w) }}</span>
+            </UiTooltip>
+            <span v-else class="gp-trunc">{{ wagerLabel(w) }}</span>
+            <span class="r">{{ w.odds?.toFixed(2) ?? '—' }}</span>
+            <span class="r">
+              <template v-if="w.slip">{{ w.slip.num_legs }}-leg @ {{ w.slip.parlay_odds?.toFixed(2) ?? '—' }}</template>
+              <template v-else>{{ w.stake != null ? w.stake.toFixed(2) : '—' }}</template>
+            </span>
+            <span class="r" :class="statusClass(w)">{{ wagerOutcome(w) }}</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ── Row 2: what the price says — three panels, one row ── -->
+    <div v-if="implied || resultRows.length" class="gp-row2">
+      <!-- Result -->
+      <section v-if="resultRows.length" class="panel overflow-hidden">
+        <header class="panel-head">
+          <span class="panel-title">Result</span>
+          <span class="panel-link">{{ basisLabel }} · de-vigged</span>
+        </header>
+        <div class="gp-body">
+          <div v-for="r in resultRows" :key="r.key" class="gp-res">
+            <span class="gp-res-name"><i :style="{ background: r.color }" />{{ r.label }}</span>
+            <span class="gp-res-p tabular-nums">{{ pct(r.p) }}</span>
+            <div class="gp-res-track"><span :style="{ width: `${r.p * 100}%`, background: r.color }" /></div>
+            <span class="gp-res-odds tabular-nums">fair <b>{{ odds(r.p) }}</b><template v-if="r.price"> · book <b>{{ r.price.toFixed(2) }}</b></template></span>
+          </div>
+
+          <div v-if="marginRows.length" class="gp-sub">
+            <span class="gp-sub-h">Book margin</span>
+            <div class="gp-margins">
+              <span v-for="m in marginRows" :key="m.name" class="gp-margin" :class="{ 'gp-margin-best': m.best }">
+                <span>{{ m.name }}</span><b class="tabular-nums">{{ (m.v * 100).toFixed(1) }}%</b>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Goals -->
+      <section v-if="implied" class="panel overflow-hidden">
+        <header class="panel-head">
+          <span class="panel-title">Goals</span>
+          <span class="panel-link">market-implied, not our model</span>
+        </header>
+        <div class="gp-body">
+          <div class="gp-xg">
+            <div>
+              <span class="gp-xg-num" :style="{ color: VIZ_HOME }">{{ implied.home_xg.toFixed(2) }}</span>
+              <span class="gp-xg-name">{{ shortName(game.home_name) }}</span>
+            </div>
+            <div class="gp-xg-mid">
+              <span class="gp-xg-total tabular-nums">{{ implied.total_xg.toFixed(2) }}</span>
+              <span class="gp-xg-name">expected total</span>
+            </div>
+            <div class="gp-right">
+              <span class="gp-xg-num" :style="{ color: VIZ_AWAY }">{{ implied.away_xg.toFixed(2) }}</span>
+              <span class="gp-xg-name">{{ shortName(game.away_name) }}</span>
+            </div>
+          </div>
+          <div class="gp-xg-bar">
+            <span :style="{ width: `${(implied.home_xg / implied.total_xg) * 100}%`, background: VIZ_HOME }" />
+            <span :style="{ width: `${(implied.away_xg / implied.total_xg) * 100}%`, background: VIZ_AWAY }" />
+          </div>
+
+          <table class="gp-tbl">
+            <tbody>
+              <tr v-for="t in totalsRows" :key="t.key">
+                <td>{{ t.label }}</td>
+                <td class="r tabular-nums"><b>{{ pct(t.p) }}</b></td>
+                <td class="r tabular-nums gp-dim">fair {{ odds(t.p) }}<template v-if="t.price"> · {{ t.price.toFixed(2) }}</template></td>
+              </tr>
+              <tr>
+                <td>{{ shortName(game.home_name) }} clean sheet</td>
+                <td class="r tabular-nums"><b>{{ pct(implied.home_clean_sheet) }}</b></td>
+                <td class="r tabular-nums gp-dim">fair {{ odds(implied.home_clean_sheet) }}</td>
+              </tr>
+              <tr>
+                <td>{{ shortName(game.away_name) }} clean sheet</td>
+                <td class="r tabular-nums"><b>{{ pct(implied.away_clean_sheet) }}</b></td>
+                <td class="r tabular-nums gp-dim">fair {{ odds(implied.away_clean_sheet) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Correct score heatmap -->
+      <section v-if="implied?.grid" class="panel overflow-hidden">
+        <header class="panel-head">
+          <span class="panel-title">Correct score</span>
+          <span class="panel-link">rows {{ shortName(game.home_name) }} · columns {{ shortName(game.away_name) }}</span>
+        </header>
+        <div class="gp-body">
+          <div class="gp-heat">
+            <span class="gp-heat-corner" />
+            <span v-for="a in heatN" :key="`c${a}`" class="gp-heat-axis">{{ a - 1 }}</span>
+            <template v-for="h in heatN" :key="`r${h}`">
+              <span class="gp-heat-axis">{{ h - 1 }}</span>
+              <span
+                v-for="a in heatN"
+                :key="`${h}-${a}`"
+                class="gp-heat-cell"
+                :class="{ 'gp-heat-top': isTop(h - 1, a - 1) }"
+                :style="heatStyle(h - 1, a - 1)"
+                :title="`${h - 1}–${a - 1}: ${pct(implied.grid[h - 1][a - 1])} · fair ${odds(implied.grid[h - 1][a - 1])}`"
+              >{{ cellText(implied.grid[h - 1][a - 1]) }}</span>
+            </template>
+          </div>
+          <p class="gp-heat-foot">
+            Likeliest:
+            <span v-for="(sl, i) in implied.scorelines.slice(0, 3)" :key="`${sl.home}-${sl.away}`">
+              <b class="tabular-nums">{{ sl.home }}–{{ sl.away }}</b> {{ pct(sl.p) }}<template v-if="i < 2"> · </template>
+            </span>
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <p v-if="implied" class="gp-foot">
+      Market read: two Poisson goal rates fitted to {{ implied.n_targets }} de-vigged prices (residual {{ implied.rmse_pp.toFixed(1) }}pp).
+      It ignores the low-score dependence Dixon-Coles corrects, so it describes the price — it is not a price for a same-game combo.
+    </p>
+
+    <!-- Basketball (and legacy football rows): the model's own side probabilities -->
+    <section v-if="hasAnyProb" class="panel overflow-hidden">
+      <header class="panel-head"><span class="panel-title">Model win probabilities</span></header>
+      <div class="gp-body">
+        <div v-for="r in probRows" :key="r.key" class="gp-res">
+          <span class="gp-res-name"><i :style="{ background: r.color }" />{{ r.label }}</span>
+          <span class="gp-res-p tabular-nums">{{ r.p }}%</span>
+          <div class="gp-res-track"><span :style="{ width: `${r.p}%`, background: r.color }" /></div>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="legacyMarkets.length" class="panel overflow-hidden">
+      <header class="panel-head"><span class="panel-title">Model market predictions</span></header>
+      <div class="gp-body gp-margins">
+        <span v-for="m in legacyMarkets" :key="m.label" class="gp-margin"><span>{{ m.label }}</span><b>{{ m.value }}</b></span>
+      </div>
+    </section>
+
+    <div v-if="marketPending && isFootball && !implied" class="gp-muted">Loading the market read…</div>
+    <div v-else-if="marketError" class="gp-muted">The market read failed to load: {{ marketError }}</div>
+
+    <PlayerPropPicks v-if="isBball && game.id" :game-id="game.id" />
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/**
+ * The Prediction tab — what a bettor needs to decide, in reading order:
+ *
+ *   1. status   bet / not bet / not yet, and WHY (the mask, CD #3)
+ *   2. pick     our probability against the DE-VIGGED market one, the gap in
+ *               points, EV and Kelly as the model computed them
+ *   3. wagers   what was actually struck on this fixture, and by whom
+ *   4. market   what the price itself implies — result split, expected goals,
+ *               likeliest scores, clean sheets, and which market is cheapest
+ *
+ * The market block renders for every priced football fixture, which is most
+ * of them: only 9 competitions carry a model, so "no prediction" used to be
+ * the whole tab.
+ *
+ * Units, read once and not guessed: every current writer stores
+ * `expected_value` and `kelly_percentage` as FRACTIONS (V6: 1.36 = +136 %).
+ * The old `v <= 1 ? v*100 : v` heuristic rendered every V6 longshot above
+ * +100 % EV as ~1 %.
+ */
 import { computed } from 'vue'
 import PlayerPropPicks from '~/components/game/PlayerPropPicks.vue'
 import { betLabelShort } from '~/utils/bet-label'
 import { parsePrediction } from '~/utils/prediction-label'
+import { VIZ_HOME, VIZ_AWAY, VIZ_STATUS } from '~/utils/viz'
+import { displayTeamName as shortName } from '~/utils/team-name'
+import UiTooltip from '~/components/ui/Tooltip.vue'
 
 const props = defineProps({
   game: { type: Object, required: true },
   prediction: { type: Object, default: null },
   sport: { type: String, default: 'football' },
-  // Unified per-fixture analysis record — only used here for `betting`, so
-  // the empty state can say WHY there's no pick instead of just "not yet".
-  analysis: { type: Object, default: null }
+  analysis: { type: Object, default: null },
 })
 
 const { isAdmin } = useAuth()
 const isBball = computed(() => props.sport === 'basketball')
+const isFootball = computed(() => props.sport === 'football')
 
-// ─── Confidence ring geometry ───────────────────────────
-const ringSize = 64
-const ringCircumference = 2 * Math.PI * 28  // r=28
-const ringDashOffset = computed(() => {
-  const pct = Math.max(0, Math.min(100, confidence.value))
-  return ringCircumference * (1 - pct / 100)
-})
-const ringStroke = computed(() => {
-  if (confidence.value >= 70) return '#22c55e'
-  if (confidence.value >= 50) return '#eab308'
-  return '#f97316'
-})
-
-const hasMetrics = computed(() =>
-  props.prediction?.expected_value != null || props.prediction?.kelly_percentage != null
+// Same key as MarketBoard, so the two tabs share one request.
+const marketKey = computed(() => `market:${props.game.id}`)
+const { data: market, pending: marketPending, error: marketErr } = useSwr<any>(
+  marketKey,
+  () => $fetch(`/api/game/${props.game.id}/market`),
+  { memoryTtl: 2 * 60_000 },
 )
+const marketError = computed(() => (marketErr.value as any)?.data?.message || marketErr.value?.message || null)
 
-// Short pick label using shared formatter (≤14 chars). Falls back to verbose outcomeLabel.
-const pickShort = computed(() => {
-  if (!props.prediction) return ''
-  const bet = {
-    bet_type: props.prediction.bet_type || (props.prediction.prediction || '').toUpperCase(),
-    notes: props.prediction.prediction,
-    home_name: props.game.home_name,
-    away_name: props.game.away_name,
-  }
-  const short = betLabelShort(bet)
-  if (short && short.length <= 18) return short
-  return outcomeLabel.value
+// ─── Status ─────────────────────────────────────────────────
+const PIPELINE_AT: Record<string, string> = { football: '09:00', basketball: '11:00' }
+
+/** Any stored price for this fixture — without one no model can place anything. */
+const hasOdds = computed(() => {
+  const g = props.game
+  return !!(g.odds_home || g.odds_away || g.sport_stats?.odds?.moneyline || resultRows.value.length)
 })
 
-// ─── Helpers ─────────────────────────────────────────────
+const statusTone = computed(() => {
+  const betting = props.analysis?.betting
+  const ours = wagers.value.filter((w: any) => !isMirror(w))
+  const singles = ours.filter((w: any) => !w.slip)
+  const legs = ours.filter((w: any) => w.slip)
+  if (singles.length) {
+    const extra = legs.length ? ` and ${legs.length} parlay leg${legs.length > 1 ? 's' : ''}` : ''
+    return { tag: 'Bet', cls: 'gp-status-bet', text: `${singles.length} single${singles.length > 1 ? 's' : ''}${extra} on this fixture in our wallets.` }
+  }
+  if (legs.length) {
+    const slips = new Set(legs.map((w: any) => w.slip.parlay_id)).size
+    return { tag: 'In slips', cls: 'gp-status-on', text: `${legs.length} leg${legs.length > 1 ? 's' : ''} in ${slips} of our parlay slip${slips > 1 ? 's' : ''} — a leg is not a wager on its own; the slip is.` }
+  }
+  if (betting && !betting.enabled) {
+    return { tag: 'Not bet', cls: 'gp-status-off', text: betting.reason || 'This competition has no enabled cell.' }
+  }
+  if (props.prediction) {
+    return { tag: 'Scored', cls: 'gp-status-on', text: 'The model scored this fixture; no wager has been struck on it.' }
+  }
+  if (!marketPending.value && !hasOdds.value) {
+    return { tag: 'No price', cls: 'gp-status-off', text: 'No odds are stored for this fixture, so there is nothing for the model to price against.' }
+  }
+  return { tag: 'Not yet', cls: 'gp-status-off', text: `No prediction row yet — the ${props.sport} pipeline places at ${PIPELINE_AT[props.sport] || 'its daily run'}.` }
+})
+
+// ─── Pick ───────────────────────────────────────────────────
 const bballOdds = computed(() => props.game.sport_stats?.odds || null)
 
-// ─── Outcome ─────────────────────────────────────────────
-// Canonical parse — same function GameAnalysis.vue uses for its odds-cell
-// highlight, so the two can no longer disagree about what a prediction code
-// means (this used to be 5 separate `.toUpperCase()` pattern matches here
-// alone, with a 6th, differently-branched one in GameAnalysis).
 const parsed = computed(() => parsePrediction(props.prediction?.prediction, {
   homeTeam: props.game.home_name,
   awayTeam: props.game.away_name,
   ouLine: bballOdds.value?.over_under?.line,
 }))
-
 const outcomeLabel = computed(() => parsed.value.label)
 
-const SIDE_COLOR = {
-  home: 'text-[#f82828]',
-  away: 'text-[#4d8fff]',
-  draw: 'text-zinc-200',
-  under: 'text-purple-400',
-  over: 'text-emerald-400',
-  spread: 'text-zinc-200',
-}
-const outcomeColor = computed(() => SIDE_COLOR[parsed.value.side || ''] || 'text-zinc-300')
-
-const SIDE_ACCENT = {
-  under: 'verdict-under',
-  over: 'verdict-over',
-  home: 'verdict-home',
-  away: 'verdict-away',
-}
-// Accent class for the verdict card border/bg
-const verdictAccentClass = computed(() => SIDE_ACCENT[parsed.value.side || ''] || 'verdict-default')
-
-const SIDE_BG_CIRCLE = {
-  under: 'bg-purple-500',
-  over: 'bg-emerald-500',
-  home: 'bg-red-500',
-  away: 'bg-blue-500',
-}
-const verdictBgCircle = computed(() => SIDE_BG_CIRCLE[parsed.value.side || ''] || 'bg-zinc-500')
-
-const MARKET_LABEL = {
-  total: 'O/U Market',
-  spread: 'Spread Market',
-  moneyline: 'Moneyline',
-}
-// Market label for sub-text
-const marketLabel = computed(() => MARKET_LABEL[parsed.value.market] || 'Main Market')
-
-// The decimal odds for the predicted outcome (so user knows at what price to bet)
-const predictionOdds = computed(() => {
-  const odds = bballOdds.value
-  const v = {
-    under: odds?.over_under?.under || props.game.odds_under,
-    over: odds?.over_under?.over || props.game.odds_over,
-    home: odds?.moneyline?.home || props.game.odds_home,
-    away: odds?.moneyline?.away || props.game.odds_away,
-  }[parsed.value.side || '']
-  return v ? Number(v).toFixed(2) : null
+const pickShort = computed(() => {
+  if (!props.prediction) return ''
+  const short = betLabelShort({
+    bet_type: props.prediction.bet_type || (props.prediction.prediction || '').toUpperCase(),
+    notes: props.prediction.prediction,
+    home_name: props.game.home_name,
+    away_name: props.game.away_name,
+  })
+  return short && short.length <= 18 ? short : outcomeLabel.value
 })
 
-// ─── Confidence ──────────────────────────────────────────
-const confidence = computed(() => {
-  if (!props.prediction?.confidence) return 0
-  return Math.round(props.prediction.confidence * (props.prediction.confidence <= 1 ? 100 : 1))
+// Blue = home, red = away (tokens.css brand rule); everything else stays ink.
+const sideColor = computed(() => ({ home: VIZ_HOME, away: VIZ_AWAY } as Record<string, string>)[parsed.value.side || ''] || 'var(--ink-strong)')
+
+const MARKET_LABEL: Record<string, string> = { total: 'Totals market', spread: 'Spread market', moneyline: 'Result market' }
+const marketLabel = computed(() => MARKET_LABEL[parsed.value.market as string] || 'Main market')
+
+/** The candidate the headline pick came from — matched on the selection text. */
+const candidates = computed<any[]>(() => market.value?.pick?.candidates || [])
+const mainCandidate = computed(() => {
+  const sel = (props.prediction?.prediction || '').toLowerCase()
+  return candidates.value.find((c) => (c.selection || '').toLowerCase() === sel) || candidates.value[0] || null
+})
+const otherCandidates = computed(() => candidates.value.filter((c) => c !== mainCandidate.value))
+const pickEnabled = computed(() => !!mainCandidate.value?.enabled)
+
+const sourceLabel = computed(() => {
+  if (!mainCandidate.value) return null
+  const row = (market.value?.rows || []).find((r: any) => r.key === mainCandidate.value.market)
+  return row?.ourLabel && row.ourLabel !== 'model' ? row.ourLabel : null
 })
 
-const confidenceColor = computed(() => {
-  if (confidence.value >= 70) return 'text-green-400'
-  if (confidence.value >= 50) return 'text-yellow-400'
-  return 'text-orange-400'
+const pickPrice = computed<number | null>(() => {
+  if (mainCandidate.value?.decimal_odds) return mainCandidate.value.decimal_odds
+  const o = bballOdds.value
+  const v = ({
+    under: o?.over_under?.under || props.game.odds_under,
+    over: o?.over_under?.over || props.game.odds_over,
+    home: o?.moneyline?.home || props.game.odds_home,
+    away: o?.moneyline?.away || props.game.odds_away,
+  } as Record<string, any>)[parsed.value.side || '']
+  return v ? Number(v) : null
 })
 
-const confidenceBarClass = computed(() => {
-  if (confidence.value >= 70) return 'bg-green-500'
-  if (confidence.value >= 50) return 'bg-yellow-500'
-  return 'bg-orange-500'
+const modelP = computed<number | null>(() => {
+  if (mainCandidate.value?.model_prob != null) return mainCandidate.value.model_prob
+  // Basketball rows carry the model probability as `confidence`, in percent.
+  const c = Number(props.prediction?.confidence)
+  return Number.isFinite(c) && c > 0 ? c / 100 : null
+})
+const marketP = computed<number | null>(() => mainCandidate.value?.market_prob ?? null)
+
+const gapPp = computed(() => (modelP.value == null || marketP.value == null ? null : (modelP.value - marketP.value) * 100))
+const ratio = computed(() => (modelP.value && marketP.value ? modelP.value / marketP.value : null))
+const ratioText = computed(() => (ratio.value == null ? 'no market number' : `${ratio.value.toFixed(2)}× the market`))
+const bigDisagreement = computed(() => ratio.value != null && (ratio.value >= 2 || ratio.value <= 0.5))
+
+// Colour only where the cell passed holdout — elsewhere a gap is a fact, not
+// an edge, and colour would imply a direction we have no evidence for.
+const gapColor = computed(() => {
+  if (gapPp.value == null || !pickEnabled.value || Math.abs(gapPp.value) < 1) return 'var(--ink-soft)'
+  return gapPp.value > 0 ? VIZ_STATUS.good : VIZ_AWAY
 })
 
-// ─── Probabilities ───────────────────────────────────────
-const homeProb = computed(() => {
-  if (props.prediction?.home_win_prob == null) return null
-  const v = props.prediction.home_win_prob
-  return Math.round(v <= 1 ? v * 100 : v)
-})
-
-const drawProb = computed(() => {
-  if (props.prediction?.draw_prob == null) return null
-  const v = props.prediction.draw_prob
-  return Math.round(v <= 1 ? v * 100 : v)
-})
-
-const awayProb = computed(() => {
-  if (props.prediction?.away_win_prob == null) return null
-  const v = props.prediction.away_win_prob
-  return Math.round(v <= 1 ? v * 100 : v)
-})
-
-const hasAnyProb = computed(() => homeProb.value != null || awayProb.value != null || drawProb.value != null)
-
-// ─── EV / Edge bar ───────────────────────────────────────
 const evPct = computed(() => {
-  if (!props.prediction?.expected_value) return 0
-  return props.prediction.expected_value * (props.prediction.expected_value <= 1 ? 100 : 1)
+  const v = market.value?.pick?.expected_value ?? props.prediction?.expected_value
+  return v == null || v === '' ? null : Number(v) * 100
+})
+const kellyPct = computed(() => {
+  const v = market.value?.pick?.kelly_fraction ?? props.prediction?.kelly_percentage
+  return v == null || v === '' ? null : Number(v) * 100
 })
 
-const evStrengthLabel = computed(() => {
-  const v = evPct.value
-  if (v >= 15) return 'Strong'
-  if (v >= 8) return 'Good'
-  if (v >= 3) return 'Marginal'
-  return 'Weak'
+// ─── Wagers ─────────────────────────────────────────────────
+const wagers = computed<any[]>(() => market.value?.wagers || [])
+function isMirror(w: any) {
+  return w.archetype === 'external_tipster' || w.archetype === 'user_mirror'
+}
+const PROP_UNIT: Record<string, string> = { points: 'pts', rebounds: 'reb', assists: 'ast', threes: '3PM', steals: 'stl', blocks: 'blk' }
+/** "Joel Parra · Under 9.5 pts" for a prop, the bet code otherwise. */
+function wagerLabel(w: any) {
+  if (w.player) {
+    const dir = w.direction === 'UNDER' ? 'Under' : w.direction === 'OVER' ? 'Over' : (w.direction || '')
+    const unit = PROP_UNIT[w.prop_market] || w.prop_market || ''
+    return `${w.player} · ${dir} ${w.line ?? ''} ${unit}`.trim()
+  }
+  return w.line != null ? `${w.bet_type} ${w.line}` : w.bet_type
+}
+function wagerTip(w: any) {
+  const p = w.p_hit != null ? ` Estimated hit rate ${(w.p_hit * 100).toFixed(0)}%.` : ''
+  return `${w.analysis}${p}`
+}
+
+function wagerOutcome(w: any) {
+  if (w.status === 'pending') return 'pending'
+  if (w.profit == null) return w.status
+  return `${w.profit >= 0 ? '+' : ''}${Number(w.profit).toFixed(2)}`
+}
+function statusClass(w: any) {
+  if (w.status === 'won') return 'gp-pos'
+  if (w.status === 'lost') return 'gp-neg'
+  return ''
+}
+
+// ─── Market read ────────────────────────────────────────────
+const implied = computed(() => market.value?.implied || null)
+
+const BASIS: Record<string, string> = { close_avg: 'Closing price', open_avg: 'Opening price', book: 'Our scraped price' }
+const basisLabel = computed(() => BASIS[market.value?.basis as string] || 'No price')
+
+const rowOf = (k: string) => (market.value?.rows || []).find((r: any) => r.key === k)
+
+const resultRows = computed(() => {
+  const h = rowOf('home_win'), d = rowOf('draw'), a = rowOf('away_win')
+  if (h?.market == null || d?.market == null || a?.market == null) return []
+  return [
+    { key: 'h', label: shortName(props.game.home_name), p: h.market, price: h.price, color: VIZ_HOME },
+    { key: 'd', label: 'Draw', p: d.market, price: d.price, color: '#6b7280' },
+    { key: 'a', label: shortName(props.game.away_name), p: a.market, price: a.price, color: VIZ_AWAY },
+  ]
 })
 
-const evBarClass = computed(() => {
-  const v = evPct.value
-  if (v >= 15) return 'bg-emerald-500'
-  if (v >= 8) return 'bg-yellow-500'
-  if (v >= 3) return 'bg-amber-500'
-  return 'bg-zinc-600'
+/** The de-vigged totals and BTTS straight off the board — the price's own numbers. */
+const totalsRows = computed(() =>
+  [
+    { key: 'over_15', label: 'Over 1.5' },
+    { key: 'over_25', label: 'Over 2.5' },
+    { key: 'over_35', label: 'Over 3.5' },
+    { key: 'btts', label: 'Both teams score' },
+  ]
+    .map((t) => ({ ...t, p: rowOf(t.key)?.market ?? null, price: rowOf(t.key)?.price ?? null }))
+    .filter((t) => t.p != null),
+)
+
+// ─── Correct-score heatmap ──────────────────────────────────
+// Cell tint follows the outcome it belongs to (home win blue, away win red,
+// draw grey) and its strength follows probability, so the shape of the match
+// — which side the mass leans to — reads before any number does.
+const heatN = computed(() => implied.value?.grid?.length || 0)
+const heatMax = computed(() => Math.max(0, ...(implied.value?.grid || []).flat()))
+const topKeys = computed(() => new Set((implied.value?.scorelines || []).slice(0, 3).map((s: any) => `${s.home}-${s.away}`)))
+function isTop(h: number, a: number) {
+  return topKeys.value.has(`${h}-${a}`)
+}
+function heatStyle(h: number, a: number) {
+  const p = implied.value?.grid?.[h]?.[a] ?? 0
+  const t = heatMax.value ? p / heatMax.value : 0
+  const rgb = h > a ? '77, 143, 255' : h < a ? '248, 81, 79' : '148, 150, 160'
+  return { background: `rgba(${rgb}, ${(0.06 + 0.62 * t).toFixed(3)})`, color: t > 0.45 ? '#fff' : 'var(--ink-soft)' }
+}
+function cellText(p: number) {
+  const v = p * 100
+  return v < 0.5 ? '' : v < 10 ? v.toFixed(1) : v.toFixed(0)
+}
+
+const marginRows = computed(() => {
+  const m = market.value?.margins || {}
+  const rows = Object.entries(m)
+    .filter(([, v]) => v != null)
+    .map(([name, v]) => ({ name, v: Number(v), best: false }))
+  if (rows.length) {
+    const min = Math.min(...rows.map((r) => r.v))
+    rows.forEach((r) => { r.best = r.v === min })
+  }
+  return rows
 })
 
-const evBarWidth = computed(() => {
-  return Math.min(100, Math.max(0, Math.round(evPct.value * 4)))
-})
-
-// ─── Market predictions ──────────────────────────────────
-const markets = computed(() => {
-  const m = []
+// ─── Model win probabilities (basketball / legacy rows) ─────
+const toPct = (v: any) => (v == null ? null : Math.round(Number(v) <= 1 ? Number(v) * 100 : Number(v)))
+const probRows = computed(() => {
   const p = props.prediction
-  if (!p) return m
+  if (!p) return []
+  return [
+    { key: 'h', label: shortName(props.game.home_name), p: toPct(p.home_win_prob), color: VIZ_HOME },
+    ...(isBball.value ? [] : [{ key: 'd', label: 'Draw', p: toPct(p.draw_prob), color: '#4a5060' }]),
+    { key: 'a', label: shortName(props.game.away_name), p: toPct(p.away_win_prob), color: VIZ_AWAY },
+  ].filter((r) => r.p != null)
+})
+const hasAnyProb = computed(() => probRows.value.length > 0)
 
-  if (p.over25_prob != null || p.over_25_prob != null) {
-    const val = p.over25_prob ?? p.over_25_prob
-    const pct = Math.round((val <= 1 ? val * 100 : val))
-    m.push({
-      label: isBball.value ? 'Over Total' : 'Over 2.5',
-      value: pct + '%',
-      color: pct >= 55 ? 'text-green-400' : pct <= 40 ? 'text-red-400' : 'text-zinc-200'
-    })
-  }
-
-  if (p.btts_prob != null) {
-    const pct = Math.round((p.btts_prob <= 1 ? p.btts_prob * 100 : p.btts_prob))
-    m.push({
-      label: 'BTTS',
-      value: pct + '%',
-      color: pct >= 55 ? 'text-green-400' : pct <= 40 ? 'text-red-400' : 'text-zinc-200'
-    })
-  }
-
-  // Multi-market predictions
-  if (p.multi_market_predictions) {
-    try {
-      const mmp = typeof p.multi_market_predictions === 'string'
-        ? JSON.parse(p.multi_market_predictions)
-        : p.multi_market_predictions
-      for (const mm of mmp) {
-        if (mm.market === '1x2') continue
-        m.push({
-          label: formatMarketName(mm.market),
-          value: mm.prediction,
-          color: 'text-zinc-200'
-        })
-      }
-    } catch (e) { /* ignore */ }
-  }
-
-  return m
+const legacyMarkets = computed(() => {
+  const p = props.prediction
+  const out: { label: string; value: string }[] = []
+  if (!p) return out
+  const o = p.over25_prob ?? p.over_25_prob
+  if (o != null) out.push({ label: isBball.value ? 'Over total' : 'Over 2.5', value: `${toPct(o)}%` })
+  if (p.btts_prob != null) out.push({ label: 'BTTS', value: `${toPct(p.btts_prob)}%` })
+  return out
 })
 
-function formatMarketName(market) {
-  const names = {
-    'over_under_25': 'Over/Under 2.5',
-    'btts': 'BTTS',
-    'double_chance': 'Double Chance'
-  }
-  return names[market] || market.replace(/_/g, ' ')
+// ─── Formatting ─────────────────────────────────────────────
+function pct(v: number | null | undefined) {
+  return v == null ? '—' : `${(v * 100).toFixed(1)}%`
+}
+function odds(p: number | null | undefined) {
+  return p ? (1 / p).toFixed(2) : '—'
+}
+function signed(v: number, dp = 1) {
+  return `${v >= 0 ? '+' : ''}${v.toFixed(dp)}`
 }
 </script>
 
 <style scoped>
-.verdict-card {
-  background: rgba(28, 31, 39, 0.95);
-  border: 1px solid rgba(42, 47, 58, 0.5);
+.gp { display: flex; flex-direction: column; gap: 0.65rem; }
+
+/* ── Status ── */
+.gp-status {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--r); border: 1px solid var(--edge); background: var(--neutral-tint);
 }
-.verdict-under {
-  border-color: rgba(168, 85, 247, 0.3);
-  background: linear-gradient(135deg, rgba(28, 31, 39, 0.98) 0%, rgba(88, 28, 135, 0.12) 100%);
+.gp-status-tag {
+  flex-shrink: 0;
+  font-size: 0.64rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 0.14rem 0.5rem; border-radius: var(--r-pill);
 }
-.verdict-over {
-  border-color: rgba(52, 211, 153, 0.3);
-  background: linear-gradient(135deg, rgba(28, 31, 39, 0.98) 0%, rgba(6, 78, 59, 0.15) 100%);
+.gp-status-text { font-size: 0.78rem; color: var(--ink-soft); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp-status-model { font-size: 0.7rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.gp-status-bet { border-color: var(--brand-blue-edge); background: var(--brand-blue-tint); }
+.gp-status-bet .gp-status-tag { background: var(--brand-blue); color: #fff; }
+.gp-status-on .gp-status-tag { background: var(--brand-blue-tint); color: var(--brand-blue-hi); }
+.gp-status-off .gp-status-tag { background: rgba(255, 255, 255, 0.08); color: var(--ink-soft); }
+
+/* ── Rows ── */
+.gp-row1, .gp-row2 { display: grid; gap: 0.65rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1280px) {
+  .gp-row1 { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); }
+  .gp-row1 > :only-child { grid-column: 1 / -1; }
+  .gp-row2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr); }
 }
-.verdict-home {
-  border-color: rgba(248, 40, 40, 0.3);
-  background: linear-gradient(135deg, rgba(28, 31, 39, 0.98) 0%, rgba(127, 29, 29, 0.12) 100%);
+.gp-body { padding: 0.6rem 0.8rem 0.7rem; }
+.gp-right { text-align: right; }
+.r { text-align: right; }
+
+/* ── Pick ── */
+.gp-pick { display: flex; align-items: center; gap: 1rem; padding: 0.65rem 0.8rem 0.4rem; flex-wrap: wrap; }
+.gp-pick-id { display: flex; flex-direction: column; min-width: 8rem; }
+.gp-pick-label { font-size: 1.45rem; font-weight: 800; line-height: 1.05; letter-spacing: -0.01em; }
+.gp-pick-price { font-size: 1rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.gp-pick-sub { font-size: 0.7rem; color: var(--ink-mute); margin-top: 0.1rem; }
+.gp-metrics { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.4rem; min-width: 26rem; }
+.gp-metric {
+  display: flex; flex-direction: column; gap: 0.05rem;
+  padding: 0.4rem 0.55rem; border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--edge-soft);
 }
-.verdict-away {
-  border-color: rgba(8, 72, 168, 0.35);
-  background: linear-gradient(135deg, rgba(28, 31, 39, 0.98) 0%, rgba(8, 72, 168, 0.12) 100%);
+.gp-k { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); }
+.gp-v { font-size: 1.05rem; font-weight: 800; color: var(--ink-strong); font-variant-numeric: tabular-nums; }
+.gp-n { font-size: 0.66rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.gp-axis-wrap { display: flex; align-items: center; gap: 0.8rem; padding: 0.2rem 0.8rem 0.6rem; }
+.gp-axis { position: relative; flex: 1; height: 8px; border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.05); }
+.gp-axis-gap { position: absolute; top: 0; bottom: 0; opacity: 0.3; border-radius: var(--r-pill); }
+.gp-axis-mkt { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink-soft); }
+.gp-axis-our {
+  position: absolute; top: 50%; width: 11px; height: 11px; margin-left: -5.5px;
+  border-radius: 50%; border: 2.5px solid; background: var(--surface); transform: translateY(-50%);
 }
-.verdict-default {
-  border-color: rgba(42, 47, 58, 0.6);
+.gp-axis-legend { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.66rem; color: var(--ink-mute); white-space: nowrap; }
+.gp-lg-mkt { width: 2px; height: 10px; background: var(--ink-soft); }
+.gp-lg-our { width: 9px; height: 9px; border-radius: 50%; border: 2px solid; margin-left: 0.4rem; }
+
+.gp-warn {
+  margin: 0 0.8rem 0.6rem; padding: 0.35rem 0.6rem;
+  border-radius: var(--r); border: 1px solid rgba(250, 178, 25, 0.3); background: var(--warning-tint);
+  font-size: 0.72rem; line-height: 1.45; color: #f0d58c;
 }
-.bet-suggestion-card {
-  background: linear-gradient(135deg, rgba(28, 31, 39, 0.95), rgba(37, 40, 48, 0.95));
-  border: 1px solid rgba(251, 191, 36, 0.2);
+.gp-cands { display: flex; flex-wrap: wrap; gap: 0.35rem 0.8rem; align-items: center; padding: 0 0.8rem 0.6rem; font-size: 0.72rem; color: var(--ink-soft); }
+.gp-cand-h { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); }
+.gp-cand { display: inline-flex; align-items: center; gap: 0.35rem; font-variant-numeric: tabular-nums; }
+
+/* ── Wagers ── */
+.gp-wagers { padding: 0.25rem 0.8rem 0.5rem; }
+.gp-wrow {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) 3rem 6.5rem 4rem;
+  gap: 0.5rem; align-items: center;
+  padding: 0.32rem 0; border-top: 1px solid var(--edge-soft);
+  font-size: 0.76rem; color: var(--ink-soft); font-variant-numeric: tabular-nums;
 }
-.metric-cell {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(42, 47, 58, 0.4);
+.gp-wrow-h { border-top: 0; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); }
+.gp-wallet { color: var(--ink); display: flex; gap: 0.35rem; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; }
+.gp-trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.gp-help { cursor: help; text-decoration: underline dotted var(--edge-lit); text-underline-offset: 3px; }
+
+/* ── Result ── */
+.gp-res {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto;
+  column-gap: 0.9rem; row-gap: 0.25rem; align-items: center;
+  padding: 0.35rem 0;
 }
+.gp-res + .gp-res { border-top: 1px solid var(--edge-soft); }
+.gp-res-name { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 600; color: var(--ink); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.gp-res-name i { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.gp-res-p { text-align: right; font-size: 0.95rem; font-weight: 800; color: var(--ink-strong); }
+.gp-res-track { height: 5px; border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.05); overflow: hidden; }
+.gp-res-track span { display: block; height: 100%; border-radius: var(--r-pill); opacity: 0.9; }
+.gp-res-odds { text-align: right; font-size: 0.68rem; color: var(--ink-faint); white-space: nowrap; }
+.gp-res-odds b { color: var(--ink-soft); font-weight: 700; }
+
+.gp-sub { margin-top: 0.55rem; padding-top: 0.5rem; border-top: 1px solid var(--edge); }
+.gp-sub-h { display: block; margin-bottom: 0.35rem; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); }
+.gp-margins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem; }
+.gp-margin {
+  display: flex; justify-content: space-between; gap: 0.4rem;
+  padding: 0.22rem 0.5rem; border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.03); font-size: 0.7rem; color: var(--ink-soft);
+}
+.gp-margin b { color: var(--ink); }
+.gp-margin-best { background: var(--positive-tint); box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.35); }
+.gp-margin-best b { color: var(--positive); }
+
+/* ── Goals ── */
+.gp-xg { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 0.5rem; }
+.gp-xg > div { display: flex; flex-direction: column; min-width: 0; }
+.gp-xg-mid { align-items: center; }
+.gp-xg-num { font-size: 1.7rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.gp-xg-total { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.gp-xg-name { font-size: 0.7rem; color: var(--ink-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.15rem; }
+.gp-xg-bar { display: flex; gap: 2px; height: 5px; margin: 0.5rem 0 0.4rem; border-radius: var(--r-pill); overflow: hidden; }
+.gp-tbl { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+.gp-tbl td { padding: 0.28rem 0; border-top: 1px solid var(--edge-soft); color: var(--ink-soft); }
+.gp-tbl td b { color: var(--ink-strong); }
+.gp-tbl td.gp-dim { color: var(--ink-faint); font-size: 0.7rem; padding-left: 0.6rem; white-space: nowrap; }
+
+/* ── Correct-score heatmap ── */
+.gp-heat {
+  display: grid; grid-template-columns: 1.1rem repeat(6, minmax(0, 1fr));
+  gap: 3px; align-items: stretch;
+}
+.gp-heat-corner { display: block; }
+.gp-heat-axis {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.66rem; font-weight: 700; color: var(--ink-mute); font-variant-numeric: tabular-nums;
+}
+.gp-heat-cell {
+  display: flex; align-items: center; justify-content: center;
+  height: 1.85rem; border-radius: 4px;
+  font-size: 0.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.gp-heat-top { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.85); }
+.gp-heat-foot { margin-top: 0.5rem; font-size: 0.72rem; color: var(--ink-mute); }
+.gp-heat-foot b { color: var(--ink-strong); }
+
+.gp-foot { font-size: 0.68rem; line-height: 1.5; color: var(--ink-faint); }
+.gp-muted { font-size: 0.75rem; color: var(--ink-mute); padding: 0.5rem 0; }
+
+/* Money colours — declared here so they outrank the base ink of .gp-v / cells. */
+.gp-pos { color: var(--positive) !important; }
+.gp-neg { color: var(--negative) !important; }
 </style>

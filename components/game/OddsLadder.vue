@@ -57,7 +57,7 @@
     <div class="ladder-block">
       <div class="flex items-baseline justify-between">
         <div class="ladder-label">Total Goals (Over / Under)</div>
-        <span v-if="lines.length" class="text-[9px] text-zinc-600">median across books</span>
+        <span v-if="lines.length" class="text-[10px] text-zinc-600">median across books</span>
       </div>
 
       <div v-if="lines.length" class="ladder-grid">
@@ -238,9 +238,9 @@ function fmt(v: number | null | undefined): string {
 
 .ladder-row-key {
   position: relative;
-  border-color: rgba(57, 135, 229, 0.4);
-  background: rgba(57, 135, 229, 0.09);
-  box-shadow: 0 2px 10px rgba(57, 135, 229, 0.12);
+  border-color: rgba(77, 143, 255, 0.4);
+  background: rgba(77, 143, 255, 0.09);
+  box-shadow: 0 2px 10px rgba(77, 143, 255, 0.12);
 }
 .ladder-row-key::after {
   content: 'MAIN';
@@ -249,7 +249,7 @@ function fmt(v: number | null | undefined): string {
   left: 0.5rem;
   padding: 0.03rem 0.35rem;
   border-radius: 999px;
-  background: #3987e5;
+  background: #4d8fff;
   color: #0b1220;
   font-size: 0.5rem;
   font-weight: 800;

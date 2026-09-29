@@ -16,10 +16,10 @@
       <div v-for="s in sources" :key="s.key" class="p-3 sm:p-4">
         <div class="flex items-baseline gap-2 flex-wrap mb-2">
           <span class="text-[12px] font-semibold text-zinc-200">{{ s.name }}</span>
-          <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider" :class="stateClass(s.state)">
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" :class="stateClass(s.state)">
             {{ STATE_LABEL[s.state] }}
           </span>
-          <span v-if="!s.robots_cleared" class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500/15 text-red-300"
+          <span v-if="!s.robots_cleared" class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-500/15 text-red-300"
                 title="robots.txt has not been read for this source. Nothing may scrape it.">
             robots unread
           </span>

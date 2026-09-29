@@ -175,9 +175,9 @@ function crestBg(hex) { return `${hex}26` }
   transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 .fx:hover {
-  border-color: rgba(57, 135, 229, 0.5);
+  border-color: rgba(77, 143, 255, 0.5);
   transform: translateY(-1px);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 24px -18px rgba(57, 135, 229, 0.9);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 24px -18px rgba(77, 143, 255, 0.9);
 }
 .fx-played { background: linear-gradient(165deg, rgba(35, 38, 46, 0.5), rgba(22, 25, 31, 0.95)); }
 
@@ -197,7 +197,7 @@ function crestBg(hex) { return `${hex}26` }
   white-space: nowrap;
 }
 .fx-tag-ft { background: rgba(255, 255, 255, 0.07); color: rgb(150, 152, 160); }
-.fx-tag-time { background: rgba(57, 135, 229, 0.16); color: #8fbdf5; font-variant-numeric: tabular-nums; }
+.fx-tag-time { background: rgba(77, 143, 255, 0.16); color: #8fbdf5; font-variant-numeric: tabular-nums; }
 .fx-tag-model { background: rgba(255, 255, 255, 0.05); color: rgb(161, 161, 170); border: 1px dashed rgba(255, 255, 255, 0.16); }
 .fx-tag-hit { color: #7ddc7d; border-color: rgba(12, 163, 12, 0.5); }
 .fx-tag-miss { color: #e88b8b; border-color: rgba(208, 59, 59, 0.5); }
@@ -253,7 +253,7 @@ function crestBg(hex) { return `${hex}26` }
 }
 .fx-odd-k { font-size: 0.48rem; font-weight: 700; color: rgb(105, 107, 116); }
 .fx-odd-v { font-size: 0.6rem; font-weight: 600; color: rgb(185, 188, 196); font-variant-numeric: tabular-nums; }
-.fx-odd-pick { background: rgba(57, 135, 229, 0.18); box-shadow: inset 0 0 0 1px rgba(57, 135, 229, 0.4); }
+.fx-odd-pick { background: rgba(77, 143, 255, 0.18); box-shadow: inset 0 0 0 1px rgba(77, 143, 255, 0.4); }
 .fx-odd-pick .fx-odd-v { color: #a9cdf8; }
 .fx-odd-hit .fx-odd-k { color: #7ddc7d; }
 

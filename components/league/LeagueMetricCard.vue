@@ -113,9 +113,9 @@ const stripTitle = computed(() => {
   height: 0.45rem;
   margin: -0.225rem 0 0 -0.225rem;
   border-radius: 999px;
-  background: #3987e5;
+  background: #4d8fff;
   /* 2px surface ring so the marker stays readable where it crosses a tick. */
-  box-shadow: 0 0 0 2px #1c1f27, 0 0 10px 0 rgba(57, 135, 229, 0.75);
+  box-shadow: 0 0 0 2px #1c1f27, 0 0 10px 0 rgba(77, 143, 255, 0.75);
 }
 .mc-foot {
   margin-top: 0.2rem;

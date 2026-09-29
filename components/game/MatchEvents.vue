@@ -315,8 +315,8 @@ onBeforeUnmount(() => ro?.disconnect())
 .is-big .mt-dot { width: 23px; height: 23px; }
 .is-big .mt-icon { width: 12px; height: 12px; }
 
-.mt-marker-home .mt-dot { background: #3987e5; }
-.mt-marker-away .mt-dot { background: #d95926; }
+.mt-marker-home .mt-dot { background: #4d8fff; }
+.mt-marker-away .mt-dot { background: #f8514f; }
 .tone-yellow .mt-dot { background: #f59e0b; }
 .tone-red .mt-dot { background: #ef4444; }
 .tone-own .mt-dot { background: #a855f7; }

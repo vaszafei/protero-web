@@ -113,7 +113,7 @@
                 <td class="td text-center tabular-nums text-zinc-300">{{ r.GFGA }}</td>
                 <td class="td text-center tabular-nums font-bold"
                     :class="r.gdNum > 0 ? 'text-emerald-400' : r.gdNum < 0 ? 'text-red-400' : 'text-zinc-500'">{{ r.GD }}</td>
-                <td class="td text-center bg-[#3987e5]/[0.08]"><span class="pts">{{ r.Pts }}</span></td>
+                <td class="td text-center bg-[#4d8fff]/[0.08]"><span class="pts">{{ r.Pts }}</span></td>
                 <td class="td">
                   <div v-if="r.form?.length" class="flex gap-0.5">
                     <span v-for="(f, i) in r.form" :key="i" class="formdot"
@@ -631,7 +631,7 @@ const RatingBar = defineComponent({
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.pill-blue { background: rgba(57, 135, 229, 0.18); color: #8fbdf5; }
+.pill-blue { background: rgba(77, 143, 255, 0.18); color: #8fbdf5; }
 .pill-amber { background: rgba(250, 178, 25, 0.16); color: #f0c469; }
 .pill-dim { background: rgba(255, 255, 255, 0.06); color: rgb(140, 143, 152); }
 
@@ -683,7 +683,7 @@ const RatingBar = defineComponent({
   line-height: 1;
   transition: background 140ms ease, color 140ms ease;
 }
-.rail-nav:hover:not(:disabled) { background: rgba(57, 135, 229, 0.3); color: #fff; }
+.rail-nav:hover:not(:disabled) { background: rgba(77, 143, 255, 0.3); color: #fff; }
 .rail-nav:disabled { opacity: 0.25; cursor: not-allowed; }
 
 /* The fade says "there is more" without adding a control. */
@@ -711,10 +711,10 @@ const RatingBar = defineComponent({
   cursor: pointer;
   transition: background 140ms ease;
 }
-.tr:hover { background: rgba(57, 135, 229, 0.08); }
+.tr:hover { background: rgba(77, 143, 255, 0.08); }
 
 .qual-ucl { box-shadow: inset 2px 0 0 rgba(12, 163, 12, 0.8); }
-.qual-uel { box-shadow: inset 2px 0 0 rgba(57, 135, 229, 0.7); }
+.qual-uel { box-shadow: inset 2px 0 0 rgba(77, 143, 255, 0.7); }
 .qual-uecl { box-shadow: inset 2px 0 0 rgba(250, 178, 25, 0.6); }
 
 .posbox {
@@ -773,7 +773,7 @@ const RatingBar = defineComponent({
   display: inline-block;
   padding: 0.05rem 0.45rem;
   border-radius: 999px;
-  background: rgba(57, 135, 229, 0.2);
+  background: rgba(77, 143, 255, 0.2);
   color: #a9cdf8;
   font-size: 0.7rem;
   font-weight: 700;

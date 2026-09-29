@@ -144,8 +144,8 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
   bottom: -1px;
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #3987e5, #d95926);
-  box-shadow: 0 0 8px 1px rgba(57, 135, 229, 0.4);
+  background: linear-gradient(90deg, var(--brand-blue), var(--brand-red));
+  box-shadow: 0 0 8px 1px rgba(77, 143, 255, 0.35), 0 0 8px 1px rgba(248, 81, 79, 0.2);
 }
 
 @media (prefers-reduced-motion: reduce) {

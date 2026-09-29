@@ -3,7 +3,15 @@
 @tailwind utilities;
 
 /* Dark theme defaults */
-body { background-color: #14161b; color: #e4e7ec; }
+body {
+  background-color: #14161b;
+  color: #e4e7ec;
+  /* Inter's disambiguated 1/l/I and open digits — odds and scores are read
+     digit by digit here. */
+  font-feature-settings: 'cv05', 'cv08', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
 /* Hide scrollbar utility (for horizontal tab navs, etc.) */
 .scrollbar-hide {

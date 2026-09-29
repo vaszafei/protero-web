@@ -7,14 +7,18 @@
       <span class="pb-spacer" />
       <UiTooltip :width="270">
         <span class="pb-nums">
+          <span v-if="fairOdds" class="pb-fair">fair {{ fairOdds.toFixed(2) }}</span>
           <span class="pb-mkt">{{ pctText(market) }}</span>
-          <span class="pb-vs">vs</span>
-          <span class="pb-our" :style="{ color: gapColor }">{{ pctText(ours) }}</span>
+          <template v-if="!(hideEmptyFoot && ours == null)">
+            <span class="pb-vs">vs</span>
+            <span class="pb-our" :style="{ color: gapColor }">{{ pctText(ours) }}</span>
+          </template>
         </span>
         <template #content>
           <div class="tip-title">{{ label }}</div>
           <div class="tip-row"><span class="tip-k">market</span><span class="tip-v">{{ pctText(market) }}</span></div>
           <div v-if="price" class="tip-row"><span class="tip-k">price</span><span class="tip-v">{{ Number(price).toFixed(2) }}</span></div>
+          <div v-if="fairOdds" class="tip-row"><span class="tip-k">fair odds</span><span class="tip-v">{{ fairOdds.toFixed(2) }}</span></div>
           <div class="tip-row"><span class="tip-k">{{ ourLabel }}</span><span class="tip-v" :style="{ color: gapColor }">{{ pctText(ours) }}</span></div>
           <div class="tip-row">
             <span class="tip-k">difference</span>
@@ -51,7 +55,7 @@
     <!-- Verdict line. This is where the honesty lives: an edge is only shown
          where the cell is masked-in, because a number we never bet is not an
          edge, it is a difference. -->
-    <div class="pb-foot">
+    <div v-if="!(hideEmptyFoot && ours == null)" class="pb-foot">
       <template v-if="ours == null">
         <span class="pb-muted">no model number for this market</span>
       </template>
@@ -101,7 +105,13 @@ const props = withDefaults(defineProps<{
   /** Note rendered when `enabled` is false. */
   disabledNote?: string
   devigNote?: string
+  /** 1 / de-vigged market probability — the price with the margin removed. */
+  fairOdds?: number | null
+  /** Skip the per-row "no model number" line when the whole board has none. */
+  hideEmptyFoot?: boolean
 }>(), {
+  fairOdds: null,
+  hideEmptyFoot: false,
   price: null,
   enabled: false,
   ourLabel: 'model',
@@ -133,7 +143,7 @@ const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
 </script>
 
 <style scoped>
-.pb { padding: 0.45rem 0; }
+.pb { padding: 0.32rem 0; }
 
 .pb-head {
   display: flex;
@@ -142,26 +152,27 @@ const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
   margin-bottom: 0.3rem;
 }
 .pb-name {
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--ink-soft);
 }
 .pb-price {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--ink-mute);
+  color: var(--ink-soft);
   padding: 0.02rem 0.28rem;
   border-radius: var(--r-sm);
   background: var(--neutral-tint);
 }
 .pb-spacer { flex: 1; }
 .pb-nums {
-  font-size: 0.66rem;
+  font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
   cursor: help;
 }
-.pb-mkt { color: var(--ink-mute); }
+.pb-mkt { color: var(--ink); font-weight: 600; }
+.pb-fair { color: var(--ink-mute); margin-right: 0.5rem; }
 .pb-vs { color: var(--ink-faint); margin: 0 0.25rem; font-size: 0.58rem; }
 .pb-our { font-weight: 700; }
 
@@ -207,7 +218,7 @@ const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
   align-items: baseline;
   gap: 0.3rem;
   margin-top: 0.25rem;
-  font-size: 0.6rem;
+  font-size: 0.68rem;
 }
 .pb-edge { font-weight: 700; font-variant-numeric: tabular-nums; }
 .pb-muted { color: var(--ink-faint); }

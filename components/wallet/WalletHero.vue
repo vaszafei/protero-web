@@ -8,7 +8,7 @@
 
       <!-- Balance -->
       <div class="mb-2.5">
-        <p class="text-[9px] text-zinc-500 uppercase tracking-wider mb-0.5">Balance</p>
+        <p class="text-[10px] text-zinc-500 uppercase tracking-wider mb-0.5">Balance</p>
         <div class="flex items-baseline gap-2">
           <span class="text-2xl sm:text-3xl font-extrabold text-white tabular-nums">${{ formatNum(wallet.balance) }}</span>
           <span class="text-sm font-bold tabular-nums" :class="pl >= 0 ? 'text-emerald-400' : 'text-red-400'">
@@ -21,7 +21,7 @@
            the wallets stat columns, which are bankroll return and stale. -->
       <div class="grid grid-cols-4 gap-2">
         <div>
-          <p class="text-[9px] text-zinc-500 uppercase" title="Profit / turnover">ROI</p>
+          <p class="text-[10px] text-zinc-500 uppercase" title="Profit / turnover">ROI</p>
           <p
             class="text-sm font-bold tabular-nums"
             :class="unpriced ? 'text-neutral-500 italic font-normal'
@@ -34,17 +34,17 @@
           </p>
         </div>
         <div>
-          <p class="text-[9px] text-zinc-500 uppercase">Win</p>
+          <p class="text-[10px] text-zinc-500 uppercase">Win</p>
           <p class="text-sm font-bold text-zinc-100 tabular-nums">
             {{ winRate == null ? '—' : winRate.toFixed(1) + '%' }}
           </p>
         </div>
         <div>
-          <p class="text-[9px] text-zinc-500 uppercase" title="Settled wagers — a parlay counts once, never its legs">Wagers</p>
+          <p class="text-[10px] text-zinc-500 uppercase" title="Settled wagers — a parlay counts once, never its legs">Wagers</p>
           <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ nWagers }}</p>
         </div>
         <div>
-          <p class="text-[9px] text-zinc-500 uppercase">Seed</p>
+          <p class="text-[10px] text-zinc-500 uppercase">Seed</p>
           <p class="text-sm font-bold text-zinc-100 tabular-nums">${{ formatNum(wallet.initial_balance) }}</p>
         </div>
       </div>

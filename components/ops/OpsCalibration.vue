@@ -32,7 +32,7 @@
         <div class="flex items-baseline gap-2">
           <span class="text-[11px] text-zinc-300 truncate">{{ leagueLabel(c.league_key) }}</span>
           <span class="text-[10px] text-zinc-500">{{ marketLabel(c.market) }}</span>
-          <span class="text-[9px] uppercase font-semibold" :class="sourceClass(c.source)">{{ c.source }}</span>
+          <span class="text-[10px] uppercase font-semibold" :class="sourceClass(c.source)">{{ c.source }}</span>
           <span class="ml-auto text-[10px] text-zinc-600 tabular-nums">n={{ c.n }}</span>
         </div>
         <div class="flex items-center gap-2 mt-1">

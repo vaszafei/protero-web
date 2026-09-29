@@ -1,6 +1,6 @@
 # CLAUDE.md — ΠροΤερο Frontend
 
-Nuxt 3 SPA (no SSR) with Tailwind CSS, Nuxt UI v2, and a Capacitor Android wrapper. Dark-mode only. Mobile-first design with bottom nav on small screens, sidebar on desktop.
+Nuxt 3 SPA (no SSR) with Tailwind CSS, Nuxt UI v2, and a Capacitor Android wrapper. Dark-mode only. **Desktop operator console — mobile/small-screen layouts are out of scope (owner, 2026-09-29).**
 
 Read the root `../CLAUDE.md` before any cross-cutting work.
 
@@ -167,7 +167,9 @@ protero-frontend/
 
 **Operator-first.** The owner is the only user. No subscription gate, no credits — the operator sees everything. Optimise for information density, not onboarding.
 
-**Mobile-first.** Capacitor wraps the SPA for Android. Safe-area CSS, bottom nav on mobile, sidebar on desktop, no-scroll-bounce, viewport-locked.
+**Desktop only — no mobile work (owner, 2026-09-29).** Do not design, test, screenshot or audit mobile/small-screen layouts, and do not fold responsive fixes into a task. The existing bottom nav and safe-area CSS stay as they are but are not maintained. Capacitor's fate is still `docs/plans/capacitor-decision.md`.
+
+**One screen, no scroll (owner, 2026-09-29).** It is a web app: a page — and every game tab — should read at 1920×1080 without scrolling. Lay content out in columns (Market = 4 markets in a row; Analysis = 4 cards; Prediction = 3 panels) and move explanations into tooltips instead of paragraphs. Verify by comparing `main.scrollHeight` with `clientHeight`, not by eye.
 
 **Sport filtering (client-side).** Use `sportOf()` from `utils/constants.ts`, not ad-hoc `league_key IN [...]` checks.
 
@@ -272,11 +274,14 @@ graph — every route 404s on its own source URL. Nothing points at the offendin
 ## Design System
 
 - **Theme:** Dark only. `surface` base `#14161b`, `edge` borders `#2a2f3a`
-- **Primary:** Blue (Nuxt UI `primary: 'blue'`)
+- **Primary:** `protero` — a 50–950 scale on the logo blue in `tailwind.config.cjs` (Nuxt UI `primary: 'protero'`, 2026-09-29). Not Tailwind's stock blue.
+- **Brand rule:** blue = home / the model / a live process, red = away / loss / failing gate, green = money-positive only. `VIZ_HOME`/`VIZ_AWAY` are the logo pair `#4d8fff`/`#f8514f` (validated `--balanced`); the pair does NOT extend to three series. Chrome accents (sidebar active rail, tab underline) use the blue→red gradient — never a lone red, which reads as "loss".
+- **Readability floor:** `text-zinc-500/600/700` are remapped in `tailwind.config.cjs` (`textColor` only — bg/border keep stock) to 5.2 / 4.1 / 3.1:1 on the panel; `--ink-mute`/`--ink-faint` mirror them. Stock zinc-600 text was 2.1:1. Don't set text below 10px.
+- **Font:** Inter (Google Fonts link in `nuxt.config.ts`, system-ui fallback).
 - **Gray:** Neutral (Nuxt UI `gray: 'neutral'`)
 - **Icons:** `heroicons` (primary), `lucide-vue-next` (secondary)
 - **Components:** Nuxt UI v2 primitives (`UButton`, `UCard`, `UTable`, `UModal`, etc.)
-- **Custom tokens:** `utils/design-tokens.ts` — colors, spacing, typography, shadows
+- **Custom tokens:** `assets/css/tokens.css` (the single palette) + `assets/css/panels.css` (panels, buttons, pills). `utils/viz.ts` for anything computed in JS.
 
 ## Database Types
 
@@ -292,14 +297,12 @@ When schema changes happen in Supabase, update this file to keep types in sync.
 **Done means:**
 - Page renders without console errors in dev
 - API routes return proper error responses (not 500s with stack traces)
-- Mobile layout tested (responsive, no overflow, safe areas respected)
 - Types match current Supabase schema
 - No dead imports or unused legacy code
 - No references to the legacy raw-SQL DB in new code
 
 **Needs another pass means:**
 - New API route without error handling
-- Component added without mobile responsiveness
 - Hardcoded values that should come from DB config
 - Dead imports or unused components left behind
 

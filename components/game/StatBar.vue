@@ -1,7 +1,7 @@
 <template>
   <div class="stat-bar-row py-0.5">
     <!-- Centered label -->
-    <div class="text-center text-[9px] uppercase tracking-wider text-zinc-500 font-medium mb-0.5">
+    <div class="text-center text-[10px] uppercase tracking-wider text-zinc-500 font-medium mb-0.5">
       {{ label }}
     </div>
 

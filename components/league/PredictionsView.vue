@@ -531,7 +531,7 @@ watch(enrichedPredictions, (newPredictions) => {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.pill-blue { background: rgba(57, 135, 229, 0.18); color: #8fbdf5; }
+.pill-blue { background: rgba(77, 143, 255, 0.18); color: #8fbdf5; }
 .pill-dim { background: rgba(255, 255, 255, 0.06); color: rgb(140, 143, 152); }
 
 .unformed-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); }

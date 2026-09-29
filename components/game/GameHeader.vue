@@ -3,6 +3,8 @@
     <!-- League Info - subtle strip with brand gradient underline -->
     <div class="relative px-3 sm:px-6 py-1.5 sm:py-2 flex items-center justify-between">
       <div class="flex items-center gap-2 sm:gap-3">
+        <!-- The page's back control lives here, not in a row of its own. -->
+        <slot name="lead" />
         <span class="text-lg sm:text-xl">{{ game.league_flag }}</span>
         <div>
           <h3 class="font-semibold text-sm sm:text-base text-zinc-200">{{ game.league_name }}</h3>
@@ -14,7 +16,7 @@
     </div>
 
     <!-- Match Score — centered scorecard, logos either side of the score -->
-    <div class="flex-1 flex flex-col justify-center px-3 sm:px-6 py-4 sm:py-5">
+    <div class="flex-1 flex flex-col justify-center px-3 sm:px-6 py-3">
       <div class="flex items-center justify-center gap-3 sm:gap-6">
         <!-- Home logo + name -->
         <div class="flex flex-col items-center gap-1.5 w-28 sm:w-40">
@@ -84,7 +86,7 @@
       </div>
 
       <!-- Venue / referee / stage meta strip, centered under the score -->
-      <div v-if="hasMeta" class="mt-4 pt-3 border-t border-edge/40">
+      <div v-if="hasMeta" class="mt-3 pt-2 border-t border-edge/40">
         <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-xs">
           <div v-if="venueLabel" class="flex items-center gap-1.5">
             <UIcon name="i-heroicons-map-pin" class="w-3.5 h-3.5 text-zinc-500" />
@@ -131,15 +133,15 @@
           'relative px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap font-medium transition-all',
           activeOverBet ? 'ring-1 ring-emerald-400/70 bg-emerald-500/15 text-emerald-400 font-bold' : 'text-zinc-600'
         ]">
-          O {{ oddsData.over_under.line }}<span v-if="oddsData.over_under.over" class="ml-0.5 text-[9px] opacity-60">@{{ Number(oddsData.over_under.over).toFixed(2) }}</span>
-          <span v-if="activeOverBet && activeOverStake" class="absolute -top-1.5 -right-1 bg-emerald-500 text-white text-[7px] font-extrabold px-1 py-px rounded-full leading-none">{{ activeOverStake }}</span>
+          O {{ oddsData.over_under.line }}<span v-if="oddsData.over_under.over" class="ml-0.5 text-[10px] opacity-60">@{{ Number(oddsData.over_under.over).toFixed(2) }}</span>
+          <span v-if="activeOverBet && activeOverStake" class="absolute -top-1.5 -right-1 bg-emerald-500 text-white text-[9px] font-extrabold px-1 py-px rounded-full leading-none">{{ activeOverStake }}</span>
         </div>
         <div :class="[
           'relative px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap font-medium transition-all',
           activeUnderBet ? 'ring-1 ring-purple-400/70 bg-purple-500/15 text-purple-400 font-bold' : 'text-zinc-600'
         ]">
-          U {{ oddsData.over_under.line }}<span v-if="oddsData.over_under.under" class="ml-0.5 text-[9px] opacity-60">@{{ Number(oddsData.over_under.under).toFixed(2) }}</span>
-          <span v-if="activeUnderBet && activeUnderStake" class="absolute -top-1.5 -right-1 bg-purple-500 text-white text-[7px] font-extrabold px-1 py-px rounded-full leading-none">{{ activeUnderStake }}</span>
+          U {{ oddsData.over_under.line }}<span v-if="oddsData.over_under.under" class="ml-0.5 text-[10px] opacity-60">@{{ Number(oddsData.over_under.under).toFixed(2) }}</span>
+          <span v-if="activeUnderBet && activeUnderStake" class="absolute -top-1.5 -right-1 bg-purple-500 text-white text-[9px] font-extrabold px-1 py-px rounded-full leading-none">{{ activeUnderStake }}</span>
         </div>
       </template>
       <template v-else-if="oddsData?.moneyline?.home">
@@ -164,7 +166,7 @@
         <span
           v-if="game.home_goals !== null"
           :class="[
-            'inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[9px] font-extrabold leading-none',
+            'inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[10px] font-extrabold leading-none',
             isPredictionCorrect() ? 'bg-emerald-500/30 text-emerald-300' : 'bg-rose-500/30 text-rose-300'
           ]"
         >{{ isPredictionCorrect() ? 'W' : 'L' }}</span>
@@ -284,13 +286,14 @@ const hasXg = computed(() => {
 })
 
 // The meta strip shows only rows that actually carry data.
+// A bare round number is already in the header strip; it alone does not earn
+// a second row.
 const hasMeta = computed(() => {
   return !!(props.game.venue
     || props.game.sport_stats?.venue
     || props.game.referee?.name
     || props.game.referee_name
-    || props.game.stage
-    || (props.game.round && props.game.round !== 0))
+    || (props.game.stage && props.game.stage !== '0'))
 })
 
 const venueLabel = computed(() =>
@@ -299,7 +302,6 @@ const venueLabel = computed(() =>
 const stageLabel = computed(() => {
   const g = props.game
   if (g.stage && g.stage !== '0') return g.stage
-  if (g.round && g.round !== 0 && g.round !== '0') return `Round ${g.round}`
   return ''
 })
 

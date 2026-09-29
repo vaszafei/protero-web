@@ -87,7 +87,7 @@
                         </span>
                       </div>
                       <div v-if="avg.lastDelta !== undefined">
-                        <span :class="['text-[9px] tabular-nums opacity-70', avg.lastDelta > 0 ? 'text-emerald-400' : avg.lastDelta < 0 ? 'text-red-400' : 'text-zinc-500']">
+                        <span :class="['text-[10px] tabular-nums opacity-70', avg.lastDelta > 0 ? 'text-emerald-400' : avg.lastDelta < 0 ? 'text-red-400' : 'text-zinc-500']">
                           {{ avg.lastDelta > 0 ? '↑' : avg.lastDelta < 0 ? '↓' : '=' }}{{ Math.abs(avg.lastDelta).toFixed(1) }} prev
                         </span>
                       </div>
@@ -162,8 +162,8 @@
                             </div>
                           </div>
                           <div class="bar-footer">
-                            <span :class="['text-[7px] font-bold leading-none', g.result === 'W' ? 'text-emerald-400' : 'text-red-400']">{{ g.result }}</span>
-                            <span class="text-[7px] text-zinc-600 leading-none truncate">{{ formatOppShort(g.opponent) }}</span>
+                            <span :class="['text-[9px] font-bold leading-none', g.result === 'W' ? 'text-emerald-400' : 'text-red-400']">{{ g.result }}</span>
+                            <span class="text-[9px] text-zinc-600 leading-none truncate">{{ formatOppShort(g.opponent) }}</span>
                           </div>
                         </div>
                       </div>
@@ -194,7 +194,7 @@
                       <text
                         :x="110 + 98 * Math.cos(radarAngle(i))" :y="110 + 98 * Math.sin(radarAngle(i)) + 7"
                         text-anchor="middle" dominant-baseline="central"
-                        class="fill-zinc-500 text-[8px]"
+                        class="fill-zinc-500 text-[9px]"
                       >{{ player?.[axis.key] ?? 0 }}</text>
                     </g>
                   </svg>
@@ -216,8 +216,8 @@
                     <div class="inline-flex flex-col min-w-full">
                       <div class="flex items-end gap-1 mb-1.5 pl-10">
                         <div v-for="(g, i) in filteredGames" :key="i" class="heat-cell-h">
-                          <span class="text-[8px] text-zinc-600 whitespace-nowrap">{{ formatHeatDate(g.game_date) }}</span>
-                          <span :class="['text-[9px] font-bold', g.result === 'W' ? 'text-emerald-400' : g.result === 'L' ? 'text-red-400' : 'text-zinc-500']">{{ g.result }}</span>
+                          <span class="text-[9px] text-zinc-600 whitespace-nowrap">{{ formatHeatDate(g.game_date) }}</span>
+                          <span :class="['text-[10px] font-bold', g.result === 'W' ? 'text-emerald-400' : g.result === 'L' ? 'text-red-400' : 'text-zinc-500']">{{ g.result }}</span>
                           <span :class="['w-1.5 h-1.5 rounded-full mt-0.5', g.side === 'home' ? 'bg-[#0848a8]' : 'bg-[#f82828]']"></span>
                         </div>
                       </div>

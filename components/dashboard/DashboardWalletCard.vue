@@ -41,7 +41,7 @@
           :style="{ width: winRatePct + '%' }"
         />
       </div>
-      <p class="text-[9px] text-zinc-600 mt-0.5 text-right">{{ winRatePct.toFixed(0) }}% win</p>
+      <p class="text-[10px] text-zinc-600 mt-0.5 text-right">{{ winRatePct.toFixed(0) }}% win</p>
     </div>
 
     <!-- Verdict + p(luck) — ROI never travels alone -->

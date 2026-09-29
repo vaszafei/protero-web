@@ -3,7 +3,7 @@
     <!-- Team identity — same shell as TeamStatsRail so the two rails are one
          object that changes contents at kick-off, not two different cards. -->
     <div
-      class="flex items-center gap-2.5 px-3 sm:px-4 pt-3 pb-2.5"
+      class="flex items-center gap-2.5 px-3 sm:px-4 pt-2.5 pb-2"
       :class="mirror ? 'flex-row-reverse' : ''"
     >
       <div class="rail-glow">
@@ -21,13 +21,26 @@
       </div>
       <div class="min-w-0" :class="mirror ? 'text-right' : ''">
         <p class="text-xs sm:text-sm font-semibold text-zinc-200 truncate">{{ name }}</p>
-        <p class="text-[10px] text-zinc-500">{{ mirror ? 'Away' : 'Home' }}</p>
+        <p class="rail-id" :class="mirror ? 'justify-end' : ''">
+          <span>{{ mirror ? 'Away' : 'Home' }}</span>
+          <!-- Promotion / relegation, with the record behind it on hover. -->
+          <UiTooltip v-if="moveChip" :width="280" :text="moveChip.tip">
+            <span class="rail-move" :class="moveChip.cls">{{ moveChip.label }}</span>
+          </UiTooltip>
+          <UiTooltip
+            v-if="twin?.league_changed"
+            :width="260"
+            :text="`Most of this rating's evidence (decay-weighted) is from ${competitionLabel(twin.evidence_league)} — see the line under the scorecard.`"
+          >
+            <span class="pill pill-amber rail-carry">rating from {{ competitionLabel(twin.evidence_league) }}</span>
+          </UiTooltip>
+        </p>
       </div>
     </div>
 
     <div class="h-px mx-3" :style="{ background: divider }" />
 
-    <div class="px-3 sm:px-4 py-2.5 space-y-3">
+    <div class="px-3 sm:px-4 py-2 space-y-2">
       <!-- ── FORM ─────────────────────────────────────────────────────────
            Six chips, most recent first. Every chip carries its match in a
            tooltip — a bare W/D/L strip says a club won without saying who
@@ -64,7 +77,9 @@
       <template v-if="twin?.fitted && meters.length">
         <div v-for="m in meters" :key="m.key" class="rail-meter">
           <div class="flex items-center justify-between gap-2" :class="mirror ? 'flex-row-reverse' : ''">
-            <span class="rail-k">{{ m.label }}</span>
+            <UiTooltip :width="260" :text="evidenceNote">
+              <span class="rail-k rail-k-help">{{ m.label }}</span>
+            </UiTooltip>
             <span class="rail-v tabular-nums" :style="{ color }">
               {{ m.value.toFixed(2) }}<span class="rail-sd">±{{ m.sd.toFixed(2) }}</span>
             </span>
@@ -81,16 +96,6 @@
           </div>
         </div>
 
-        <p class="rail-note">
-          {{ evidenceNote }}
-          <UiTooltip
-            v-if="twin.league_changed"
-            :width="260"
-            :text="`Learned in ${competitionLabel(twin.evidence_league)}, not in ${leagueLabel}. The banner below the scorecard has the full context.`"
-          >
-            <span class="pill pill-amber rail-carry">carried</span>
-          </UiTooltip>
-        </p>
       </template>
 
       <div v-else-if="twin?.fitted" class="rail-meter">
@@ -142,6 +147,10 @@ const props = defineProps<{
   leagueKey: string
   teamKey?: string | null
   mirror?: boolean
+  /** The club's most recent `twin_league_transitions` row, if it ever moved. */
+  move?: Record<string, any> | null
+  /** The fixture's season, e.g. '2026-2027'. */
+  season?: string | null
 }>()
 
 const color = computed(() => (props.side === 'home' ? VIZ_HOME : VIZ_AWAY))
@@ -239,6 +248,32 @@ function scaleFor(key: 'attack' | 'defence') {
   }
 }
 
+const startYear = (s: string | null | undefined) => Number(String(s || '').slice(0, 4)) || null
+
+function ord(n: number) {
+  if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`
+  return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] || 'th'}`
+}
+
+/**
+ * "Relegated 2021 · 6th season" — only while the club is still in the division
+ * it moved INTO; once it moves on, the older move is not this fixture's story.
+ */
+const moveChip = computed(() => {
+  const m = props.move
+  if (!m || m.to_league !== props.leagueKey) return null
+  const to = startYear(m.to_season)
+  const now = startYear(props.season) ?? to
+  if (to == null || now == null) return null
+  const nth = now - to + 1
+  const verb = m.direction === 'promoted' ? 'Promoted' : 'Relegated'
+  const label = nth <= 1 ? `${verb} this season` : `${verb} ${to} · ${ord(nth)} season`
+  const ppg = m.from_ppg != null ? `, ${Number(m.from_ppg).toFixed(2)} pts/game` : ''
+  const tip = `${verb} from ${competitionLabel(m.from_league)} after ${m.from_season} (${m.from_games} games${ppg}). `
+    + `${props.season || m.to_season} is its ${ord(nth)} season in ${competitionLabel(m.to_league)}.`
+  return { label, tip, cls: m.direction === 'promoted' ? 'rail-move-up' : 'rail-move-down' }
+})
+
 const meters = computed(() =>
   [scaleFor('attack'), scaleFor('defence')].filter((m): m is NonNullable<typeof m> => m != null))
 
@@ -249,12 +284,13 @@ const meters = computed(() =>
  */
 const evidenceNote = computed(() => {
   const eg = twin.value?.effective_games
-  if (eg == null) return ''
+  const scale = `Scaled to ${leagueLabel.value}: the tick is the league average, the band is ±1 SD of the club's own fit. Higher is better on both.`
+  if (eg == null) return scale
   const rounded = Math.round(eg)
   if (rounded < 12) {
-    return `Fitted on ${rounded} effective matches — thin evidence, so the ±band is wide and the rating may move a lot.`
+    return `Fitted on ${rounded} effective matches — thin evidence, so the band is wide and the rating may move a lot. ${scale}`
   }
-  return `Fitted on ${rounded} effective matches. The band is ±1 SD of the twin's own fit.`
+  return `Fitted on ${rounded} effective matches. ${scale}`
 })
 </script>
 
@@ -265,10 +301,18 @@ const evidenceNote = computed(() => {
 .rail-glow { filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.06)); }
 
 .rail-k {
-  font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--ink-mute); font-weight: 500;
+  font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-mute); font-weight: 600;
 }
-.rail-sub { font-size: 0.62rem; color: var(--ink-faint); }
+.rail-k-help { cursor: help; border-bottom: 1px dotted var(--edge-lit); }
+.rail-sub { font-size: 0.7rem; color: var(--ink-faint); }
+.rail-id { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; font-size: 0.7rem; color: var(--ink-mute); }
+.rail-move {
+  font-size: 0.64rem; font-weight: 700; padding: 0.05rem 0.4rem; border-radius: var(--r-pill);
+  cursor: help; white-space: nowrap;
+}
+.rail-move-up { background: var(--positive-tint); color: var(--positive); }
+.rail-move-down { background: var(--brand-red-tint); color: var(--brand-red-hi); }
 .rail-v { font-size: 0.85rem; font-weight: 700; }
 .rail-sd { font-size: 0.6rem; opacity: 0.6; margin-left: 0.15rem; font-weight: 500; }
 
@@ -292,9 +336,9 @@ const evidenceNote = computed(() => {
   box-shadow: 0 0 0 2px var(--surface);
 }
 
-.rail-note { font-size: 0.6rem; color: var(--ink-faint); line-height: 1.5; margin-top: 0.15rem; }
+.rail-note { font-size: 0.68rem; color: var(--ink-faint); line-height: 1.5; margin-top: 0.15rem; }
 .rail-note-warn { color: #f0c469; }
-.rail-carry { margin-left: 0.25rem; vertical-align: baseline; cursor: help; }
+.rail-carry { cursor: help; font-size: 0.62rem; }
 
 .fr-tip-h { font-size: 0.72rem; font-weight: 600; }
 .fr-tip-b { font-size: 0.7rem; color: var(--ink-soft); margin-top: 0.1rem; }

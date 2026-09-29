@@ -4,7 +4,7 @@
     <div v-if="showOdds && hasOdds" class="space-y-2.5 sm:space-y-3">
       <div class="flex items-center justify-between">
         <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Betting Odds</h4>
-        <span v-if="recommendedMarket" class="text-[9px] font-bold text-amber-400 uppercase tracking-wider">AI Pick highlighted</span>
+        <span v-if="recommendedMarket" class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">AI Pick highlighted</span>
       </div>
       
       <!-- Moneyline -->
@@ -83,245 +83,126 @@
       </div>
     </div>
 
-    <!-- No odds message -->
-    <div v-else-if="showOdds" class="text-center py-6">
-      <p class="text-sm text-zinc-500">No odds available for this game</p>
-    </div>
+    <!-- No odds: one line, not a screen-wide empty state. -->
+    <p v-else-if="showOdds" class="an-noodds">No odds stored for this fixture — nothing to price against yet.</p>
 
-    <!-- ===== HEAD-TO-HEAD RECORD =====
-         NOT form. These pills come from `completedH2HMatches` — the last five
-         meetings BETWEEN these two clubs — so the two rows are always exact
-         inverses of each other, which no real form line ever is. It was
-         labelled "Recent Form" and contradicted the side rails, which show
-         actual form from the club's last six fixtures. -->
-    <div v-if="homeFormPills.length || awayFormPills.length" class="border-t border-edge/50 pt-3.5 sm:pt-4">
-      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">
-        Head-to-head · last {{ Math.max(homeFormPills.length, awayFormPills.length) }}
-      </h4>
-      <div class="grid grid-cols-2 gap-3">
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-semibold text-zinc-300 truncate">{{ game.home_name }}</span>
-            <span class="text-[10px] text-zinc-500 tabular-nums">{{ formatFormRecord(homeFormPills) }}</span>
-          </div>
-          <div class="flex gap-1">
-            <span
-              v-for="(p, i) in homeFormPills"
-              :key="`h${i}`"
-              :class="['form-pill', p === 'W' ? 'form-w' : p === 'L' ? 'form-l' : 'form-d']"
-            >{{ p }}</span>
-          </div>
+    <!-- One screen, four columns: each club's form, the meetings between
+         them, and the match context. Correlations run underneath as a strip.
+         (Desktop operator page — sized to read without scrolling.) -->
+    <div class="an-grid" :class="showOdds && hasOdds ? 'border-t border-edge/50 pt-3 mt-3' : ''">
+      <!-- Recent form, one card per club -->
+      <section v-for="side in formSides" :key="side.key" class="an-card">
+        <header class="an-card-head">
+          <span class="an-card-title" :style="{ color: side.color }">{{ side.name }}</span>
+          <span class="an-card-meta tabular-nums">{{ side.w }}W {{ side.d }}D {{ side.l }}L · {{ side.gf }}–{{ side.ga }}</span>
+        </header>
+        <p class="an-card-sub">Last {{ side.entries.length }} completed, any competition</p>
+        <div v-for="e in side.entries" :key="e.game_id" class="an-form-row">
+          <span class="an-form-date tabular-nums">{{ formatH2HDate(e.date) }}</span>
+          <span class="an-form-venue">{{ e.home ? 'H' : 'A' }}</span>
+          <span class="an-form-opp">{{ e.opponent }}</span>
+          <span class="an-form-score tabular-nums">{{ e.gf }}–{{ e.ga }}</span>
+          <span :class="['form-pill', e.result === 'W' ? 'form-w' : e.result === 'L' ? 'form-l' : 'form-d']">{{ e.result }}</span>
         </div>
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-semibold text-zinc-300 truncate">{{ game.away_name }}</span>
-            <span class="text-[10px] text-zinc-500 tabular-nums">{{ formatFormRecord(awayFormPills) }}</span>
-          </div>
-          <div class="flex gap-1">
-            <span
-              v-for="(p, i) in awayFormPills"
-              :key="`a${i}`"
-              :class="['form-pill', p === 'W' ? 'form-w' : p === 'L' ? 'form-l' : 'form-d']"
-            >{{ p }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- ===== PREDICTED SCORE / TRENDS ===== -->
-    <div v-if="predictedScore || paceTrend" class="border-t border-edge/50 pt-3.5 sm:pt-4">
-      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Model Outlook</h4>
-      <div v-if="predictedScore" class="rounded-lg bg-surface-light/40 px-3 py-3 mb-2">
-        <div class="text-[10px] text-zinc-500 uppercase tracking-wider text-center mb-1.5">Predicted Score</div>
-        <div class="grid grid-cols-3 items-center gap-2">
-          <div class="text-right">
-            <span class="text-2xl font-extrabold text-[#e8a0a0] tabular-nums">{{ predictedScore.home }}</span>
-          </div>
-          <span class="text-center text-zinc-600 text-sm">—</span>
-          <div class="text-left">
-            <span class="text-2xl font-extrabold text-[#a0b8e8] tabular-nums">{{ predictedScore.away }}</span>
-          </div>
-        </div>
-      </div>
-      <div v-if="paceTrend" class="grid grid-cols-2 gap-2">
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider">{{ isBball ? 'Pace' : 'Tempo' }}</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ paceTrend.label }}</span>
-        </div>
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider">{{ isBball ? 'Avg Total' : 'Avg Goals' }}</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ paceTrend.avgTotal }}</span>
-        </div>
-      </div>
-    </div>
+      <!-- Head to head -->
+      <section class="an-card">
+        <header class="an-card-head">
+          <span class="an-card-title">Head to head</span>
+          <span v-if="h2hScoring" class="an-card-meta tabular-nums">{{ h2hScoring.n }} since {{ formatH2HDate(h2hScoring.first_date) }}</span>
+        </header>
 
-    <!-- ===== SCHEDULE & LEAGUE TRENDS ===== -->
-    <div v-if="timeContext || trends" class="border-t border-edge/50 pt-3.5 sm:pt-4">
-      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Schedule &amp; Trends</h4>
+        <div v-if="h2hLoading" class="an-empty">Loading…</div>
 
-      <div v-if="timeContext" class="grid grid-cols-2 sm:grid-cols-4 gap-1 mb-2">
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Kickoff Day</span>
-          <span class="text-sm font-bold text-zinc-200">{{ timeContext.kickoff.day_of_week }}</span>
-        </div>
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Time (UTC)</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatHourUtc(timeContext.kickoff.hour_utc) }}</span>
-        </div>
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ game.home_name?.split(' ')[0] }} Rest</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatRestDays(timeContext.rest_days.home) }}</span>
-        </div>
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ game.away_name?.split(' ')[0] }} Rest</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatRestDays(timeContext.rest_days.away) }}</span>
-        </div>
-      </div>
-
-      <div v-if="hasCongestion" class="grid grid-cols-2 gap-1 mb-2">
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ game.home_name?.split(' ')[0] }} last 10d</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatCongestion(timeContext.congestion_10d.home) }}</span>
-        </div>
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ game.away_name?.split(' ')[0] }} last 10d</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ formatCongestion(timeContext.congestion_10d.away) }}</span>
-        </div>
-      </div>
-
-      <div v-if="trends && trends.status === 'available'" class="grid grid-cols-2 gap-1">
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">League Home Win %</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ (trends.home_win_rate * 100).toFixed(1) }}%</span>
-          <span class="text-[9px] text-zinc-600 tabular-nums">n={{ trends.n }}</span>
-        </div>
-        <div class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">League Avg {{ isBball ? 'Total' : 'Goals' }}</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ trends.avg_total_score }}</span>
-          <span class="text-[9px] text-zinc-600 tabular-nums">n={{ trends.n }}</span>
-        </div>
-      </div>
-      <p v-else-if="trends" class="text-[11px] text-zinc-500">
-        League trend sample too small (n={{ trends.n }} &lt; 30)
-      </p>
-    </div>
-
-    <!-- ===== COMPETITION FORMAT ===== -->
-    <div v-if="competition" class="border-t border-edge/50 pt-3.5 sm:pt-4">
-      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Competition Format</h4>
-      <div class="flex flex-wrap gap-1.5">
-        <span class="competition-pill">{{ formatLabel(competition.format) }}</span>
-        <span class="competition-pill">{{ competition.season_convention === 'calendar_year' ? 'Calendar-Year Season' : 'Cross-Year Season' }}</span>
-        <span v-if="competition.two_legged" class="competition-pill">Two-Legged Ties</span>
-        <span v-if="competition.extra_time" class="competition-pill">Extra Time</span>
-        <span v-if="competition.penalties" class="competition-pill">Penalties</span>
-        <span v-if="competition.away_goals_rule" class="competition-pill">Away Goals Rule</span>
-        <span v-if="competition.periods" class="competition-pill">{{ competition.periods }} × {{ competition.period_length }}min</span>
-        <span v-if="competition.ot_rules" class="competition-pill">{{ competition.ot_rules }}</span>
-      </div>
-    </div>
-
-    <!-- ===== SAME-GAME CORRELATIONS ===== -->
-    <div v-if="correlations && correlations.status === 'available'" class="border-t border-edge/50 pt-3.5 sm:pt-4">
-      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">
-        Same-Game Correlations
-        <span class="normal-case text-zinc-600 font-normal">· Monte-Carlo sim, not a price</span>
-      </h4>
-      <div class="grid grid-cols-3 sm:grid-cols-4 gap-1 mb-2">
-        <div v-for="(p, leg) in correlations.marginals" :key="leg" class="trend-card">
-          <span class="text-[10px] text-zinc-500 uppercase tracking-wider truncate w-full text-center">{{ leg }}</span>
-          <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ p == null ? '-' : (p * 100).toFixed(1) + '%' }}</span>
-        </div>
-      </div>
-      <div class="space-y-1">
-        <div
-          v-for="j in correlations.joints"
-          :key="j.legs.join('+')"
-          class="flex items-center justify-between px-2.5 py-1.5 rounded bg-surface-light/50"
-        >
-          <span class="text-[11px] text-zinc-400 truncate">{{ j.legs.join(' + ') }}</span>
-          <span class="text-[11px] font-bold text-zinc-200 tabular-nums">{{ j.joint_p == null ? '-' : (j.joint_p * 100).toFixed(1) + '%' }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== H2H SECTION ===== -->
-    <div class="border-t border-edge/50 pt-3.5 sm:pt-4">
-      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5 sm:mb-3">Head to Head</h4>
-      
-      <!-- Loading -->
-      <div v-if="h2hLoading" class="flex justify-center py-8">
-        <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
-      </div>
-
-      <!-- H2H Data -->
-      <div v-else-if="completedH2HMatches.length > 0">
-        <template v-if="completedH2HMatches.length >= 2">
-          <!-- Summary Bar -->
-          <div class="flex items-center gap-2 mb-2">
-            <div class="flex-1 h-6 rounded-full overflow-hidden flex text-[10px] font-bold">
-              <div class="h2h-home flex items-center justify-center transition-all" :style="{ width: homeWinPct + '%' }">
-                <span v-if="homeWinPct >= 15" class="text-white/90">{{ h2h.summary.homeTeamWins }}</span>
-              </div>
-              <div v-if="h2h.summary.draws > 0" class="h2h-draw flex items-center justify-center transition-all" :style="{ width: drawPct + '%' }">
-                <span v-if="drawPct >= 12" class="text-white/80">{{ h2h.summary.draws }}</span>
-              </div>
-              <div class="h2h-away flex items-center justify-center transition-all" :style="{ width: awayWinPct + '%' }">
-                <span v-if="awayWinPct >= 15" class="text-white/90">{{ h2h.summary.awayTeamWins }}</span>
-              </div>
+        <template v-else-if="completedH2HMatches.length > 0">
+          <template v-if="completedH2HMatches.length >= 2">
+            <div class="an-h2h-bar">
+              <div class="h2h-home" :style="{ width: homeWinPct + '%' }"><span v-if="homeWinPct >= 15">{{ h2h.summary.homeTeamWins }}</span></div>
+              <div v-if="h2h.summary.draws > 0" class="h2h-draw" :style="{ width: drawPct + '%' }"><span v-if="drawPct >= 12">{{ h2h.summary.draws }}</span></div>
+              <div class="h2h-away" :style="{ width: awayWinPct + '%' }"><span v-if="awayWinPct >= 15">{{ h2h.summary.awayTeamWins }}</span></div>
             </div>
-            <span class="text-[11px] text-zinc-500 flex-shrink-0">{{ completedH2HMatches.length }} games</span>
-          </div>
-
-          <!-- Summary Stats -->
-          <div class="grid grid-cols-3 gap-1 mb-2">
-            <div class="bg-surface-light rounded px-1.5 py-1 text-center">
-              <span class="text-[10px] text-zinc-500 block">Avg {{ isBball ? 'Total' : 'Goals' }}</span>
-              <span class="text-sm font-bold text-zinc-200">{{ h2hAvgGoals }}</span>
+            <div class="an-kv-row">
+              <span>{{ isBball ? 'Points' : 'Goals' }} / game <b class="tabular-nums">{{ h2hAvgGoals }}</b></span>
+              <span :style="{ color: VIZ_HOME }">{{ shortName(game.home_name) }} <b class="tabular-nums">{{ h2hHomeGoals }}</b></span>
+              <span :style="{ color: VIZ_AWAY }">{{ shortName(game.away_name) }} <b class="tabular-nums">{{ h2hAwayGoals }}</b></span>
             </div>
-            <div class="bg-surface-light rounded px-1.5 py-1 text-center">
-              <span class="text-[10px] text-zinc-500 block">{{ game.home_name?.split(' ')[0] }} Avg</span>
-              <span class="text-sm font-bold text-zinc-200">{{ h2hHomeGoals }}</span>
-            </div>
-            <div class="bg-surface-light rounded px-1.5 py-1 text-center">
-              <span class="text-[10px] text-zinc-500 block">{{ game.away_name?.split(' ')[0] }} Avg</span>
-              <span class="text-sm font-bold text-zinc-200">{{ h2hAwayGoals }}</span>
-            </div>
+          </template>
+          <div v-for="match in completedH2HMatches.slice(0, 7)" :key="match.id || match.date" class="an-h2h-row">
+            <span class="an-form-date tabular-nums">{{ formatH2HDate(match.date) }}</span>
+            <span class="an-h2h-team" :class="match.home_team?.name === game.home_name ? 'an-strong' : ''">{{ match.home_team?.name }}</span>
+            <span class="an-h2h-score tabular-nums" :class="resultColor(match)">{{ match.home_goals }}–{{ match.away_goals }}</span>
+            <span class="an-h2h-team an-right" :class="match.away_team?.name === game.away_name ? 'an-strong' : ''">{{ match.away_team?.name }}</span>
           </div>
         </template>
 
-        <template v-else>
-          <div class="bg-surface-light/50 border border-edge/60 rounded-lg px-2.5 py-2 mb-2">
-            <p class="text-[11px] text-zinc-400 leading-snug">Only one completed head-to-head game found. Showing latest result:</p>
-          </div>
-        </template>
+        <div v-else class="an-empty">No meetings on record</div>
+      </section>
 
-        <!-- Recent Matches -->
-        <div class="space-y-1">
-          <div
-            v-for="match in completedH2HMatches"
-            :key="`${match.date}-${match.home_team?.name}-${match.away_team?.name}`"
-            class="flex items-center gap-2 px-2 py-1 rounded bg-surface-light/50"
-          >
-            <span class="text-[10px] text-zinc-600 w-16 flex-shrink-0 tabular-nums">{{ formatH2HDate(match.date) }}</span>
-            <div class="flex-1 flex items-center justify-between min-w-0">
-              <span class="text-[11px] font-medium truncate" :class="match.home_team?.name === game.home_name ? 'text-zinc-200' : 'text-zinc-400'">
-                {{ match.home_team?.name?.split(' ').pop() }}
-              </span>
-              <span class="text-[11px] font-bold tabular-nums px-2" :class="resultColor(match)">
-                {{ match.home_goals }} - {{ match.away_goals }}
-              </span>
-              <span class="text-[11px] font-medium truncate text-right" :class="match.away_team?.name === game.away_name ? 'text-zinc-200' : 'text-zinc-400'">
-                {{ match.away_team?.name?.split(' ').pop() }}
-              </span>
-            </div>
-          </div>
+      <!-- Match context -->
+      <section v-if="timeContext || trends || competition" class="an-card">
+        <header class="an-card-head"><span class="an-card-title">Match context</span></header>
+        <dl class="an-dl">
+          <template v-if="timeContext">
+            <dt>Kickoff</dt>
+            <dd>{{ timeContext.kickoff.day_of_week }} {{ kickoffLocal }}</dd>
+            <dt>Rest days</dt>
+            <dd class="tabular-nums">
+              <span :style="{ color: VIZ_HOME }">{{ formatRestDays(timeContext.rest_days.home) }}</span>
+              <span class="an-sep">/</span>
+              <span :style="{ color: VIZ_AWAY }">{{ formatRestDays(timeContext.rest_days.away) }}</span>
+            </dd>
+            <template v-if="hasCongestion">
+              <dt>Games, last 10 days</dt>
+              <dd class="tabular-nums">
+                <span :style="{ color: VIZ_HOME }">{{ timeContext.congestion_10d.home ?? '-' }}</span>
+                <span class="an-sep">/</span>
+                <span :style="{ color: VIZ_AWAY }">{{ timeContext.congestion_10d.away ?? '-' }}</span>
+              </dd>
+            </template>
+          </template>
+          <template v-if="trends && trends.status === 'available'">
+            <dt>League home wins</dt>
+            <dd class="tabular-nums">{{ (trends.home_win_rate * 100).toFixed(1) }}% <span class="an-n">n={{ trends.n }}</span></dd>
+            <dt>League {{ isBball ? 'avg total' : 'goals / game' }}</dt>
+            <dd class="tabular-nums">{{ trends.avg_total_score }} <span class="an-n">n={{ trends.n }}</span></dd>
+          </template>
+          <template v-else-if="trends">
+            <dt>League trend</dt>
+            <dd class="an-n">sample too small (n={{ trends.n }})</dd>
+          </template>
+        </dl>
+        <div v-if="competition" class="an-pills">
+          <span class="competition-pill">{{ formatLabel(competition.format) }}</span>
+          <span class="competition-pill">{{ competition.season_convention === 'calendar_year' ? 'Calendar-year season' : 'Cross-year season' }}</span>
+          <span v-if="competition.two_legged" class="competition-pill">Two legs</span>
+          <span v-if="competition.extra_time" class="competition-pill">Extra time</span>
+          <span v-if="competition.penalties" class="competition-pill">Penalties</span>
+          <span v-if="competition.away_goals_rule" class="competition-pill">Away goals</span>
+          <span v-if="competition.periods" class="competition-pill">{{ competition.periods }} × {{ competition.period_length }}min</span>
+          <span v-if="competition.ot_rules" class="competition-pill">{{ competition.ot_rules }}</span>
         </div>
-      </div>
+      </section>
 
-      <div v-else class="text-center py-6">
-        <p class="text-sm text-zinc-500">No head-to-head history found</p>
-      </div>
+      <!-- Same-game correlations — a strip, not a wall -->
+      <section v-if="correlations && correlations.status === 'available'" class="an-card an-span-all">
+        <header class="an-card-head">
+          <span class="an-card-title">Same-game correlations</span>
+          <span class="an-card-meta">Monte-Carlo sim of this fixture, not a price</span>
+        </header>
+        <div class="an-chips">
+          <span v-for="(p, leg) in correlations.marginals" :key="leg" class="an-chip">
+            <span class="an-chip-k">{{ leg }}</span>
+            <b class="tabular-nums">{{ p == null ? '-' : (p * 100).toFixed(1) + '%' }}</b>
+          </span>
+        </div>
+        <div class="an-chips mt-1.5">
+          <span v-for="j in correlations.joints" :key="j.legs.join('+')" class="an-chip an-chip-joint">
+            <span class="an-chip-k">{{ j.legs.join(' + ') }}</span>
+            <b class="tabular-nums">{{ j.joint_p == null ? '-' : (j.joint_p * 100).toFixed(1) + '%' }}</b>
+          </span>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -329,6 +210,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { parsePrediction } from '~/utils/prediction-label'
+import { VIZ_HOME, VIZ_AWAY } from '~/utils/viz'
+import { displayTeamName as shortName } from '~/utils/team-name'
 
 const props = defineProps({
   game: { type: Object, required: true },
@@ -486,53 +369,44 @@ function resultColor(match: any) {
   return 'text-zinc-400'
 }
 
-/**
- * Each club's record in the last five meetings BETWEEN THESE TWO CLUBS — not
- * its form. The section that renders this was captioned "Recent Form" until
- * 2026-09-03, which put it in direct contradiction with the side rails: for
- * Pistons-Celtics it read 4W-0D-1L beside the rail's true 2W-4L. The two rows
- * are mirror images by construction, which is the tell.
- */
-function h2hRecordFor(teamName: string): ('W'|'L'|'D')[] {
-  const matches = completedH2HMatches.value
-  if (!matches.length) return []
-  // Use up to 5 most recent results
-  const sorted = [...matches].sort((a, b) =>
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  ).slice(0, 5)
-  return sorted.map((m: any) => {
-    const isHome = m.home_team?.name === teamName
-    const teamGoals = isHome ? m.home_goals : m.away_goals
-    const oppGoals  = isHome ? m.away_goals : m.home_goals
-    if (teamGoals > oppGoals) return 'W'
-    if (teamGoals < oppGoals) return 'L'
-    return 'D'
-  })
-}
+// ─── Recent form / H2H scoring ──────────────────────────────
+// `analysis.form` is built server-side by team_id (server/utils/team-form.ts).
+// The old "Model Outlook · Predicted score" here was a head-to-head average
+// tilted by a win probability — never a model output. The market's own
+// expectation is on the Prediction tab.
+const h2hScoring = computed(() => props.analysis?.derived?.h2h_scoring || null)
 
-const homeFormPills = computed(() => h2hRecordFor(props.game.home_name))
-const awayFormPills = computed(() => h2hRecordFor(props.game.away_name))
+const formN = computed(() => Math.max(
+  props.analysis?.form?.home?.entries?.length || 0,
+  props.analysis?.form?.away?.entries?.length || 0,
+))
 
-function formatFormRecord(pills: ('W'|'L'|'D')[]) {
-  const w = pills.filter(p => p === 'W').length
-  const d = pills.filter(p => p === 'D').length
-  const l = pills.filter(p => p === 'L').length
-  return `${w}W ${d}D ${l}L`
-}
-
-// ─── Predicted Score / Pace / Trends ──────────────────────
-// Computed server-side now (`analysis.derived`) from the same h2h matches and
-// the same ±15%-tilt-by-win-prob math this component used to run itself —
-// moved so post-mortem/other future consumers of the analysis record see the
-// identical number, not a second copy of this arithmetic.
-const predictedScore = computed(() => {
-  const d = props.analysis?.derived?.predicted_score
-  return d ? { home: d.home, away: d.away } : null
+const formSides = computed(() => {
+  const f = props.analysis?.form
+  if (!f || f.status === 'not_applicable') return []
+  return (['home', 'away'] as const)
+    .map((k) => {
+      const entries = f[k]?.entries || []
+      const sum = (fn: (e: any) => number) => entries.reduce((a: number, e: any) => a + fn(e), 0)
+      return {
+        key: k,
+        name: k === 'home' ? props.game.home_name : props.game.away_name,
+        color: k === 'home' ? VIZ_HOME : VIZ_AWAY,
+        entries,
+        w: entries.filter((e: any) => e.result === 'W').length,
+        d: entries.filter((e: any) => e.result === 'D').length,
+        l: entries.filter((e: any) => e.result === 'L').length,
+        gf: sum((e) => Number(e.gf)),
+        ga: sum((e) => Number(e.ga)),
+      }
+    })
+    .filter((s) => s.entries.length)
 })
 
-const paceTrend = computed(() => {
-  const d = props.analysis?.derived?.pace_trend
-  return d ? { label: d.label, avgTotal: d.avg_total } : null
+// The header shows kickoff in local time; this tab used to show UTC beside it.
+const kickoffLocal = computed(() => {
+  if (!props.game?.date) return '-'
+  return new Date(props.game.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 })
 
 // ─── Schedule Context / League Trends ─────────────────────
@@ -550,17 +424,10 @@ const hasCongestion = computed(() => {
   return !!c && (c.home != null || c.away != null)
 })
 
-function formatHourUtc(h: number | null) {
-  return h == null ? '-' : `${String(h).padStart(2, '0')}:00`
-}
-
 function formatRestDays(d: number | null) {
   return d == null ? '-' : `${d}d`
 }
 
-function formatCongestion(n: number | null) {
-  return n == null ? '-' : `${n} games`
-}
 
 // ─── Competition Format ────────────────────────────────────
 // `analysis.competition` (Track B's `competition_rules` registry, read-only).
@@ -635,13 +502,13 @@ const correlations = computed(() => props.analysis?.correlations || null)
 }
 
 .h2h-home {
-  background: linear-gradient(135deg, #f82828, #d82020);
+  background: var(--viz-home);
 }
 .h2h-draw {
   background: #404654;
 }
 .h2h-away {
-  background: linear-gradient(135deg, #0848a8, #4d8fff);
+  background: var(--viz-away);
 }
 
 /* Form pills */
@@ -661,13 +528,73 @@ const correlations = computed(() => props.analysis?.correlations || null)
   color: #d4d4d8;
 }
 
-/* Trend cards */
-.trend-card {
-  @apply bg-surface-light rounded-lg px-2.5 py-2 flex flex-col items-center gap-0.5;
+/* ── Grid of cards ── */
+.an-grid { display: grid; gap: 0.65rem; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+@media (min-width: 1280px) { .an-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.an-span-all { grid-column: 1 / -1; }
+.an-card {
+  min-width: 0;
+  border-radius: var(--r); border: 1px solid var(--edge-soft); background: rgba(255, 255, 255, 0.02);
+  padding: 0.55rem 0.75rem 0.6rem;
 }
+.an-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.2rem; }
+.an-card-title {
+  font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.an-card-meta { font-size: 0.72rem; color: var(--ink-mute); white-space: nowrap; }
+.an-card-sub { font-size: 0.68rem; color: var(--ink-faint); margin-bottom: 0.2rem; }
+.an-empty { font-size: 0.75rem; color: var(--ink-mute); padding: 1.2rem 0; text-align: center; }
+
+.an-form-row {
+  display: grid; grid-template-columns: 4.1rem 1rem minmax(0, 1fr) auto 1.25rem;
+  align-items: center; gap: 0.4rem;
+  padding: 0.28rem 0; border-top: 1px solid var(--edge-soft);
+  font-size: 0.78rem;
+}
+.an-form-date { color: var(--ink-faint); font-size: 0.72rem; }
+.an-form-venue { color: var(--ink-mute); font-size: 0.7rem; font-weight: 700; text-align: center; }
+.an-form-opp { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.an-form-score { color: var(--ink-strong); font-weight: 700; text-align: right; white-space: nowrap; }
+.an-noodds { font-size: 0.75rem; color: var(--ink-mute); margin-bottom: 0.6rem; }
+
+.an-h2h-bar {
+  display: flex; height: 18px; gap: 2px; border-radius: var(--r-sm); overflow: hidden; margin: 0.35rem 0;
+  font-size: 0.66rem; font-weight: 800; color: #fff;
+}
+.an-h2h-bar > div { display: flex; align-items: center; justify-content: center; }
+.an-kv-row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.72rem; color: var(--ink-mute); margin-bottom: 0.3rem; }
+.an-kv-row > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.an-kv-row b { color: var(--ink-strong); margin-left: 0.2rem; }
+.an-h2h-row {
+  display: grid; grid-template-columns: 4.1rem minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center; gap: 0.4rem;
+  padding: 0.26rem 0; border-top: 1px solid var(--edge-soft); font-size: 0.76rem;
+}
+.an-h2h-team { color: var(--ink-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.an-h2h-score { text-align: center; font-weight: 800; white-space: nowrap; }
+.an-right { text-align: right; }
+.an-strong { color: var(--ink); }
+
+.an-dl { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 0.75rem; margin: 0.35rem 0 0.5rem; font-size: 0.78rem; }
+.an-dl dt { color: var(--ink-mute); }
+.an-dl dd { color: var(--ink-strong); font-weight: 700; text-align: right; }
+.an-sep { color: var(--ink-faint); margin: 0 0.3rem; font-weight: 400; }
+.an-n { color: var(--ink-faint); font-weight: 500; font-size: 0.7rem; margin-left: 0.25rem; }
+.an-pills { display: flex; flex-wrap: wrap; gap: 0.3rem; padding-top: 0.45rem; border-top: 1px solid var(--edge-soft); }
+
+.an-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.3rem; }
+.an-chip {
+  display: inline-flex; align-items: baseline; gap: 0.45rem;
+  padding: 0.25rem 0.55rem; border-radius: var(--r-pill);
+  border: 1px solid var(--edge); background: rgba(255, 255, 255, 0.02); font-size: 0.74rem;
+}
+.an-chip-k { color: var(--ink-mute); }
+.an-chip b { color: var(--ink-strong); }
+.an-chip-joint { border-color: var(--brand-blue-edge); background: var(--brand-blue-tint); }
 
 /* Competition format pills */
 .competition-pill {
-  @apply bg-surface-light rounded-full px-2.5 py-1 text-[10px] font-medium text-zinc-300;
+  @apply bg-surface-light rounded-full px-2 py-0.5 text-[11px] font-medium text-zinc-300;
 }
 </style>

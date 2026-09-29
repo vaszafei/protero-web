@@ -168,8 +168,8 @@ watch(() => [props.activeTab, tabs.value.length], async () => {
   bottom: -1px;
   height: 2.5px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #3987e5, #63a4ee);
-  box-shadow: 0 0 12px 0 rgba(57, 135, 229, 0.75);
+  background: linear-gradient(90deg, #4d8fff, #63a4ee);
+  box-shadow: 0 0 12px 0 rgba(77, 143, 255, 0.75);
   transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1), width 380ms cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }

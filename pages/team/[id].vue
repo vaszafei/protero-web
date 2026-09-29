@@ -108,7 +108,7 @@
                   <td class="px-3 py-2 tabular-nums text-zinc-500">{{ s.season }}</td>
                   <td class="px-3 py-2">
                     <span :class="s.tier ? 'text-zinc-200' : 'text-zinc-500'">{{ leagueName(s.league_key) }}</span>
-                    <span v-if="s.tier" class="ml-1.5 text-[9px] text-zinc-600">T{{ s.tier }}</span>
+                    <span v-if="s.tier" class="ml-1.5 text-[10px] text-zinc-600">T{{ s.tier }}</span>
                   </td>
                   <td class="px-2 py-2 text-right tabular-nums text-zinc-400">{{ s.games }}</td>
                   <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ s.wins }}-{{ s.draws }}-{{ s.losses }}</td>

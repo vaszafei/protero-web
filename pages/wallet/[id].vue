@@ -9,10 +9,10 @@
           <div class="flex items-center gap-2 flex-wrap">
             <h1 class="text-lg sm:text-xl font-bold text-white truncate">{{ meta.longName }}</h1>
             <span class="text-xs text-zinc-600 tabular-nums">W{{ wallet.id }}</span>
-            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-surface-light text-zinc-400 border border-edge">
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-surface-light text-zinc-400 border border-edge">
               {{ meta.badge }}
             </span>
-            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider" :class="cohortClass">
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" :class="cohortClass">
               {{ COHORT_LABEL[cohort] }}
             </span>
           </div>

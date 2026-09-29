@@ -6,16 +6,10 @@
     </div>
 
     <!-- Main Content -->
-    <div v-else-if="data" class="max-w-[1400px] mx-auto p-2.5 sm:p-4">
-      <!-- Back Button -->
-      <button
-        type="button"
-        @click="goBack"
-        aria-label="Back"
-        class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-light active:bg-surface-hover transition-colors mb-3 sm:mb-4 -ml-1"
-      >
-        <ChevronLeft :size="20" />
-      </button>
+    <!-- Desktop operator page: sized to read without scrolling at 1920×1080.
+         Wide container, back control inside the scorecard strip, one-line
+         division notice, and tab panes laid out in columns. -->
+    <div v-else-if="data" class="max-w-[1680px] mx-auto px-4 pt-3 pb-4">
 
       <!-- ── HERO: home stats rail · centered scorecard + court · away stats rail ── -->
       <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)_minmax(0,1fr)] gap-3 items-start">
@@ -35,12 +29,25 @@
             :league="preview?.league || null"
             :league-key="data.game.league_key"
             :team-key="data.game.home_key"
+            :move="moves.home"
+            :season="data.game.season"
           />
           <TeamStatsRail v-else side="home" :game="data.game" :sport="gameSport" />
           <TeamRatingsCard v-if="showRatings" side="home" :lineup="data.lineups.home" :league-key="data.game.league_key" />
         </Reveal>
         <Reveal :delay="40" class="min-w-0 space-y-3">
-          <GameHeader :game="data.game" :sport="gameSport" />
+          <GameHeader :game="data.game" :sport="gameSport">
+            <template #lead>
+              <button
+                type="button"
+                @click="goBack"
+                aria-label="Back"
+                class="inline-flex items-center justify-center w-7 h-7 -ml-2 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-surface-hover transition-colors"
+              >
+                <ChevronLeft :size="18" />
+              </button>
+            </template>
+          </GameHeader>
 
           <GameQuarterFlow
             v-if="showQuarterFlow"
@@ -107,6 +114,8 @@
             :league="preview?.league || null"
             :league-key="data.game.league_key"
             :team-key="data.game.away_key"
+            :move="moves.away"
+            :season="data.game.season"
             mirror
           />
           <TeamStatsRail v-else side="away" :game="data.game" :sport="gameSport" mirror />
@@ -115,7 +124,7 @@
       </div>
 
       <Reveal v-if="blindSpot" :delay="60">
-        <TwinBlindSpotBanner :risk="blindSpot" class="mt-3" />
+        <TwinBlindSpotBanner :risk="blindSpot" :moves="moves" class="mt-3" />
       </Reveal>
 
       <!-- ── TIMELINE: a horizontal minute axis, one compact band ──
@@ -166,7 +175,7 @@
             <GameTabs :tabs="tabs" v-model="activeTab" />
           </header>
 
-          <div class="p-2.5 sm:p-4" @touchstart="onTouchStart" @touchend="onTouchEnd">
+          <div class="p-3" @touchstart="onTouchStart" @touchend="onTouchEnd">
             <Transition name="tab" mode="out-in">
               <div :key="activeTab">
                 <!-- Match / Game Stats (basketball) -->
@@ -363,6 +372,22 @@ watch(() => data.value?.game?.id, async (id) => {
   if (!id) { blindSpot.value = null; return }
   const m = await twins.fetchFixtureRiskFor([Number(id)]).catch(() => new Map())
   blindSpot.value = m.get(Number(id)) || null
+}, { immediate: true })
+
+// Each club's most recent promotion/relegation — the rails show it as a chip
+// and the division line names it. Football only: basketball has no divisions.
+const moves = ref<{ home: any; away: any }>({ home: null, away: null })
+watch(() => data.value?.game?.id, async (id) => {
+  const g = data.value?.game
+  moves.value = { home: null, away: null }
+  if (!id || !g || gameSport.value !== 'football') return
+  const latest = async (teamId: number | null) => {
+    if (!teamId) return null
+    const rows = await twins.fetchTeamTransitions(Number(teamId)).catch(() => [])
+    return rows.length ? rows[rows.length - 1] : null
+  }
+  const [home, away] = await Promise.all([latest(g.home_team_id), latest(g.away_team_id)])
+  moves.value = { home, away }
 }, { immediate: true })
 
 // Is the game completed?
@@ -665,7 +690,7 @@ useHead({
 <style scoped>
 /* The raw ladder is reference material now that the board is the lead — it
    opens on demand rather than being the first thing on the page. */
-.ladder-details { margin-top: 1rem; }
+.ladder-details { margin-top: 0.6rem; }
 .ladder-summary {
   cursor: pointer;
   list-style: none;

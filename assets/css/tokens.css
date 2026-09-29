@@ -71,8 +71,10 @@
   --ink-strong: #f4f5f7;
   --ink: #e4e7ec;
   --ink-soft: #a1a1aa;
-  --ink-mute: #71717a;
-  --ink-faint: #52525b;
+  /* Lifted 2026-09-29: #71717a / #52525b scored 3.4:1 / 2.1:1 on the panel.
+     Mirrors the text-zinc-500/600 override in tailwind.config.cjs. */
+  --ink-mute: #8f8f9b;
+  --ink-faint: #7e7e8a;
 
   /* ── Semantic ──────────────────────────────────────────────────────────
      Money and state. `positive` is deliberately NOT the brand blue: a wallet
@@ -88,8 +90,8 @@
   /* ── Data marks ────────────────────────────────────────────────────────
      Mirrors utils/viz.ts so a CSS bar and an SVG polyline in the same panel
      cannot drift apart. viz.ts stays the source for anything computed in JS. */
-  --viz-home: #3987e5;
-  --viz-away: #d95926;
+  --viz-home: var(--brand-blue);
+  --viz-away: var(--brand-red);
   --viz-third: #199e70;
   --viz-grid: #343a47;
   --viz-surface: var(--surface);

@@ -15,7 +15,7 @@
       <!-- Title + meta -->
       <div class="flex-1 min-w-0">
         <p class="text-[12px] font-semibold text-zinc-100 truncate flex items-center gap-2">
-          <span class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 uppercase tracking-wider">
+          <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 uppercase tracking-wider">
             {{ legs.length }}-leg parlay
           </span>
           <span class="tabular-nums text-amber-300">{{ oddsLabel }}x</span>

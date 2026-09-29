@@ -24,11 +24,11 @@
             v-for="st in availableScoringTypes"
             :key="st"
             @click="activeScoringType = st"
-            :class="['text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors',
+            :class="['text-[10px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors',
                      activeScoringType === st ? 'bg-purple-500/30 text-purple-200' : 'text-zinc-500 hover:text-zinc-300']"
           >{{ scoringLabelOf(st) }}</button>
         </div>
-        <span v-else class="text-[9px] sm:text-[10px] font-medium text-zinc-500 uppercase tracking-wider">{{ scoringLabel }}</span>
+        <span v-else class="text-[10px] sm:text-[10px] font-medium text-zinc-500 uppercase tracking-wider">{{ scoringLabel }}</span>
       </div>
 
       <div class="flex items-center justify-between mb-1 px-1">
@@ -50,24 +50,24 @@
             <span class="text-[10px] sm:text-[11px] text-zinc-600 font-medium tabular-nums w-4 text-right">{{ i + 1 }}</span>
             <span
               v-if="player.position"
-              class="inline-flex items-center justify-center text-[9px] font-extrabold rounded px-1.5 py-0.5 bg-purple-500/20 text-purple-300 flex-shrink-0"
+              class="inline-flex items-center justify-center text-[10px] font-extrabold rounded px-1.5 py-0.5 bg-purple-500/20 text-purple-300 flex-shrink-0"
             >{{ player.position }}</span>
             <div class="min-w-0">
               <span class="text-[11px] sm:text-[12px] font-semibold text-zinc-200 truncate leading-tight block">{{ player.player_name }}</span>
-              <span class="text-[9px] uppercase tracking-wide text-zinc-500">{{ shortTeamName(player.team_name) }}</span>
+              <span class="text-[10px] uppercase tracking-wide text-zinc-500">{{ shortTeamName(player.team_name) }}</span>
             </div>
           </div>
           <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <div v-if="player.salary" class="text-center min-w-[42px] sm:min-w-[48px]">
-              <span class="text-[9px] text-zinc-600 uppercase block leading-none">SAL</span>
+              <span class="text-[10px] text-zinc-600 uppercase block leading-none">SAL</span>
               <span class="text-[10px] sm:text-[11px] font-semibold text-amber-300 tabular-nums">{{ formatSalary(player.salary) }}</span>
             </div>
             <div class="text-center min-w-[30px] sm:min-w-[32px]">
-              <span class="text-[9px] text-zinc-600 uppercase block leading-none">MIN</span>
+              <span class="text-[10px] text-zinc-600 uppercase block leading-none">MIN</span>
               <span class="text-[10px] sm:text-[11px] font-semibold text-zinc-400 tabular-nums">{{ player.projected_minutes?.toFixed(0) || '-' }}</span>
             </div>
             <div class="text-center min-w-[36px] sm:min-w-[40px]">
-              <span class="text-[9px] text-zinc-600 uppercase block leading-none">FPTS</span>
+              <span class="text-[10px] text-zinc-600 uppercase block leading-none">FPTS</span>
               <span
                 class="text-[12px] sm:text-[13px] font-bold tabular-nums"
                 :class="player.projected_score >= 35 ? 'text-emerald-400' : player.projected_score >= 25 ? 'text-zinc-100' : 'text-zinc-400'"

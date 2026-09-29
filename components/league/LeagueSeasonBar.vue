@@ -138,7 +138,7 @@ const phase = computed(() => {
 const ringStyle = computed(() => {
   const deg = Math.max(0, Math.min(360, (pctPlayed.value / 100) * 360))
   return {
-    background: `conic-gradient(#3987e5 ${deg}deg, rgba(255,255,255,0.07) ${deg}deg)`,
+    background: `conic-gradient(#4d8fff ${deg}deg, rgba(255,255,255,0.07) ${deg}deg)`,
   }
 })
 </script>
@@ -235,20 +235,20 @@ const ringStyle = computed(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  background: rgba(57, 135, 229, 0.14);
+  background: rgba(77, 143, 255, 0.14);
   color: #8fbdf5;
-  border: 1px solid rgba(57, 135, 229, 0.28);
+  border: 1px solid rgba(77, 143, 255, 0.28);
   letter-spacing: 0.02em;
   transition: background 180ms ease, border-color 180ms ease, transform 140ms ease;
 }
-.chip-live:hover { background: rgba(57, 135, 229, 0.26); border-color: rgba(57, 135, 229, 0.5); transform: translateY(-1px); }
+.chip-live:hover { background: rgba(77, 143, 255, 0.26); border-color: rgba(77, 143, 255, 0.5); transform: translateY(-1px); }
 .chip-live:active { transform: translateY(0); }
 .chip-live-dot {
   width: 0.3rem;
   height: 0.3rem;
   border-radius: 999px;
-  background: #3987e5;
-  box-shadow: 0 0 6px 1px rgba(57, 135, 229, 0.8);
+  background: #4d8fff;
+  box-shadow: 0 0 6px 1px rgba(77, 143, 255, 0.8);
 }
 
 .foot-row {
@@ -276,7 +276,7 @@ const ringStyle = computed(() => {
 .rail-seg-on {
   height: 0.65rem;
   margin-top: -0.075rem;
-  box-shadow: 0 0 0 1px rgba(57, 135, 229, 0.75), 0 0 16px -2px rgba(57, 135, 229, 0.65);
+  box-shadow: 0 0 0 1px rgba(77, 143, 255, 0.75), 0 0 16px -2px rgba(77, 143, 255, 0.65);
 }
 .rail-fill {
   position: absolute;
@@ -295,7 +295,7 @@ const ringStyle = computed(() => {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #184f95, #3987e5);
+  background: linear-gradient(90deg, #184f95, #4d8fff);
   transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 

@@ -36,7 +36,7 @@
               <span class="ml-1.5 text-[10px] text-zinc-600">{{ leagueLabel(r.league_key) }}</span>
               <span
                 v-if="blind[r.game_id]"
-                class="ml-1.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-amber-500/15 text-amber-300"
+                class="ml-1.5 px-1 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-300"
                 :title="`A club here is playing outside the division its twin rating was learned in (${blind[r.game_id]}). The twin's carried ratings are least reliable on these fixtures — a warning about our model, not a price, and not a do-not-bet flag.`"
               >CARRY {{ blind[r.game_id] }}</span>
             </td>

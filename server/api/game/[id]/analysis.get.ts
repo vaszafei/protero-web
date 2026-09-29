@@ -234,34 +234,25 @@ export default defineEventHandler(async (event) => {
           : 'same-game correlation sim covers football only (goals/corners/cards)',
       }
 
-  // ── derived (predicted score / pace, ported from GameAnalysis.vue) ────
-  let derived: any = { predicted_score: null, pace_trend: null }
+  // ── derived: scoring in past meetings ─────────────────────────────────
+  // This used to be `predicted_score`: the head-to-head average (up to 20
+  // meetings, however old) tilted by ±15 % of home_win_prob and rounded, and
+  // the page rendered it under "Model Outlook". It was never a model output.
+  // It is now named for what it is; the price's own expectation lives in
+  // `/api/game/[id]/market` → `implied`.
+  let derived: any = { h2h_scoring: null }
   if (h2hMatches.length) {
     const total = h2hMatches.reduce((s, m) => {
       const isHome = Number(m.home_team_id) === Number(game.home_team_id)
       return { home: s.home + (isHome ? Number(m.home_goals) : Number(m.away_goals)), away: s.away + (isHome ? Number(m.away_goals) : Number(m.home_goals)) }
     }, { home: 0, away: 0 })
-    const homeAvg = total.home / h2hMatches.length
-    const awayAvg = total.away / h2hMatches.length
-
-    let tilt = 0
-    const hpRaw = predictionRow?.home_win_prob
-    if (typeof hpRaw === 'number' && isFinite(hpRaw)) {
-      // `home_win_prob` is stored 0-1 by some model versions, 0-100 by others
-      // (GamePrediction.vue already normalizes this three separate ways —
-      // this is the same normalization applied here for consistency).
-      const hp = hpRaw <= 1 ? hpRaw : hpRaw / 100
-      tilt = Math.max(-0.15, Math.min(0.15, hp - 0.5))
-    }
-    derived.predicted_score = { home: Math.round(homeAvg * (1 + tilt)), away: Math.round(awayAvg * (1 - tilt)) }
-
-    if (h2hMatches.length >= 2) {
-      const totals = h2hMatches.map((m) => Number(m.home_goals) + Number(m.away_goals))
-      const avg = totals.reduce((a, b) => a + b, 0) / totals.length
-      const label = sport === 'basketball'
-        ? (avg >= 220 ? 'Fast' : avg >= 200 ? 'Normal' : 'Slow')
-        : (avg >= 3 ? 'High' : avg >= 2 ? 'Medium' : 'Low')
-      derived.pace_trend = { label, avg_total: Number(avg.toFixed(1)) }
+    const n = h2hMatches.length
+    derived.h2h_scoring = {
+      n,
+      home_avg: Number((total.home / n).toFixed(2)),
+      away_avg: Number((total.away / n).toFixed(2)),
+      total_avg: Number(((total.home + total.away) / n).toFixed(2)),
+      first_date: h2hMatches[n - 1]?.date ?? null,
     }
   }
 

@@ -154,6 +154,7 @@ const props = defineProps<{
 }>()
 
 import { getLeagueLogoUrl } from '~/utils/teamLogo'
+import { prettyLeagueKey } from '~/utils/league-name'
 
 const emit = defineEmits<{
   'select-game': [game: any]
@@ -327,7 +328,7 @@ const getLeagueCounts = (games: any[]) => {
         count: 0,
         predictions: 0,
         flag: league?.flag || '⚽',
-        name: league?.name || key
+        name: league?.name || prettyLeagueKey(key)
       })
     }
     const entry = counts.get(key)!

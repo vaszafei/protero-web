@@ -41,16 +41,16 @@
           'relative px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap font-medium transition-all',
           activeOverBet ? 'ring-1 ring-emerald-400/70 bg-emerald-500/15 text-emerald-400 font-bold' : 'text-zinc-600'
         ]">
-          O {{ oddsData.over_under.line }}<span v-if="oddsData.over_under.over" class="ml-0.5 text-[9px] opacity-60">@{{ Number(oddsData.over_under.over).toFixed(2) }}</span>
-          <span v-if="activeOverBet && activeOverStake" class="absolute -top-1.5 -right-1 bg-emerald-500 text-white text-[7px] font-extrabold px-1 py-px rounded-full leading-none">{{ activeOverStake }}</span>
+          O {{ oddsData.over_under.line }}<span v-if="oddsData.over_under.over" class="ml-0.5 text-[10px] opacity-60">@{{ Number(oddsData.over_under.over).toFixed(2) }}</span>
+          <span v-if="activeOverBet && activeOverStake" class="absolute -top-1.5 -right-1 bg-emerald-500 text-white text-[9px] font-extrabold px-1 py-px rounded-full leading-none">{{ activeOverStake }}</span>
         </div>
         <!-- Under chip -->
         <div :class="[
           'relative px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap font-medium transition-all',
           activeUnderBet ? 'ring-1 ring-purple-400/70 bg-purple-500/15 text-purple-400 font-bold' : 'text-zinc-600'
         ]">
-          U {{ oddsData.over_under.line }}<span v-if="oddsData.over_under.under" class="ml-0.5 text-[9px] opacity-60">@{{ Number(oddsData.over_under.under).toFixed(2) }}</span>
-          <span v-if="activeUnderBet && activeUnderStake" class="absolute -top-1.5 -right-1 bg-purple-500 text-white text-[7px] font-extrabold px-1 py-px rounded-full leading-none">{{ activeUnderStake }}</span>
+          U {{ oddsData.over_under.line }}<span v-if="oddsData.over_under.under" class="ml-0.5 text-[10px] opacity-60">@{{ Number(oddsData.over_under.under).toFixed(2) }}</span>
+          <span v-if="activeUnderBet && activeUnderStake" class="absolute -top-1.5 -right-1 bg-purple-500 text-white text-[9px] font-extrabold px-1 py-px rounded-full leading-none">{{ activeUnderStake }}</span>
         </div>
       </template>
       <!-- Spread chip (when no O/U but has handicap) -->
@@ -83,7 +83,7 @@
       </div>
 
       <!-- Bet count indicator (only when no O/U chips shown) -->
-      <span v-if="gameBets.length > 0 && !oddsData?.over_under?.line" class="px-1 py-0.5 text-[9px] font-bold rounded bg-amber-500/15 text-amber-400 whitespace-nowrap">{{ gameBets.length }} pick{{ gameBets.length > 1 ? 's' : '' }}</span>
+      <span v-if="gameBets.length > 0 && !oddsData?.over_under?.line" class="px-1 py-0.5 text-[10px] font-bold rounded bg-amber-500/15 text-amber-400 whitespace-nowrap">{{ gameBets.length }} pick{{ gameBets.length > 1 ? 's' : '' }}</span>
     </div>
 
     <!-- Bet picks row (only when bets exist) -->
@@ -92,7 +92,7 @@
         v-for="b in gameBets"
         :key="b.id"
         :class="[
-          'flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold',
+          'flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-semibold',
           b.status === 'won' ? 'bg-emerald-500/15 text-emerald-400' :
           b.status === 'lost' ? 'bg-red-500/15 text-red-400' :
           'bg-amber-500/10 text-amber-400'

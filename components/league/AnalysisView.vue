@@ -719,14 +719,14 @@ function fmtShortDate(d: string) {
   text-align: center;
   font-size: 0.62rem;
   font-weight: 700;
-  background: rgba(57, 135, 229, 0.18);
+  background: rgba(77, 143, 255, 0.18);
   color: #8fbdf5;
   transition: background 140ms ease;
 }
-.formdot-tip-btn:hover { background: rgba(57, 135, 229, 0.3); }
+.formdot-tip-btn:hover { background: rgba(77, 143, 255, 0.3); }
 
 .scorer-bar { position: relative; width: 3.5rem; height: 0.3rem; border-radius: 999px; background: rgba(255, 255, 255, 0.06); overflow: hidden; flex-shrink: 0; }
-.scorer-fill { position: absolute; inset: 0 auto 0 0; background: #3987e5; border-radius: 999px; }
+.scorer-fill { position: absolute; inset: 0 auto 0 0; background: #4d8fff; border-radius: 999px; }
 
 .th { padding: 0.4rem 0.5rem; font-weight: 600; font-size: 0.6rem; letter-spacing: 0.03em; text-transform: uppercase; text-align: center; }
 .td { padding: 0.32rem 0.5rem; }

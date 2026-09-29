@@ -1010,7 +1010,7 @@ function onPredictionsUpdated(predictions) {
   font-weight: 600;
 }
 .season-pill select:focus { outline: none; }
-.season-pill:focus-within { border-color: rgba(57, 135, 229, 0.6); }
+.season-pill:focus-within { border-color: rgba(77, 143, 255, 0.6); }
 
 /* Tab panes fade-slide in on every switch. The animation restarts because
    v-show toggles the element from display:none to block — no remount, so the

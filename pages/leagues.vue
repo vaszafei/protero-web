@@ -96,9 +96,9 @@
                     @error="$event.target.style.display='none'"
                   />
                   <span class="text-zinc-200">{{ l.name }}</span>
-                  <span v-if="l.is_cup" class="px-1 py-0.5 rounded text-[9px] bg-zinc-700/40 text-zinc-400">CUP</span>
-                  <span v-else-if="l.tier" class="px-1 py-0.5 rounded text-[9px] bg-zinc-700/40 text-zinc-400">T{{ l.tier }}</span>
-                  <span v-if="l.sport === 'basketball'" class="px-1 py-0.5 rounded text-[9px] bg-orange-500/15 text-orange-400">BB</span>
+                  <span v-if="l.is_cup" class="px-1 py-0.5 rounded text-[10px] bg-zinc-700/40 text-zinc-400">CUP</span>
+                  <span v-else-if="l.tier" class="px-1 py-0.5 rounded text-[10px] bg-zinc-700/40 text-zinc-400">T{{ l.tier }}</span>
+                  <span v-if="l.sport === 'basketball'" class="px-1 py-0.5 rounded text-[10px] bg-orange-500/15 text-orange-400">BB</span>
                 </div>
               </td>
 

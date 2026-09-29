@@ -23,7 +23,7 @@
       >
         {{ tab.label }}
         <span
-          class="text-[9px] font-bold px-1 py-0.5 rounded-full leading-none"
+          class="text-[10px] font-bold px-1 py-0.5 rounded-full leading-none"
           :class="activeWallet === tab.key ? tab.badgeActive : 'bg-surface-light text-zinc-600'"
         >{{ tab.count }}</span>
       </button>
@@ -44,7 +44,7 @@
         <!-- Player + Team -->
         <div class="flex-1 min-w-0">
           <span class="text-[12px] font-semibold text-zinc-200 truncate block leading-tight">{{ pick.player_name }}</span>
-          <span class="text-[9px] uppercase tracking-wide text-zinc-600">{{ shortTeam(pick.team_name) }}</span>
+          <span class="text-[10px] uppercase tracking-wide text-zinc-600">{{ shortTeam(pick.team_name) }}</span>
         </div>
 
         <!-- Market pill -->
@@ -65,21 +65,21 @@
             <span class="text-[12px] font-bold" :class="tradScoreColor(pick.trad_score)">
               {{ pick.trad_score?.toFixed(1) }}
             </span>
-            <span class="text-[9px] text-zinc-600 block leading-none">score</span>
+            <span class="text-[10px] text-zinc-600 block leading-none">score</span>
           </template>
           <!-- FE Model wallet -->
           <template v-else-if="activeWallet === 'fe'">
             <span class="text-[12px] font-bold" :class="probColor(pick.fe_p_over)">
               {{ formatPct(pick.fe_p_over) }}
             </span>
-            <span class="text-[9px] text-zinc-600 block leading-none">P(over)</span>
+            <span class="text-[10px] text-zinc-600 block leading-none">P(over)</span>
           </template>
           <!-- Sniper wallet -->
           <template v-else>
             <span class="text-[12px] font-bold text-purple-400">
               {{ pick.sniper_score?.toFixed(1) }}
             </span>
-            <span class="text-[9px] text-zinc-600 block leading-none">score</span>
+            <span class="text-[10px] text-zinc-600 block leading-none">score</span>
           </template>
         </div>
       </div>
@@ -89,19 +89,19 @@
     <div v-if="currentPicks.length > 0 && activeWallet === 'trad'" class="px-1">
       <div class="grid grid-cols-3 gap-1 text-center">
         <div class="bg-surface-light/30 rounded-lg px-2 py-1.5">
-          <span class="text-[9px] text-zinc-600 block uppercase tracking-wide">Season HR</span>
+          <span class="text-[10px] text-zinc-600 block uppercase tracking-wide">Season HR</span>
           <span class="text-[11px] font-bold text-zinc-300">
             {{ avgOf('season_hr') }}%
           </span>
         </div>
         <div class="bg-surface-light/30 rounded-lg px-2 py-1.5">
-          <span class="text-[9px] text-zinc-600 block uppercase tracking-wide">Last 10 HR</span>
+          <span class="text-[10px] text-zinc-600 block uppercase tracking-wide">Last 10 HR</span>
           <span class="text-[11px] font-bold text-zinc-300">
             {{ avgOf('l10_hr') }}%
           </span>
         </div>
         <div class="bg-surface-light/30 rounded-lg px-2 py-1.5">
-          <span class="text-[9px] text-zinc-600 block uppercase tracking-wide">H2H HR</span>
+          <span class="text-[10px] text-zinc-600 block uppercase tracking-wide">H2H HR</span>
           <span class="text-[11px] font-bold text-zinc-300">
             {{ avgOf('h2h_hr') }}%
           </span>
@@ -114,7 +114,7 @@
       <span
         v-for="sig in topSniperSignals"
         :key="sig"
-        class="text-[9px] text-purple-300/80 bg-purple-900/20 border border-purple-700/30 px-1.5 py-0.5 rounded-full"
+        class="text-[10px] text-purple-300/80 bg-purple-900/20 border border-purple-700/30 px-1.5 py-0.5 rounded-full"
       >{{ sig }}</span>
     </div>
 

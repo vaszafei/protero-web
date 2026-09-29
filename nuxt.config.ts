@@ -7,7 +7,12 @@ export default defineNuxtConfig({
     head: {
       title: 'ΠροΤερο Admin',
       link: [
-        { rel: 'icon', type: 'image/png', href: '/proteroLogo.png' }
+        { rel: 'icon', type: 'image/png', href: '/proteroLogo.png' },
+        // Inter: tabular figures and a tall x-height hold up at the 10–12px
+        // sizes this console is full of. Falls back to system-ui offline.
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap' }
       ],
       meta: [
         { name: 'description', content: 'ΠροΤερο — Admin Dashboard' },
@@ -24,6 +29,18 @@ export default defineNuxtConfig({
     compatibilityDate: '2025-12-12',
     externals: {
       inline: ['@supabase/supabase-js', 'bcryptjs']
+    },
+    rollupConfig: {
+      // Inlining supabase-js makes Rollup report every error class it
+      // re-exports (StorageApiError, PostgrestError, FunctionsError…) as an
+      // unused external import. Harmless, and it buried real warnings in
+      // every dev start. Nitro's own filter (circular deps, eval) is kept.
+      onwarn(warning, warn) {
+        if (warning.code === 'UNUSED_EXTERNAL_IMPORT' && warning.exporter?.includes('@supabase/')) return
+        if (warning.code === 'CIRCULAR_DEPENDENCY' || warning.code === 'EVAL') return
+        if (warning.message.includes('Unsupported source map comment')) return
+        warn(warning)
+      }
     }
   },
   ui: {
