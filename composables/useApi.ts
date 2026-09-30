@@ -317,6 +317,17 @@ export const useApi = () => {
   /**
    * GET /api/leagues/:slug — single league with games and standings
    */
+  /** Group-stage membership for one competition season (`competition_groups`); [] when it has none. */
+  const fetchCompetitionGroups = async (leagueKey: string, season: string) => {
+    const { data, error } = await supabase
+      .from('competition_groups')
+      .select('group_name, team:teams!team_id(name)')
+      .eq('league_key', leagueKey)
+      .eq('season', season)
+    if (error) throw error
+    return (data || []).map((r: any) => ({ group: r.group_name as string, team: r.team?.name as string }))
+  }
+
   const fetchLeague = async (slug: string, season = currentSeason(slug)) => {
     // `.maybeSingle()`, and a synthesised row when the registry has none.
     //
@@ -613,10 +624,81 @@ export const useApi = () => {
   }
 
   /**
+   * get_wallet_vulnerability RPC — near-miss / cash-out / market-participation /
+   * favorite-longshot analytics. Descriptive only, no ROI claim of its own —
+   * always render beside the wallet's get_wallet_performance verdict, never
+   * standalone. Renders nothing (empty near_miss/cashout/participation/odds_band)
+   * for any wallet with no parlay history — today that's every wallet except W54.
+   *
+   * `participation` cuts are LOSS-PARTICIPATION counts (how often a market/league
+   * appeared in a parlay that lost), never per-leg P&L — a parlay's legs share
+   * one stake, so attributing money to one leg is the W21 fabricated-ROI bug.
+   * `deviation_pct` is against the wallet's OWN baseline parlay loss rate, not
+   * zero — most cells cluster near baseline by construction; only large
+   * deviations at n>=20 (per `low_n`) are a real signal.
+   */
+  const fetchWalletVulnerability = async (walletId: number) => {
+    const { data, error } = await supabase.rpc('get_wallet_vulnerability', { p_wallet_id: walletId })
+    if (error) throw error
+    return (data || { near_miss: {}, cashout: {}, participation: {}, odds_band: [] }) as {
+      wallet_id: number
+      basis: string
+      near_miss: {
+        n_lost_parlays_measurable: number
+        excluded_all_void_cashouts: number
+        by_losing_legs: Array<{ losing_legs: number; n: number }>
+      }
+      cashout: {
+        n_parlays: number
+        net_pnl: number
+        by_outcome: Array<{ outcome: 'profit' | 'breakeven' | 'total_loss'; n: number; pnl: number; avg_pnl: number }>
+      }
+      participation: {
+        baseline_loss_pct: number | null
+        min_n: number
+        cuts: Record<string, Array<{
+          label: string; n_legs: number; n_in_lost_parlay: number
+          loss_participation_pct: number; deviation_pct: number
+          n_leg_lost: number; low_n: boolean
+        }>>
+      }
+      odds_band: Array<{
+        band: string; n: number; won: number
+        turnover: number; pnl: number; roi_pct: number | null
+      }>
+    }
+  }
+
+  /**
+   * get_wallet_margin_of_loss RPC — the single-bet analogue of
+   * fetchWalletVulnerability's near-miss section. Wallets that mostly place
+   * SINGLES (not parlays — e.g. betarades tipster mirrors W37-47) have no legs
+   * to count; this measures how many goals short a lost goal-based bet
+   * (result/total/BTTS and their 2-part combos) came from winning. Scoped to
+   * goal-based markets only — corners/cards/shots/HT/correct-score are
+   * counted in `n_bets` but excluded from `n_margin_computed`, never faked.
+   * Descriptive only, same framing discipline as fetchWalletVulnerability.
+   */
+  const fetchWalletMarginOfLoss = async (walletId: number) => {
+    const { data, error } = await supabase.rpc('get_wallet_margin_of_loss', { p_wallet_id: walletId })
+    if (error) throw error
+    return (data || { n_bets: 0, n_margin_computed: 0, n_lost_margin_computed: 0, by_bucket: [], by_family: [] }) as {
+      wallet_id: number
+      basis: string
+      n_bets: number
+      n_margin_computed: number
+      n_lost_margin_computed: number
+      by_bucket: Array<{ bucket: string; n: number }>
+      by_family: Array<{ label: string; n: number; avg_margin: number }>
+    }
+  }
+
+  /**
    * GET /api/wallet/bets — paginated wallet *singles* with game info.
    *
-   * Filters out bets that belong to a parlay (notes->parlay_id is set), so the
-   * wallet UI doesn't render parlay legs as standalone singles. Use
+   * Excludes bets that are a leg of a parlay (a `parlay_legs` row exists), in
+   * the query itself, so `total` and the page window count wagers — filtering
+   * after the fetch reported W29's 30 legs as 39 "total" with none shown. Use
    * fetchWalletParlays() for grouped parlay rows.
    */
   const fetchWalletBets = async (walletId: number, opts: { status?: string; limit?: number; offset?: number } = {}) => {
@@ -629,9 +711,11 @@ export const useApi = () => {
         games!inner(id, date, league_key, home_goals, away_goals, status,
           home_team:teams!home_team_id(name),
           away_team:teams!away_team_id(name)
-        )
+        ),
+        parlay_legs(id)
       `, { count: 'exact' })
       .eq('wallet_id', walletId)
+      .is('parlay_legs', null)
       .order('placed_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -642,18 +726,7 @@ export const useApi = () => {
     const { data, count, error } = await q
     if (error) throw error
 
-    const isParlayLeg = (b: any): boolean => {
-      if (!b?.notes) return false
-      // notes is JSONB on the server; client receives it as object or string.
-      let n: any = b.notes
-      if (typeof n === 'string') {
-        try { n = JSON.parse(n) } catch { return false }
-      }
-      return !!(n && (n.parlay_id || n.pick_type === 'prop_parlay_leg' || n.leg_number))
-    }
-
     const bets = (data || [])
-      .filter((b: any) => !isParlayLeg(b))
       .map((b: any) => ({
         ...b,
         home_name: b.games?.home_team?.name || 'TBD',
@@ -690,7 +763,7 @@ export const useApi = () => {
         parlay_legs (
           id, leg_number,
           bets (
-            id, game_id, bet_type, odds, stake, predicted_prob, status, profit, notes,
+            id, game_id, bet_type, line, odds, stake, predicted_prob, status, profit, notes,
             games:game_id (
               id, date, league_key, status, home_goals, away_goals,
               home_team:teams!home_team_id ( id, name ),
@@ -730,6 +803,7 @@ export const useApi = () => {
             leg_number: pl.leg_number,
             bet_id: bet.id,
             bet_type: bet.bet_type,
+            line: bet.line,
             odds: bet.odds,
             stake: bet.stake,
             predicted_prob: bet.predicted_prob,
@@ -832,6 +906,45 @@ export const useApi = () => {
       initial_balance: seed,
       current_balance: Number(wallet.balance || 0),
     }
+  }
+
+  /**
+   * The parlay-persona wallets' (W55/56/57) historical season-by-season
+   * replay of the CURRENT `select_slip` rule — `ml.sim.parlay_persona_ladder`,
+   * NOT the wallet's own live equity curve (that's
+   * `fetchWalletBalanceHistory`). Reads `v_parlay_persona_seasons`, a public
+   * view over `sim.wallet_seasons` scoped to the three persona arms — `sim`
+   * itself is not exposed to PostgREST (see the view's migration).
+   *
+   * Returns an empty array for any wallet the ladder hasn't been run for —
+   * this is an `incubation`-only feature, not every wallet has these rows.
+   */
+  const fetchWalletSeasonLadder = async (walletId: number) => {
+    const { data, error } = await supabase
+      .from('v_parlay_persona_seasons')
+      .select('*')
+      .eq('wallet_id', walletId)
+      .order('season_index', { ascending: true })
+    if (error) throw error
+    return (data || []) as Array<{
+      wallet_id: number
+      arm: string
+      season: string
+      season_index: number
+      ladder_id: string
+      start_balance: number
+      end_balance: number
+      peak_balance: number
+      max_drawdown: number
+      n_bets: number
+      n_won: number
+      staked: number
+      profit: number
+      roi: number | null
+      win_rate: number | null
+      policy: Record<string, any>
+      notes: Record<string, any>
+    }>
   }
 
   // ============================================================
@@ -1007,6 +1120,7 @@ export const useApi = () => {
     fetchGame,
     fetchGameDetail,
     fetchLeague,
+    fetchCompetitionGroups,
     fetchFantasyProjections,
     fetchPlayerPropPicks,
     fetchH2H,
@@ -1015,10 +1129,13 @@ export const useApi = () => {
     fetchWallets,
     fetchWalletBets,
     fetchWalletBreakdown,
+    fetchWalletVulnerability,
+    fetchWalletMarginOfLoss,
     fetchWalletParlays,
     fetchWalletStats,
     fetchWalletPerformance,
     fetchWalletBalanceHistory,
+    fetchWalletSeasonLadder,
     fetchLeagueAnalysis,
     fetchTwinSeasonPhase,
     fetchParlays,

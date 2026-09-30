@@ -1,5 +1,5 @@
 <template>
-  <div class="rounded-xl border border-edge bg-surface p-3 sm:p-3.5">
+  <div class="rounded-xl border border-edge bg-surface p-3 flex flex-col min-h-0">
     <!-- Header + range selector -->
     <div class="flex items-center justify-between mb-2">
       <h3 class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Performance</h3>
@@ -16,16 +16,16 @@
     </div>
 
     <!-- Empty state -->
-    <div v-if="loading" class="h-28 flex items-center justify-center">
+    <div v-if="loading" class="flex-1 min-h-28 flex items-center justify-center">
       <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin text-zinc-600" />
     </div>
-    <div v-else-if="!points || points.length < 2" class="h-28 flex items-center justify-center">
+    <div v-else-if="!points || points.length < 2" class="flex-1 min-h-28 flex items-center justify-center">
       <p class="text-[11px] text-zinc-600">Not enough settled bets to plot</p>
     </div>
 
     <!-- Chart -->
-    <div v-else>
-      <div class="relative h-28">
+    <div v-else class="flex-1 min-h-0 flex flex-col">
+      <div class="relative flex-1 min-h-28">
         <svg viewBox="0 0 300 120" preserveAspectRatio="none" class="w-full h-full">
           <!-- Grid lines -->
           <line x1="0" y1="60" x2="300" y2="60" stroke="rgba(82,82,91,0.2)" stroke-width="1" stroke-dasharray="2,2" />
@@ -49,11 +49,13 @@
             vector-effect="non-scaling-stroke"
           />
 
-          <!-- Last point dot -->
-          <circle
+          <!-- Last point dot: a zero-length round-capped line, so it stays round
+               when the stretched (preserveAspectRatio="none") box distorts a circle. -->
+          <line
             v-if="lastPoint"
-            :cx="lastPoint.x" :cy="lastPoint.y" r="2.5"
-            :fill="strokeColor"
+            :x1="lastPoint.x" :y1="lastPoint.y" :x2="lastPoint.x" :y2="lastPoint.y"
+            :stroke="strokeColor" stroke-width="6" stroke-linecap="round"
+            vector-effect="non-scaling-stroke"
           />
         </svg>
 
@@ -62,20 +64,21 @@
         <div class="absolute left-1 bottom-0 text-[10px] text-zinc-600 tabular-nums">${{ formatNum(minV) }}</div>
       </div>
 
-      <!-- One footer row (was two, 2026-09-10). Left = start balance + date,
-           right = end balance + date, centre = window P&L. The % is BANKROLL
-           RETURN over the window and is labelled as such — not ROI, which lives
-           on the hero from the RPC and differs by ~6x on W7. The x-axis is the
-           date a wager was STRUCK, not graded: a backfilled wallet settles 20
-           months in one run and the old settled_at axis drew all of them today. -->
-      <div class="flex items-center justify-between mt-1.5 text-[10px] text-zinc-500 tabular-nums">
+      <!-- Footer: start and end balance (with the date) on one line, the
+           window P&L under them — one row no longer fits the page's narrow
+           standing column. The % is BANKROLL RETURN over the window and is
+           labelled as such — not ROI, which lives on the hero from the RPC and
+           differs by ~6x on W7. The x-axis is the date a wager was STRUCK, not
+           graded: a backfilled wallet settles 20 months in one run and the old
+           settled_at axis drew all of them today. -->
+      <div class="flex items-center justify-between gap-2 mt-1.5 text-[10px] text-zinc-500 tabular-nums whitespace-nowrap">
         <span>${{ formatNum(points[0].balance) }} <span class="text-zinc-700">· {{ dateLabel(points[0].ts) }}</span></span>
-        <span :class="rangePnl >= 0 ? 'text-emerald-400' : 'text-red-400'">
-          {{ rangePnl >= 0 ? '+' : '' }}${{ formatNum(rangePnl) }}
-          <span class="text-zinc-600">({{ rangePnlPct >= 0 ? '+' : '' }}{{ rangePnlPct.toFixed(1) }}% bankroll · {{ points.length }} wagers)</span>
-        </span>
         <span>${{ formatNum(points[points.length - 1].balance) }} <span class="text-zinc-700">· {{ dateLabel(points[points.length - 1].ts) }}</span></span>
       </div>
+      <p class="text-center text-[10px] tabular-nums whitespace-nowrap" :class="rangePnl >= 0 ? 'text-emerald-400' : 'text-red-400'">
+        {{ rangePnl >= 0 ? '+' : '−' }}${{ formatNum(Math.abs(rangePnl)) }}
+        <span class="text-zinc-500">({{ rangePnlPct >= 0 ? '+' : '' }}{{ rangePnlPct.toFixed(1) }}% bankroll · {{ points.length }} wagers)</span>
+      </p>
     </div>
   </div>
 </template>

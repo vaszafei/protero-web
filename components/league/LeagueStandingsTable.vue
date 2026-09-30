@@ -5,7 +5,22 @@
       <div class="p-2 sm:p-4">
         <!-- Standings Header -->
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm sm:text-base font-bold text-zinc-100">Standings</h3>
+          <div class="flex items-center gap-3">
+            <h3 class="text-sm sm:text-base font-bold text-zinc-100">Standings</h3>
+            <!-- Group stage: one group at a time -->
+            <div v-if="groups.length" class="flex gap-1">
+              <button
+                v-for="g in groups" :key="g"
+                @click="$emit('update:group', g)"
+                :class="[
+                  'px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold transition-all',
+                  group === g
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-surface-light text-zinc-400 hover:bg-surface-hover'
+                ]"
+              >{{ g }}</button>
+            </div>
+          </div>
 
           <!-- Filter pills -->
           <div class="flex gap-1">
@@ -286,9 +301,11 @@ const props = defineProps({
   sport: { type: String, default: 'football' },
   allGames: { type: Array, default: () => [] },
   leagueKey: { type: String, default: '' },
+  groups: { type: Array, default: () => [] },
+  group: { type: String, default: null },
 })
 
-defineEmits(['update:filter'])
+defineEmits(['update:filter', 'update:group'])
 
 const isBball = computed(() => props.sport === 'basketball')
 

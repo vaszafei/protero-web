@@ -109,10 +109,12 @@
                basketball's ORtg / DRtg / pace columns have no twin equivalent. -->
           <template #standings>
             <LeagueStandingsTable
-              :standings="filteredStandings"
+              :standings="groupStandings"
               :sport="data.sport"
               :allGames="data.games"
               :leagueKey="data.key"
+              :groups="groupNames"
+              v-model:group="standingsGroup"
               v-model:filter="standingsFilter"
             />
           </template>
@@ -269,6 +271,21 @@ const byDate = computed(() => isBball.value || !hasRounds.value)
 const activeTab = ref('overview')
 const selectedRound = ref(1)
 const standingsFilter = ref('overall')
+
+// Group stage (EuroCup: four groups of eight). A season with groups shows one
+// group's table at a time, ranked within the group; one without shows one table.
+const competitionGroups = ref([])
+const standingsGroup = ref(null)
+const groupNames = computed(() => [...new Set(competitionGroups.value.map(g => g.group))].sort())
+watch(selectedSeason, async (season) => {
+  try {
+    competitionGroups.value = await api.fetchCompetitionGroups(leagueName, season)
+  } catch (e) {
+    console.error('Failed to load competition groups:', e)
+    competitionGroups.value = []
+  }
+  standingsGroup.value = groupNames.value[0] || null
+}, { immediate: true })
 
 // Set initial round - find next upcoming round from today
 // For basketball: date-based (each day = one "page")
@@ -942,6 +959,12 @@ const filteredStandings = computed(() => {
   }
   
   return liveStandings.value
+})
+
+const groupStandings = computed(() => {
+  if (!standingsGroup.value) return filteredStandings.value
+  const inGroup = new Set(competitionGroups.value.filter(g => g.group === standingsGroup.value).map(g => g.team))
+  return filteredStandings.value.filter(t => inGroup.has(t.name))
 })
 
 // ────────────────────────────────────────────────────────────────────────

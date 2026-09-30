@@ -1,130 +1,73 @@
 <template>
-  <div
-    class="rounded-lg bg-surface-light/30 border border-edge/40 overflow-hidden transition-colors"
-    :class="open ? 'border-edge' : 'hover:border-edge'"
+  <!-- One line per slip. Its legs open in the slip panel beside the ledger
+       rather than expanding here, so the list keeps a fixed row height. -->
+  <button
+    type="button"
+    class="w-full h-8 flex items-center gap-2.5 px-2.5 rounded-lg border text-left transition-colors"
+    :class="selected
+      ? 'bg-blue-500/10 border-blue-500/40'
+      : 'bg-surface-light/30 border-edge/40 hover:border-edge'"
+    @click="$emit('select', parlay.id)"
   >
-    <!-- Header row -->
-    <button
-      type="button"
-      class="w-full flex items-center gap-3 px-3 py-1.5 text-left"
-      @click="open = !open"
-    >
-      <!-- Status dot -->
-      <div class="w-2 h-2 rounded-full flex-shrink-0" :class="dotCls"></div>
-
-      <!-- Title + meta -->
-      <div class="flex-1 min-w-0">
-        <p class="text-[12px] font-semibold text-zinc-100 truncate flex items-center gap-2">
-          <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 uppercase tracking-wider">
-            {{ legs.length }}-leg parlay
-          </span>
-          <span class="tabular-nums text-amber-300">{{ oddsLabel }}x</span>
-        </p>
-        <p class="text-[10px] text-zinc-500 truncate mt-0.5">
-          <span v-if="dateLabel">{{ dateLabel }}</span>
-          <span v-if="parlay.strategy" class="text-zinc-600"> · {{ stratLabel }}</span>
-        </p>
-      </div>
-
-      <!-- Stake / payout -->
-      <div class="text-right flex-shrink-0">
-        <p class="text-[12px] font-semibold text-zinc-200 tabular-nums">
-          ${{ stake }}
-        </p>
-        <p v-if="parlay.status === 'pending'" class="text-[10px] text-amber-400/80">
-          → ${{ potentialReturn }}
-        </p>
-        <p v-else-if="parlay.profit != null" class="text-[10px] font-bold tabular-nums"
-           :class="Number(parlay.profit) >= 0 ? 'text-emerald-400' : 'text-red-400'">
-          {{ Number(parlay.profit) >= 0 ? '+' : '' }}${{ Number(parlay.profit).toFixed(2) }}
-        </p>
-      </div>
-
-      <UIcon
-        :name="open ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-        class="w-4 h-4 text-zinc-600 flex-shrink-0"
-      />
-    </button>
-
-    <!-- Legs -->
-    <div v-if="open" class="border-t border-edge/40 divide-y divide-edge/20">
-      <div
-        v-for="leg in legs" :key="leg.id"
-        class="flex items-center gap-2 px-3 py-2 text-[11px]"
-      >
-        <span class="w-4 text-zinc-600 tabular-nums flex-shrink-0">{{ leg.leg_number }}.</span>
-        <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="legDot(leg.status)"></div>
-        <div class="flex-1 min-w-0">
-          <p class="text-zinc-200 truncate">
-            <span class="text-emerald-400/80 font-semibold">{{ legShort(leg) }}</span>
-          </p>
-          <p class="text-zinc-500 truncate text-[10px]">
-            {{ leg.home_name }} <span class="text-zinc-700">vs</span> {{ leg.away_name }}
-          </p>
-        </div>
-        <span class="text-zinc-400 tabular-nums flex-shrink-0">{{ Number(leg.odds || 0).toFixed(2) }}</span>
-        <NuxtLink
-          v-if="leg.game_id"
-          :to="`/game/${leg.game_id}`"
-          class="text-zinc-600 hover:text-emerald-400 ml-1 flex-shrink-0"
-          @click.stop
-        >
-          <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3" />
-        </NuxtLink>
-      </div>
-    </div>
-  </div>
+    <div class="w-2 h-2 rounded-full flex-shrink-0" :class="dotCls"></div>
+    <span class="text-[11px] font-semibold text-zinc-100 tabular-nums w-12 flex-shrink-0">{{ legs.length }} legs</span>
+    <span class="text-[11px] tabular-nums text-amber-300 w-16 flex-shrink-0">{{ oddsLabel }}x</span>
+    <span class="text-[11px] text-zinc-400 truncate flex-1 min-w-0" :title="summary">{{ summary }}</span>
+    <span class="text-[10px] text-zinc-500 flex-shrink-0">{{ dateLabel }}</span>
+    <span class="text-[11px] tabular-nums text-zinc-300 w-12 text-right flex-shrink-0">${{ stake }}</span>
+    <span class="text-[11px] font-bold tabular-nums w-16 text-right flex-shrink-0" :class="resultCls">{{ resultLabel }}</span>
+  </button>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { betLabelShort } from '~/utils/bet-label'
+import { computed } from 'vue'
+import { legParts } from '~/utils/bet-label'
 
 const props = defineProps({
-  parlay: { type: Object, required: true },
+  parlay:   { type: Object, required: true },
+  selected: { type: Boolean, default: false },
 })
-
-const open = ref(false)
+defineEmits(['select'])
 
 const legs = computed(() => Array.isArray(props.parlay.legs) ? props.parlay.legs : [])
 const stake = computed(() => Number(props.parlay.total_stake || 0).toFixed(2))
 const oddsLabel = computed(() => Number(props.parlay.parlay_odds || 0).toFixed(2))
-const potentialReturn = computed(() => {
-  const s = Number(props.parlay.total_stake || 0)
-  const o = Number(props.parlay.parlay_odds || 0)
-  return (s * o).toFixed(2)
+
+/** A props slip lists its players' surnames; any other slip its competitions. */
+const summary = computed(() => {
+  const names = legs.value
+    .flatMap(l => legParts(l).map(p => p.player))
+    .filter(Boolean)
+    .map(n => n.split(' ').slice(-1)[0])
+  if (names.length) return [...new Set(names)].join(', ')
+  return [...new Set(legs.value.map(l => l.league_key).filter(Boolean))]
+    .map(k => k.replace(/_/g, ' ')).join(', ')
 })
 
 const dateLabel = computed(() => {
-  const d = props.parlay.date || props.parlay.created_at
-  if (!d) return ''
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  const d = props.parlay.created_at
+  return d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''
 })
 
-const stratLabel = computed(() => {
-  const s = String(props.parlay.strategy || '')
-  // props_v2_aif → Props AIF; football_v6_aif → V6
-  return s.replace(/^props_v2_/, 'Props ').replace(/_aif$/, ' AIF').replace(/_/g, ' ')
-})
-
-const dotCls = computed(() => {
-  switch (props.parlay.status) {
-    case 'won':  return 'bg-emerald-400'
-    case 'lost': return 'bg-red-400'
-    case 'pending': return 'bg-amber-400 animate-pulse'
-    case 'push': return 'bg-zinc-400'
-    default: return 'bg-zinc-500'
+const resultLabel = computed(() => {
+  if (props.parlay.status === 'pending') {
+    return '→ $' + (Number(props.parlay.total_stake || 0) * Number(props.parlay.parlay_odds || 0)).toFixed(0)
   }
+  if (props.parlay.profit == null) return '—'
+  const p = Number(props.parlay.profit)
+  return (p >= 0 ? '+' : '') + p.toFixed(2)
 })
 
-const legDot = (status) => {
-  switch (status) {
-    case 'won': return 'bg-emerald-400'
-    case 'lost': return 'bg-red-400'
-    case 'pending': return 'bg-amber-400'
-    default: return 'bg-zinc-600'
-  }
-}
+const resultCls = computed(() => {
+  if (props.parlay.status === 'pending') return 'text-amber-400/80 font-normal'
+  if (props.parlay.profit == null) return 'text-zinc-500'
+  return Number(props.parlay.profit) >= 0 ? 'text-emerald-400' : 'text-red-400'
+})
 
-const legShort = (leg) => betLabelShort(leg)
+const dotCls = computed(() => ({
+  won: 'bg-emerald-400',
+  lost: 'bg-red-400',
+  pending: 'bg-amber-400 animate-pulse',
+  pushed: 'bg-zinc-400',
+}[props.parlay.status] || 'bg-zinc-500'))
 </script>

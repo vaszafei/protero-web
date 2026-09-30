@@ -14,6 +14,7 @@ type AnyBet = {
   home_name?: string | null
   away_name?: string | null
   bet_subject?: string | null
+  line?: number | string | null
 }
 
 const PROP_MARKET_LABEL: Record<string, string> = {
@@ -25,6 +26,11 @@ const PROP_MARKET_LABEL: Record<string, string> = {
   TOV: 'to',
   THREES: '3pt',
   PRA: 'pra',
+  POINTS: 'pts',
+  REBOUNDS: 'reb',
+  ASSISTS: 'ast',
+  STEALS: 'stl',
+  BLOCKS: 'blk',
 }
 
 function parseNotes(raw: any): any | null {
@@ -40,7 +46,7 @@ function parseNotes(raw: any): any | null {
  * Parse a PROP_<MARKET>_<DIRECTION> bet_type, optionally enriched by JSON
  * notes ({player, line, direction, market}). Returns short + long label or null.
  */
-function parseProp(bet: AnyBet): { short: string; long: string } | null {
+function parseProp(bet: AnyBet): { short: string; long: string; player: string | null; selection: string } | null {
   const key = (bet.bet_type || '').toUpperCase()
   const meta = parseNotes(bet.notes)
 
@@ -68,11 +74,43 @@ function parseProp(bet: AnyBet): { short: string; long: string } | null {
 
   const linePart = line != null ? ` ${line}` : ''
   const short = `${sideShort}${linePart} ${marketLabel}`.trim()
-  const long  = player
-    ? `${player} ${sideLong}${linePart} ${marketLabel}`.trim()
-    : `${sideLong}${linePart} ${marketLabel}`.trim()
+  const selection = `${sideLong}${linePart} ${marketLabel}`.trim()
+  const long = player ? `${player} ${selection}` : selection
 
-  return { short, long }
+  return { short, long, player, selection }
+}
+
+/** A player prop split into its player and its selection ("Under 9.5 pts"), or null. */
+export function propParts(bet: AnyBet): { player: string | null; selection: string } | null {
+  const prop = parseProp(bet)
+  return prop ? { player: prop.player, selection: prop.selection } : null
+}
+
+/**
+ * A slip leg as the selections it is made of — one for a plain bet or prop,
+ * several for a bet builder, whose parts sit in `notes.raw_legs` (a `bb`
+ * descriptor when parsed, else the book's own market/selection text).
+ */
+export function legParts(bet: AnyBet): Array<{ player: string | null; selection: string }> {
+  const prop = propParts(bet)
+  if (prop) return [prop]
+  const raw = parseNotes(bet.notes)?.raw_legs
+  if (Array.isArray(raw) && raw.length) {
+    return raw.map((r: any) => {
+      const bb = r?.bb
+      if (bb?.kind === 'player' && bb.player) {
+        const side = bb.side === 'over' ? 'Over' : bb.side === 'under' ? 'Under' : String(bb.side || '')
+        const unit = PROP_MARKET_LABEL[String(bb.stat || '').toUpperCase()] || String(bb.stat || '')
+        return { player: String(bb.player), selection: `${side} ${bb.line ?? ''} ${unit}`.replace(/\s+/g, ' ').trim() }
+      }
+      return { player: null, selection: [r?.market_text, r?.selection_text].filter(Boolean).join(' ') }
+    })
+  }
+  const total = (bet.bet_type || '').toUpperCase().match(/^(OVER|UNDER)_TOTAL$/)
+  if (total && bet.line != null) {
+    return [{ player: null, selection: `${total[1] === 'OVER' ? 'Over' : 'Under'} ${Number(bet.line)}` }]
+  }
+  return [{ player: null, selection: betLabelLong(bet) }]
 }
 
 const SHORT_MAP: Record<string, string> = {
@@ -122,6 +160,9 @@ const LONG_MAP: Record<string, string> = {
   UNDER_ALT: 'Under (alt line)',
   SPREAD_HOME: 'Home covers spread',
   SPREAD_AWAY: 'Away covers spread',
+  DC_1X: 'Double chance 1X',
+  DC_X2: 'Double chance X2',
+  DC_12: 'Double chance 12',
   SGP_HOME_ML_HOME_COVERS: 'SGP — Home ML + Home spread',
   SGP_AWAY_ML_AWAY_COVERS: 'SGP — Away ML + Away spread',
   SGP_SAME_SIDE: 'SGP — same-side spread',

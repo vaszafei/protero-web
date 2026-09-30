@@ -1,7 +1,7 @@
 <template>
-  <div class="rounded-xl bg-surface border border-edge overflow-hidden">
-    <div class="flex items-baseline gap-2 px-3 sm:px-4 py-2.5 border-b border-edge/50 flex-wrap">
-      <h3 class="text-[11px] font-semibold text-zinc-300 uppercase tracking-wider">Where the P&amp;L came from</h3>
+  <div class="rounded-xl bg-surface border border-edge overflow-hidden flex flex-col min-h-0">
+    <div class="flex items-baseline gap-2 px-3 py-2 border-b border-edge/50 flex-shrink-0">
+      <h3 class="text-[11px] font-semibold text-zinc-300 uppercase tracking-wider cursor-help" :title="footnote">Where the P&amp;L came from</h3>
       <div class="flex items-center gap-1 ml-auto">
         <button
           v-for="c in available" :key="c.key"
@@ -12,13 +12,13 @@
       </div>
     </div>
 
-    <div v-if="loading" class="py-10 text-center text-[11px] text-zinc-600">Loading…</div>
+    <div v-if="loading" class="py-3 text-center text-[11px] text-zinc-600">Loading…</div>
 
-    <div v-else-if="!rows.length" class="py-10 text-center text-[11px] text-zinc-600">
+    <div v-else-if="!rows.length" class="py-3 text-center text-[11px] text-zinc-500">
       No settled singles to break down.
     </div>
 
-    <div v-else class="p-2 sm:p-2.5">
+    <div v-else class="p-2 flex-1 min-h-0 overflow-y-auto">
       <!-- Bar sits under a single-line label+figures row (was a stacked block
            ~44px tall; now ~28px). Rows past the 8th collapse behind a toggle. -->
       <div
@@ -59,11 +59,6 @@
       >
         {{ expanded ? 'Show less' : `+${rows.length - COLLAPSE_AT} more` }}
       </button>
-
-      <p class="text-[10px] text-zinc-600 mt-2 px-1.5 leading-snug">
-        {{ basis }} A slice under {{ MIN_N }} wagers shows P&amp;L but no ROI — at that n
-        1 SE of the cell's return runs ±10–20pp.
-      </p>
     </div>
   </div>
 </template>
@@ -111,6 +106,9 @@ const visibleRows = computed(() =>
 const basis = computed(() => props.breakdown?.basis
   ? props.breakdown.basis.charAt(0).toUpperCase() + props.breakdown.basis.slice(1) + '.'
   : '')
+
+const footnote = computed(() =>
+  `${basis.value} A slice under ${MIN_N} wagers shows P&L but no ROI — at that n 1 SE of the cell's return runs ±10–20pp.`.trim())
 
 /** Widest absolute P&L in the current cut — the shared scale for every bar. */
 const scale = computed(() =>
