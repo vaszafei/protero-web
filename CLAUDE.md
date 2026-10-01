@@ -1,6 +1,6 @@
 # CLAUDE.md — ΠροΤερο Frontend
 
-Nuxt 3 SPA (no SSR) with Tailwind CSS, Nuxt UI v2, and a Capacitor Android wrapper. Dark-mode only. **Desktop operator console — mobile/small-screen layouts are out of scope (owner, 2026-09-29).**
+Nuxt 3 SPA (no SSR) with Tailwind CSS and Nuxt UI v2. Web only — Capacitor/APK was removed (2026-10-01, owner). Dark-mode only. **Desktop operator console — mobile/small-screen layouts are out of scope (owner, 2026-09-29).**
 
 Read the root `../CLAUDE.md` before any cross-cutting work.
 
@@ -12,11 +12,11 @@ Read the root `../CLAUDE.md` before any cross-cutting work.
 > work, dual-write, or Edge Function deploys against the parked project.
 
 > **Open question — is this still a consumer product?** The Nuxt app was built to ship web + APK
-> from one codebase (root CD #17). **Resolved 2026-08-22: this is an operator console, not a
+> from one codebase (root CD #17, amended 2026-10-01: web only). **Resolved 2026-08-22: this is an operator console, not a
 > consumer product.** The credit/subscription/paywall/onboarding surface was removed
 > (`refactor: remove the consumer scaffolding`, 2026-08-22) — see the brief at
-> `docs/plans/frontend-operator-console-deepseek.md`. Capacitor's fate is documented in
-> `docs/plans/capacitor-decision.md` (pending owner call). Do not re-add consumer surface.
+> `docs/plans/frontend-operator-console-deepseek.md`. Capacitor and the APK were removed
+> 2026-10-01 (owner). Do not re-add consumer surface.
 
 ## Closed Decisions
 
@@ -24,28 +24,20 @@ Read the root `../CLAUDE.md` before any cross-cutting work.
 |---|----------|-----------|
 | 1 | **SSR disabled (`ssr: false`)** | App is SPA-only. All rendering is client-side. Nitro server handles API routes only. |
 | 2 | **Nuxt UI v2 + heroicons** | Component library is `@nuxt/ui` v2. Icons come from `heroicons` set. `lucide-vue-next` is also installed but secondary. |
-| 3 | ~~**Web → local Supabase, APK → cloud Supabase**~~ **SUPERSEDED 2026-08-20** | The cloud project is parked (root CD #34). Local Supabase (`127.0.0.1:54321`, all seasons) is the only backend. The APK's cloud path points at a database nothing writes to — establish which half is live before building on it. |
-| 4 | **Custom JWT (HS256) + bcrypt** | Custom `users`/`sessions` tables. Web uses Nitro endpoints + httpOnly cookie. APK uses Edge Functions + Bearer JWT in localStorage. Same JWT contract (`iss:'protero'`, `role:'authenticated'`, `user_id`). Shared HS256 secret (`JWT_SECRET` on Nitro, `APP_JWT_SECRET` on Edge Functions). |
+| 3 | ~~**Web → local Supabase, APK → cloud Supabase**~~ **SUPERSEDED 2026-08-20; APK removed 2026-10-01** | The cloud project is parked (root CD #34). Local Supabase (`127.0.0.1:54321`, all seasons) is the only backend. |
+| 4 | **Custom JWT (HS256) + bcrypt** | Custom `users`/`sessions` tables. Nitro endpoints + httpOnly cookie; the Bearer JWT is kept in localStorage for direct Supabase calls. Same JWT contract (`iss:'protero'`, `role:'authenticated'`, `user_id`). HS256 secret `JWT_SECRET` on Nitro. |
 | 5 | **Dark mode only** | Color mode preference is `dark`. UI is designed exclusively for dark backgrounds. `tailwind.config.cjs` has custom dark surface/edge colors. |
 | 6 | **No icons in new components** | Do not use inline `<svg>`, emoji, or symbol characters as icons in component templates. Text labels only. If an icon is truly needed, use `<UIcon>` from Nuxt UI — but prefer plain text. |
 | 7 | **Schema changes go through migrations only** | Schema edits live in `supabase-local/supabase/migrations/`. Never click-edit columns in the Studio UI. (The old "apply to cloud via the Dashboard SQL Editor" step is dead — the cloud is parked.) |
 
-## Unified Frontend Architecture (Web + APK)
+## Frontend Architecture (web only)
 
-Single Nuxt codebase ships two products. **The APK row is historical** — its backend is the
-parked cloud project (see the banner above), so an APK built today talks to a database nothing
-writes to. The Web row is the live path.
+Capacitor, the Android/iOS projects and the APK were removed 2026-10-01 (owner; root CD #17 amended).
+The Supabase Edge Functions that served APK auth (`auth-*`) were removed with them.
 
-| Target | Data backend | Auth transport | Build command |
-|---|---|---|---|
-| **Web** (`npm run dev`) | Local Supabase `127.0.0.1:54321` | `/api/auth/*` Nitro endpoints + httpOnly cookie | `nuxi dev` / `nuxi build` |
-| **APK** (`protero-release.apk`) | Cloud Supabase `twkhmatgjeiribbjxkis.supabase.co` | `/functions/v1/auth-*` Edge Functions + localStorage Bearer JWT | `CAPACITOR_BUILD=true nuxi generate && npx cap sync android && gradlew assembleRelease` |
-
-- `useAuthEndpoint(action)` routes auth calls: returns `/api/auth/${action}` in web mode, `${supabaseUrl}/functions/v1/auth-${action}` when `runtimeConfig.public.capacitor` is true (set by the `CAPACITOR_BUILD=true` env var).
+- Backend: local Supabase `127.0.0.1:54321`. Auth: `/api/auth/*` Nitro endpoints + httpOnly cookie (`useAuthEndpoint(action)` returns that path).
 - `useSupabaseClient()` attaches the stored JWT (from `useAuthToken()` → `localStorage['protero.access_token']`) on every Supabase call via the `accessToken` callback.
 - All data reads go through `useApi` composable helpers — direct Supabase queries, gated by RLS.
-- Edge Function sources live in `supabase-local/supabase/functions/auth-{login,register,logout,me}/` + `_shared/{jwt.ts,util.ts}`. Not deployed — the cloud project they target is parked (CD #34).
-- APK artifacts: `protero-debug.apk` (18MB) + `protero-release.apk` (17MB, signed with `android/protero-release.keystore`). Git-ignored; see `docs/plans/capacitor-decision.md`.
 
 ## Project Map
 
@@ -55,7 +47,6 @@ protero-frontend/
 ├── nuxt.config.ts          Nuxt 3 config (SPA, Nuxt UI, runtime env)
 ├── app.config.ts           UI theme: primary=blue, gray=neutral
 ├── tailwind.config.cjs     Custom dark palette (surface, edge colors)
-├── capacitor.config.json   Android app: com.protero.app
 │
 ├── pages/                  13 routes (see Routes section)
 ├── components/             67 components organized by domain
@@ -69,12 +60,12 @@ protero-frontend/
 │   └── (root)              7 — Sidebar, BottomNav, etc.
 
 ├── composables/            14 — useApi, useAuth, useAuthEndpoint, useAuthToken,
-│                           useSupabaseClient, useCapacitor, useSwr, useTwins,
+│                           useSupabaseClient, useSwr, useTwins,
 │                           useLeagueStats, useStoiximanOcr, useStoiximanParser,
 │                           useCountUp (motion count-up)
 ├── layouts/                1 — default (sidebar + bottom nav)
 ├── middleware/             1 — auth (redirects to /login when unauthenticated)
-├── plugins/                2 — auth.client, capacitor.client
+├── plugins/                1 — auth.client
 ├── types/                  1 — database.ts (Supabase schema types)
 ├── utils/                  10 — cache, constants, dateTime, design-tokens,
 │                           formatters, season, teamLogo, wallet-meta, bet-label,
@@ -87,7 +78,7 @@ protero-frontend/
 ├── database/migrations/    20 SQL files (schema history, not actively run)
 ├── supabase/functions/     Edge Function sources live in supabase-local/ (repo root)
 ├── public/data/            Team logos (basketball only), league logos, manifest
-├── assets/css/             tailwind.css with Capacitor mobile overrides
+├── assets/css/             tailwind.css
 ├── tools/audit/            Playwright page-audit harness (crawl.mjs, check.mjs)
 └── archive/                Old OCR components, scraping tools, 50+ legacy docs
 ```
@@ -150,11 +141,11 @@ protero-frontend/
 |------------|------------|
 | `useApi()` | **The single data layer.** All client-side Supabase queries — `fetchWallets`, `fetchWalletPerformance`, `fetchGames`, `fetchLeague`, `fetchWalletStats`, etc. Numeric wallet figures come from `get_wallet_performance` RPC only. |
 | `useAuth()` | `user`, `isAuthenticated`, `isAdmin`, `login()`, `logout()`, `register()`, `checkAuth()`. Session stored as httpOnly cookie. |
-| `useAuthEndpoint()` | Routes auth calls: `/api/auth/*` on web, `${supabaseUrl}/functions/v1/auth-*` when `CAPACITOR_BUILD=true`. |
+| `useAuthEndpoint()` | Returns `/api/auth/<action>`. |
 | `useAuthToken()` | JWT storage in `localStorage['protero.access_token']`. |
 | `useSupabaseClient()` | Supabase client with the stored JWT attached via `accessToken` callback. |
 | `useLeagueStats()` | `computedStandings`, `roundStatistics`, `overallStats`. Pure computation from games array. |
-| `useSwr()` | SWR cache (memory + `@capacitor/preferences` persist). |
+| `useSwr()` | SWR cache (memory + localStorage persist). |
 | `useTwins()` | Entity-layer fetchers for `twin_*` — incl. `fetchTwinLeague(key)` and `fetchLeagueTransitions(key)` for the league twin. |
 
 ## Key Patterns
@@ -167,7 +158,7 @@ protero-frontend/
 
 **Operator-first.** The owner is the only user. No subscription gate, no credits — the operator sees everything. Optimise for information density, not onboarding.
 
-**Desktop only — no mobile work (owner, 2026-09-29).** Do not design, test, screenshot or audit mobile/small-screen layouts, and do not fold responsive fixes into a task. The existing bottom nav and safe-area CSS stay as they are but are not maintained. Capacitor's fate is still `docs/plans/capacitor-decision.md`.
+**Desktop only — no mobile work (owner, 2026-09-29).** Do not design, test, screenshot or audit mobile/small-screen layouts, and do not fold responsive fixes into a task. The existing bottom nav and safe-area CSS stay as they are but are not maintained.
 
 **One screen, no scroll (owner, 2026-09-29).** It is a web app: a page — and every game tab — should read at 1920×1080 without scrolling. Lay content out in columns (Market = 4 markets in a row; Analysis = 4 cards; Prediction = 3 panels) and move explanations into tooltips instead of paragraphs. Verify by comparing `main.scrollHeight` with `clientHeight`, not by eye.
 
@@ -222,16 +213,6 @@ npm run dev          # nuxi dev — http://localhost:3000
 # Production build
 npm run build        # nuxi build
 npm run start        # nuxi preview (serves .output/)
-
-# Mobile (Android via Capacitor)
-npm run apk:generate       # CAPACITOR_BUILD=true nuxi generate (static .output/public)
-npm run apk:sync           # npx cap sync android
-npm run apk:open           # opens Android Studio
-npm run apk:build:debug    # gradlew assembleDebug  → app-debug.apk (~18MB)
-npm run apk:build:release  # gradlew assembleRelease → app-release.apk (~17MB, signed)
-
-# Edge Functions (cloud auth for APK) — DEAD while the cloud is parked (CD #34).
-# The cloud project is inactive; do not deploy. See docs/plans/capacitor-decision.md.
 ```
 
 ## Agent Failure Modes
@@ -382,6 +363,5 @@ future change:
 
 | Item | Status | Notes |
 |---|---|---|
-| APK safe-area / notch clipping | known bug | `pt-[env(safe-area-inset-top)]` missing on top bar in `layouts/default.vue`; logo clips because `overlaysWebView: true` — only relevant if mobile is revived (see `docs/plans/capacitor-decision.md`) |
 | Dashboard request budget | queued | RPC `get_dashboard_bundle(...)` — today's dashboard fires several requests |
 

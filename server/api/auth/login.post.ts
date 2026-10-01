@@ -75,7 +75,7 @@ export default defineEventHandler(async (event) => {
     })
 
     // Issue Supabase-compatible JWT (HS256) so direct supabase-js calls from
-    // the browser / Capacitor APK pass RLS via `Authorization: Bearer <token>`.
+    // the browser passes RLS via `Authorization: Bearer <token>`.
     const supabaseToken = signUserToken(user.id)
 
     return {

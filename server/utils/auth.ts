@@ -1,7 +1,7 @@
 /**
  * Server-side auth helpers.
  * Mirrors the dual-mode pattern from /server/api/auth/me.get.ts:
- *   1. Bearer JWT (Capacitor APK + direct supabase-js)
+ *   1. Bearer JWT (direct supabase-js)
  *   2. session_id cookie (web SSR)
  *
  * Use `getOptionalUserId(event)` for endpoints that work for both

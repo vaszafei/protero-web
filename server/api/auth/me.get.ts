@@ -6,7 +6,7 @@ import { signUserToken, verifyUserToken, extractBearerToken } from '~/server/uti
  *
  * Accepts EITHER:
  *   1. A Supabase-RLS JWT in the `Authorization: Bearer <token>` header
- *      (preferred — used by Capacitor APK and direct supabase-js calls).
+ *      (preferred — used by direct supabase-js calls).
  *   2. The legacy `session_id` cookie (used by SSR + same-origin web).
  *
  * Always returns a fresh `access_token` so the client can rotate quietly.

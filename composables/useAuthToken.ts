@@ -1,8 +1,7 @@
 /**
  * Token storage for the custom-auth JWT.
  *
- * Stored in `localStorage` so it survives reloads and can later be swapped
- * for `@capacitor/preferences` in the APK build. A reactive `useState`
+ * Stored in `localStorage` so it survives reloads. A reactive `useState`
  * mirror keeps the Supabase client's `accessToken` callback in sync without
  * requiring a re-render.
  */

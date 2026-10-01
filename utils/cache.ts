@@ -3,12 +3,10 @@
  *
  * Layers:
  *   1. memory    — Map<key,{data,ts}>, lost on app kill
- *   2. persistent — Capacitor Preferences (native) / localStorage (web fallback),
- *                   survives restarts. Used for small, rarely-changing payloads.
+ *   2. persistent — localStorage, survives restarts. Used for small,
+ *                   rarely-changing payloads.
  *
  * Design goals:
- *   - Zero dependency on @capacitor/preferences at import time (loaded lazily
- *     so the util works in web builds without the native plugin installed).
  *   - Request dedup via an in-flight promise map (coalesce concurrent fetches
  *     of the same key into one network round-trip).
  *   - Explicit tag-based invalidation (e.g. invalidate('games:*') on bet place).
@@ -28,22 +26,6 @@ const memStore = new Map<string, CacheEntry>()
 const inflight = new Map<string, Promise<unknown>>()
 
 const PERSIST_PREFIX = 'protero.cache.'
-
-// ─── Capacitor Preferences (lazy) ─────────────────────────
-let prefsPromise: Promise<any> | null = null
-async function getPrefs() {
-  if (typeof window === 'undefined') return null
-  if (prefsPromise) return prefsPromise
-  prefsPromise = (async () => {
-    try {
-      const mod = await import('@capacitor/preferences')
-      return mod.Preferences
-    } catch {
-      return null
-    }
-  })()
-  return prefsPromise
-}
 
 // ─── Memory layer ─────────────────────────────────────────
 export function getMem<T>(key: string): CacheEntry<T> | undefined {
@@ -65,10 +47,7 @@ export async function getPersist<T>(key: string): Promise<CacheEntry<T> | undefi
   if (typeof window === 'undefined') return undefined
   const fullKey = PERSIST_PREFIX + key
   try {
-    const prefs = await getPrefs()
-    const raw = prefs
-      ? (await prefs.get({ key: fullKey })).value
-      : window.localStorage.getItem(fullKey)
+    const raw = window.localStorage.getItem(fullKey)
     if (!raw) return undefined
     const parsed = JSON.parse(raw) as CacheEntry<T>
     if (parsed.expiresAt < Date.now()) {
@@ -87,12 +66,7 @@ export async function setPersist<T>(key: string, data: T, ttlMs: number): Promis
   const entry: CacheEntry<T> = { data, expiresAt: Date.now() + ttlMs }
   const raw = JSON.stringify(entry)
   try {
-    const prefs = await getPrefs()
-    if (prefs) {
-      await prefs.set({ key: fullKey, value: raw })
-    } else {
-      window.localStorage.setItem(fullKey, raw)
-    }
+    window.localStorage.setItem(fullKey, raw)
   } catch {
     // Storage full or blocked — fail silently, memory layer still works.
   }
@@ -102,9 +76,7 @@ async function removePersist(key: string): Promise<void> {
   if (typeof window === 'undefined') return
   const fullKey = PERSIST_PREFIX + key
   try {
-    const prefs = await getPrefs()
-    if (prefs) await prefs.remove({ key: fullKey })
-    else window.localStorage.removeItem(fullKey)
+    window.localStorage.removeItem(fullKey)
   } catch { /* ignore */ }
 }
 
@@ -129,25 +101,13 @@ export async function invalidate(keyOrPattern: string): Promise<void> {
   // Persistent
   if (typeof window !== 'undefined') {
     try {
-      const prefs = await getPrefs()
-      if (prefs) {
-        const { keys } = await prefs.keys()
-        for (const k of (keys || [])) {
-          if (!k.startsWith(PERSIST_PREFIX)) continue
-          const bare = k.slice(PERSIST_PREFIX.length)
-          if (prefix ? bare.startsWith(prefix) : bare === keyOrPattern) {
-            await prefs.remove({ key: k })
-          }
-        }
-      } else {
-        const ls = window.localStorage
-        for (let i = ls.length - 1; i >= 0; i--) {
-          const k = ls.key(i)
-          if (!k || !k.startsWith(PERSIST_PREFIX)) continue
-          const bare = k.slice(PERSIST_PREFIX.length)
-          if (prefix ? bare.startsWith(prefix) : bare === keyOrPattern) {
-            ls.removeItem(k)
-          }
+      const ls = window.localStorage
+      for (let i = ls.length - 1; i >= 0; i--) {
+        const k = ls.key(i)
+        if (!k || !k.startsWith(PERSIST_PREFIX)) continue
+        const bare = k.slice(PERSIST_PREFIX.length)
+        if (prefix ? bare.startsWith(prefix) : bare === keyOrPattern) {
+          ls.removeItem(k)
         }
       }
     } catch { /* ignore */ }

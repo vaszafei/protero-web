@@ -65,10 +65,6 @@ export default defineNuxtConfig({
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
-      // True when this build is wrapped by Capacitor (APK).
-      // When true, useAuth() routes through Supabase Edge Functions
-      // (`/functions/v1/auth-*`) instead of Nitro `/api/auth/*`.
-      capacitor: process.env.CAPACITOR_BUILD === 'true',
     }
   }
 })
