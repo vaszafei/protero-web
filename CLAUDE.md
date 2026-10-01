@@ -213,6 +213,10 @@ npm run dev          # nuxi dev — http://localhost:3000
 # Production build
 npm run build        # nuxi build
 npm run start        # nuxi preview (serves .output/)
+
+# Tests — vitest, pure money/probability utils (tests/*.test.ts, no Nuxt runtime)
+npm test
+node ../scripts/check-frontend-honesty.mjs   # static honesty gate (also in scripts/gates.sh)
 ```
 
 ## Agent Failure Modes
