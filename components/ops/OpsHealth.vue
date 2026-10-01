@@ -39,9 +39,8 @@
 /**
  * Pipeline health.
  *
- * `pipeline_runs` is written by the production finalize step, so it is live.
- * `phase_runs` is not (last row 2026-05-02, DAG runner only) and is therefore
- * absent. Staleness is computed here rather than trusted from `status`: a
+ * `pipeline_runs` is written by the production finalize step, so it is live
+ * (and, since 2026-10-01, its steps in `phase_runs`). Staleness is computed here rather than trusted from `status`: a
  * pipeline that stopped firing keeps its last row's "warnings" forever, which
  * reads as healthy.
  */

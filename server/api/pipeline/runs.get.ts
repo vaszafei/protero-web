@@ -6,10 +6,10 @@ import { PIPELINES, isPipelineActive } from '~/server/utils/pipeline'
  * GET /api/pipeline/runs?pipeline=football — one pipeline's latest run plus
  * the phases it executed.
  *
- * The Python DAG runner writes `pipeline_runs` + `phase_runs`; the bash
- * pipeline writes only a `pipeline_runs` summary. Phases render only where
- * they exist — a bash-only run shows its summary row and "no phase telemetry",
- * never a fabricated breakdown.
+ * The bash pipelines write one `pipeline_runs` row plus a `phase_runs` row per
+ * step when they finish (pipeline-report.js, since 2026-10-01). Phases render
+ * only where they exist — an older run shows its summary row and "no phase
+ * telemetry", never a fabricated breakdown.
  */
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)

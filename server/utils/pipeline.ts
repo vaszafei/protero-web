@@ -1,26 +1,24 @@
-import { spawn, ChildProcess } from 'node:child_process'
+import { spawn, spawnSync, ChildProcess } from 'node:child_process'
 import { openSync, closeSync } from 'node:fs'
 
 /**
- * Spawns the Python DAG runner (`python3 -m protero_pipeline run <sport>`),
- * which is the only pipeline that persists per-phase telemetry to
- * `phase_runs`. The bash pipelines write one `pipeline_runs` summary row but
- * no phase detail, so the console's "what was run" modal reads the DAG
- * runner's phases.
+ * Spawns the production bash pipeline (`protero-tools/pipeline/protero-<sport>.sh`),
+ * the same script the systemd timer runs. It writes one `pipeline_runs` row and
+ * its step rows in `phase_runs` when it finishes (pipeline-report.js), which is
+ * what the console's "what was run" modal reads. It used to spawn the Python DAG
+ * runner, archived 2026-09-22 (#17).
  *
  * The child is detached and unref'd so the Nitro request returns immediately
  * while the pipeline keeps running. Progress is read back from `pipeline_runs`
  * / `phase_runs` by the client polling `/api/pipeline/runs` — never from the
  * child's stdout.
  *
- * Safety: one run per pipeline at a time. `activeRuns` is in-process state and
- * is also re-checked against a live `running` row in `pipeline_runs` (a row
- * written by the runner the moment it starts), so a crashed Nitro process
- * cannot leave a second runner running over the first.
+ * Safety: one run per pipeline at a time. `activeRuns` is in-process state, and
+ * the systemd unit is asked too, so the button cannot start a second run over
+ * the timer's.
  */
 
 const REPO = '/home/zafnitlab/Desktop/Projects/protero'
-const VENV_PY = `${REPO}/.venv/bin/python3`
 const NVM_BIN = '/home/zafnitlab/.nvm/versions/node/v22.22.0/bin'
 
 export const PIPELINES = ['football', 'basketball'] as const
@@ -38,20 +36,19 @@ const activeRuns = new Map<Pipeline, ActiveRun>()
 const MAX_RUN_MS = 2 * 60 * 60 * 1000 // 2h
 
 export function spawnPipelineRun(pipeline: Pipeline, dryRun: boolean): ActiveRun {
-  const args = ['-m', 'protero_pipeline', 'run', pipeline]
+  const args = [`${REPO}/protero-tools/pipeline/protero-${pipeline}.sh`]
   if (dryRun) args.push('--dry-run')
 
   const logPath = `/tmp/protero-pipeline-${pipeline}-${Date.now()}.log`
   const out = openSync(logPath, 'a')
 
-  const child: ChildProcess = spawn(VENV_PY, args, {
+  const child: ChildProcess = spawn('/bin/bash', args, {
     cwd: REPO,
     detached: true,
     stdio: ['ignore', out, out],
     env: {
       ...process.env,
       PYTHONUNBUFFERED: '1',
-      // The runner shells out to psql (persistence.py) and node (phase cmds).
       PATH: `${NVM_BIN}:/usr/local/bin:/usr/bin:/bin`,
     },
   })
@@ -73,7 +70,7 @@ export function spawnPipelineRun(pipeline: Pipeline, dryRun: boolean): ActiveRun
   return run
 }
 
-/** Is a run of this pipeline in flight? (in-process OR a live DB row) */
+/** Is a run of this pipeline in flight? (in-process OR the systemd unit) */
 export function isPipelineActive(pipeline: Pipeline): boolean {
   const run = activeRuns.get(pipeline)
   if (run) {
@@ -81,7 +78,8 @@ export function isPipelineActive(pipeline: Pipeline): boolean {
     if (Date.now() - run.startedAt < MAX_RUN_MS) return true
     activeRuns.delete(pipeline)
   }
-  return false
+  // `is-active` exits 0 only while the timer's run is going (also 'activating').
+  return spawnSync('systemctl', ['is-active', '--quiet', `protero-${pipeline}.service`]).status === 0
 }
 
 export function activeLogPath(pipeline: Pipeline): string | null {

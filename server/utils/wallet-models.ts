@@ -28,6 +28,7 @@ export const WALLET_MODEL_MAP: Record<number, string[]> = {
   28: ['nba_v5_ts'],                        // Trader: NBA Thompson
   29: ['props_v2_manual'],                  // Trader: EuroLeague Player Props
   58: ['props_v2_manual'],                  // Trader: EuroCup Player Props
+  59: ['props_v2_manual'],                  // Trader: EuroLeague Props (auto) — posts itself
   31: ['euroleague_v5_ts'],                 // Trader: EuroLeague Thompson
   32: ['euroleague_v6_aif', 'gbl_v6_aif', 'acb_v6_aif'], // Trader: Niche Leagues
   // W27 (The Banker) and W30 (The Sniper) have no production picker and emit no

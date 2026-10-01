@@ -1,24 +1,30 @@
 /**
  * POST /api/fantasy/slates/[id]/generate
  *
- * Generate picks for a stored slate. Shells out to the Python Track O core
- * (`ml.fantasy.generate`), which reads the slate + its players from the DB,
- * runs the optimiser, and writes the resulting lineups to `fantasy_entries`.
+ * Generate picks for a stored slate. Shells out to the Python Track O core —
+ * `ml.fantasy.generate` for football leagues, `fantasy.generate` (ml-basketball) for
+ * EuroLeague/NBA — which reads the slate + its players from the DB, runs the optimiser,
+ * and writes the resulting lineups to `fantasy_entries` (same table/shape for both sports,
+ * so the slate-detail page renders either without branching).
  *
  * The child is detached and unref'd (same pattern as pipeline.ts) so the
  * request returns immediately; the client re-polls the slate to see the
  * entries appear. One generation per slate at a time is enforced in-process.
  *
- * The projection is the M4-failed model, so the generated lineups are
- * honest-labelled as mean-projection picks, not a demonstrated edge.
+ * Neither sport's projection has a demonstrated edge (football failed its M4 holdout;
+ * basketball's points b=+0.08, rebounds hint fails k=115), so generated lineups are
+ * honest-labelled as mean-projection picks, not a result.
  */
 import { spawn } from 'node:child_process'
 import { openSync, closeSync } from 'node:fs'
 import { requireUserId } from '~/server/utils/auth'
+import { getSupabase } from '~/server/utils/supabase'
 
 const REPO = '/home/zafnitlab/Desktop/Projects/protero'
 const VENV_PY = `${REPO}/.venv/bin/python3`
-const ML_DIR = `${REPO}/protero-ml`
+const FOOTBALL_ML_DIR = `${REPO}/protero-ml`
+const BASKETBALL_ML_DIR = `${REPO}/protero-ml/ml-basketball`
+const BASKETBALL_LEAGUES = new Set(['euroleague', 'nba'])
 
 const active = new Map<number, number>() // slate_id -> startedAt
 
@@ -37,13 +43,22 @@ export default defineEventHandler(async (event) => {
   }
   active.set(slateId, now)
 
+  const { data: slate } = await getSupabase()
+    .from('fantasy_slates')
+    .select('league_key')
+    .eq('id', slateId)
+    .maybeSingle()
+  const isBasketball = BASKETBALL_LEAGUES.has(slate?.league_key || '')
+  const mlModule = isBasketball ? 'fantasy.generate' : 'ml.fantasy.generate'
+  const mlDir = isBasketball ? BASKETBALL_ML_DIR : FOOTBALL_ML_DIR
+
   const logPath = `/tmp/protero-fantasy-${slateId}-${now}.log`
   const out = openSync(logPath, 'a')
   const child = spawn(
     VENV_PY,
-    ['-m', 'ml.fantasy.generate', '--slate-id', String(slateId), '--n-lineups', String(nLineups)],
+    ['-m', mlModule, '--slate-id', String(slateId), '--n-lineups', String(nLineups)],
     {
-      cwd: ML_DIR,
+      cwd: mlDir,
       detached: true,
       stdio: ['ignore', out, out],
       env: { ...process.env, PYTHONUNBUFFERED: '1' },

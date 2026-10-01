@@ -18,12 +18,28 @@
       >
         <div class="flex items-center gap-2">
           <span class="text-[10px] text-zinc-600 tabular-nums w-12 flex-shrink-0">{{ shortDate(r.date) }}</span>
-          <span class="text-xs text-zinc-300 truncate flex-1">
+          <span class="text-xs text-zinc-300 truncate flex-1 inline-flex items-center gap-1">
+            <img
+              v-if="logoUrl(r.home_key)"
+              :src="logoUrl(r.home_key)"
+              loading="lazy" width="14" height="14"
+              class="w-[14px] h-[14px] object-contain flex-shrink-0"
+              :alt="r.home_team"
+              @error="hideImg"
+            />
             <span :class="isBlind(r, 'home') ? 'text-amber-300' : ''">{{ r.home_team }}</span>
-            <span class="text-zinc-600 mx-1">v</span>
+            <span class="text-zinc-600 mx-0.5">v</span>
+            <img
+              v-if="logoUrl(r.away_key)"
+              :src="logoUrl(r.away_key)"
+              loading="lazy" width="14" height="14"
+              class="w-[14px] h-[14px] object-contain flex-shrink-0"
+              :alt="r.away_team"
+              @error="hideImg"
+            />
             <span :class="isBlind(r, 'away') ? 'text-amber-300' : ''">{{ r.away_team }}</span>
           </span>
-          <span class="px-1 py-0.5 rounded text-[10px] font-semibold flex-shrink-0"
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0"
                 :class="r.blind_side === 'both' ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-300'">
             {{ r.blind_side === 'both' ? 'both clubs' : r.blind_side === 'home' ? 'home club' : 'away club' }}
           </span>
@@ -60,7 +76,9 @@
  * 55 of 56 cells scored negative against the close). This panel is the warning
  * surface they ARE good for, and must never be rendered as an edge signal.
  */
+import { getTeamLogoUrl } from '~/utils/teamLogo'
 import { prettyLeagueKey } from '~/utils/league-name'
+
 defineProps({
   rows: { type: Array, default: () => [] },
   total: { type: Number, default: 0 },
@@ -68,6 +86,14 @@ defineProps({
 
 function isBlind(r, side) {
   return r.blind_side === 'both' || r.blind_side === side
+}
+
+function logoUrl(teamKey) {
+  return getTeamLogoUrl(teamKey)
+}
+
+function hideImg(event) {
+  event.target.style.display = 'none'
 }
 
 function leagueLabel(key) {

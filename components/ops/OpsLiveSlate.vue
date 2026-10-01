@@ -30,8 +30,24 @@
           <tr v-for="r in rows" :key="r.id" class="row-hover">
             <td class="px-3 py-2 text-zinc-500 tabular-nums whitespace-nowrap">{{ kickoff(r.date) }}</td>
             <td class="px-3 py-2">
-              <NuxtLink :to="`/game/${r.game_id}`" class="text-zinc-200 hover:text-blue-400">
+              <NuxtLink :to="`/game/${r.game_id}`" class="inline-flex items-center gap-1 text-zinc-200 hover:text-blue-400">
+                <img
+                  v-if="logoUrl(r.home_key)"
+                  :src="logoUrl(r.home_key)"
+                  loading="lazy" width="14" height="14"
+                  class="w-[14px] h-[14px] object-contain flex-shrink-0"
+                  :alt="r.home"
+                  @error="hideImg"
+                />
                 {{ r.home }} <span class="text-zinc-600">v</span> {{ r.away }}
+                <img
+                  v-if="logoUrl(r.away_key)"
+                  :src="logoUrl(r.away_key)"
+                  loading="lazy" width="14" height="14"
+                  class="w-[14px] h-[14px] object-contain flex-shrink-0"
+                  :alt="r.away"
+                  @error="hideImg"
+                />
               </NuxtLink>
               <span class="ml-1.5 text-[10px] text-zinc-600">{{ leagueLabel(r.league_key) }}</span>
               <span
@@ -72,11 +88,20 @@
  */
 import { computed } from 'vue'
 import { betLabelShort } from '~/utils/bet-label'
+import { getTeamLogoUrl } from '~/utils/teamLogo'
 
 const props = defineProps({
   rows: { type: Array, default: () => [] },
   blindSpots: { type: Array, default: () => [] },
 })
+
+function logoUrl(teamKey) {
+  return getTeamLogoUrl(teamKey)
+}
+
+function hideImg(event) {
+  event.target.style.display = 'none'
+}
 
 /** game_id → which side carries a rating from another division. */
 const blind = computed(() => {
