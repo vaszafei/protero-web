@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 import { getCached, setCache } from '~/server/utils/cache'
 
 /**
@@ -10,6 +11,7 @@ import { getCached, setCache } from '~/server/utils/cache'
  */
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const body = await readBody(event) || {}
   const { leagueKey, season = 2025 } = body
   

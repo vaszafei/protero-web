@@ -48,6 +48,13 @@
     </div>
 
     <WalletAddRealBetModal v-model="showAddBet" :wallet-id="walletId" @saved="onBetLogged" />
+    <WalletPropsLoadModal
+      v-if="propsLeague"
+      v-model="showLoadProgress"
+      :date="slateDate"
+      :status="slate.status.value"
+      :error="slate.error.value"
+    />
 
     <div v-if="loading" class="flex-1 flex items-center justify-center">
       <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
@@ -65,6 +72,7 @@
       :date="slateDate"
       :status="slate.status.value"
       :error="slate.error.value"
+      :bankroll="wallet ? Number(wallet.balance) : null"
     />
 
     <div v-else class="flex-1 min-h-0 grid gap-3" :class="hasRightColumn
@@ -178,7 +186,7 @@
  *
  * **This page still loads the WHOLE roster's performance, on purpose.** The
  * verdict shown here is corrected for the cohort this wallet was picked from
- * (`utils/wallet-stats.scoreFamily`), and k is a property of that cohort, not
+ * (`utils/wallet-stats.scoreRoster`), and k is a property of that cohort, not
  * of this wallet — computing it from one row would silently reproduce the
  * uncorrected p, which is what makes W44 read EDGE at p=0.010 when its cohort
  * needs p<0.0045. The roster call is one RPC and it is what keeps this page
@@ -186,8 +194,10 @@
  */
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
-import { cohortOf, scoreFamily } from '~/utils/wallet-stats'
+import { cohortOf, scoreRoster } from '~/utils/wallet-stats'
 import { usePropsSlate, athensToday } from '~/composables/usePropsSlate'
+
+const apiFetch = useApiFetch()
 
 definePageMeta({ middleware: 'auth' })
 
@@ -293,38 +303,29 @@ const coverage = computed(() =>
   (tipsters.value?.authors || []).find(a => a.wallet_id === walletId.value) || null)
 
 const cohort = computed(() => wallet.value ? cohortOf(wallet.value) : 'legacy')
+const showLoadProgress = ref(false)
 function loadSlate() {
   view.value = 'slate'
+  showLoadProgress.value = true
   slate.load()
 }
 
-/** The other wallets in the same cohort, most-traded first. */
-const siblings = computed(() => {
-  const perfById = new Map(performance.value.map(p => [p.wallet_id, p]))
-  return allWallets.value
-    .filter(w => cohortOf(w) === cohort.value)
-    .sort((a, b) =>
-      Number(perfById.get(b.id)?.n_wagers || 0) - Number(perfById.get(a.id)?.n_wagers || 0)
-      || a.id - b.id)
-})
-
 /** Cohort-corrected verdict — see the module docstring. */
 const scored = computed(() => {
-  if (!wallet.value) return { verdict: 'n<10', family: null }
-  const perfById = new Map(performance.value.map(p => [p.wallet_id, p]))
-  const family = scoreFamily(siblings.value.map(w => ({
-    wallet_id: w.id,
-    p_luck: perfById.get(w.id)?.p_luck ?? null,
-    n_wagers: Number(perfById.get(w.id)?.n_wagers ?? 0),
-  })))
-  return { verdict: family.verdictById.get(wallet.value.id) ?? 'n<10', family }
+  const score = wallet.value
+    ? scoreRoster(allWallets.value, performance.value).get(wallet.value.id)
+    : null
+  return {
+    verdict: score?.verdict ?? 'n<10',
+    family: score ? { k: score.k, bonferroni: score.bar } : null,
+  }
 })
 
 async function loadRoster() {
   const [walletsData, p, tips] = await Promise.all([
     api.fetchWallets(),
     api.fetchWalletPerformance().catch(() => []),
-    $fetch('/api/wallet/tipsters').catch(() => null),
+    apiFetch('/api/wallet/tipsters').catch(() => null),
   ])
   allWallets.value = walletsData.wallets || []
   performance.value = p || []

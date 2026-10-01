@@ -199,6 +199,8 @@ import { ref, computed, watch } from 'vue'
 import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import UiTooltip from '~/components/ui/Tooltip.vue'
 
+const apiFetch = useApiFetch()
+
 const props = defineProps<{ gameId: number | string }>()
 
 const pm = ref<any>(null)
@@ -209,7 +211,7 @@ async function load() {
   pending.value = true
   error.value = null
   try {
-    pm.value = await $fetch<any>(`/api/game/${props.gameId}/post-mortem`)
+    pm.value = await apiFetch<any>(`/api/game/${props.gameId}/post-mortem`)
   } catch (e: any) {
     error.value = e?.data?.message || e?.message || 'Unknown error'
     pm.value = null

@@ -227,6 +227,8 @@
 import { ref, onMounted, watch } from 'vue'
 import Card from '~/components/ui/Card.vue'
 
+const apiFetch = useApiFetch()
+
 const props = defineProps({
   leagueKey: {
     type: String,
@@ -250,7 +252,7 @@ const fetchInsights = async () => {
   error.value = null
 
   try {
-    const response = await $fetch('/api/analytics/predictive-insights', {
+    const response = await apiFetch('/api/analytics/predictive-insights', {
       method: 'POST',
       body: {
         leagueKey: props.leagueKey,

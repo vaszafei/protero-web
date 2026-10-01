@@ -203,6 +203,8 @@ import Card from '~/components/ui/Card.vue'
 import StatCard from '~/components/ui/StatCard.vue'
 import FetchScheduledModal from '~/components/admin/FetchScheduledModal.vue'
 
+const apiFetch = useApiFetch()
+
 definePageMeta({
   middleware: 'auth'
 })
@@ -240,7 +242,7 @@ const handleLogout = async () => {
 // Load leagues
 const loadLeagues = async () => {
   try {
-    const data = await $fetch('/api/leagues')
+    const data = await apiFetch('/api/leagues')
     leagues.value = data.leagues || []
     // Auto-select Premier League as first tab
     if (leagues.value.length > 0) {
@@ -286,7 +288,7 @@ watch(selectedLeague, async (newLeague, oldLeague) => {
   
   // Fetch available seasons for this league
   try {
-    const seasonsData = await $fetch(`/api/seasons/${newLeague}`)
+    const seasonsData = await apiFetch(`/api/seasons/${newLeague}`)
     availableSeasons.value = seasonsData.seasons || []
     
     // Default to most recent season (first in the list, sorted DESC)
@@ -327,7 +329,7 @@ const loadMatches = async (leagueKey, season) => {
       url += `&season=${season}`
     }
     
-    const data = await $fetch(url, {
+    const data = await apiFetch(url, {
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -358,7 +360,7 @@ const refreshData = async () => {
         url += `&season=${selectedSeason.value}`
       }
       
-      const data = await $fetch(url)
+      const data = await apiFetch(url)
       leagueData.value = data
       matches.value = data.games || []
       

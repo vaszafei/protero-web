@@ -162,6 +162,8 @@
 import { nextTick } from 'vue'
 import { Pencil, BarChart2, Check, X, Globe, Download, RefreshCw, Trash2 } from 'lucide-vue-next'
 
+const apiFetch = useApiFetch()
+
 const props = defineProps({
   match: {
     type: Object,
@@ -226,7 +228,7 @@ const handleStatsSaved = () => {
 const saveUrlIfChanged = async () => {
   if (flashscoreUrl.value !== props.match.flashscore_url) {
     try {
-      await $fetch(`/api/admin/games/${props.match.id}`, {
+      await apiFetch(`/api/admin/games/${props.match.id}`, {
         method: 'PATCH',
         body: { flashscore_url: flashscoreUrl.value || null }
       })
@@ -256,7 +258,7 @@ const handlePaste = async (event) => {
     if (flashscoreUrl.value && flashscoreUrl.value !== props.match.flashscore_url) {
       console.log('Saving URL to Turso...')
       try {
-        const response = await $fetch(`/api/admin/games/${props.match.id}`, {
+        const response = await apiFetch(`/api/admin/games/${props.match.id}`, {
           method: 'PATCH',
           body: { flashscore_url: flashscoreUrl.value || null }
         })
@@ -306,7 +308,7 @@ const handleInput = async (event) => {
       console.log('Auto-saving URL via input event...')
       
       try {
-        const response = await $fetch(`/api/admin/games/${props.match.id}`, {
+        const response = await apiFetch(`/api/admin/games/${props.match.id}`, {
           method: 'PATCH',
           body: { flashscore_url: flashscoreUrl.value || null }
         })
@@ -334,7 +336,7 @@ const handleInput = async (event) => {
 const saveMatch = async () => {
   saving.value = true
   try {
-    await $fetch(`/api/admin/games/${props.match.id}`, {
+    await apiFetch(`/api/admin/games/${props.match.id}`, {
       method: 'PATCH',
       body: {
         home_goals: homeScore.value,
@@ -371,7 +373,7 @@ const deleteMatch = async () => {
 
   deleting.value = true
   try {
-    await $fetch(`/api/admin/games/${props.match.id}`, {
+    await apiFetch(`/api/admin/games/${props.match.id}`, {
       method: 'DELETE'
     })
     
@@ -627,7 +629,7 @@ const handleDrop = async (event) => {
   // Auto-save the URL
   try {
     console.log(`📤 Saving URL for game ${props.match.id}: ${url}`)
-    const response = await $fetch(`/api/admin/games/${props.match.id}`, {
+    const response = await apiFetch(`/api/admin/games/${props.match.id}`, {
       method: 'PATCH',
       body: { flashscore_url: url }
     })

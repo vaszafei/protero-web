@@ -188,7 +188,7 @@
             <div class="bet-sheet-handle" />
             <div class="flex items-start justify-between px-5 pt-3 pb-3 border-b border-edge/40">
               <div class="min-w-0">
-                <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-0.5">AI Pick</div>
+                <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-0.5">Prediction</div>
                 <h3 class="text-base font-bold text-zinc-100 leading-tight">{{ betSheetLong }}</h3>
               </div>
               <button @click="closeBetSheet" class="ml-3 w-8 h-8 rounded-full bg-surface-light flex items-center justify-center text-zinc-400 hover:text-zinc-200 flex-shrink-0">

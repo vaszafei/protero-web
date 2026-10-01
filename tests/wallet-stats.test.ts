@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ALPHA, cohortOf, scoreFamily, type Scored } from '../utils/wallet-stats'
+import { ALPHA, cohortOf, roiInk, scoreFamily, scoreRoster, type Scored } from '../utils/wallet-stats'
 
 // wallets.archetype / wallets.lifecycle as they stand in the local DB, 2026-10-01.
 const T = 'trader'
@@ -115,5 +115,60 @@ describe('scoreFamily', () => {
     const r = scoreFamily(family([null, null]))
     expect(r.k).toBe(0)
     expect([...r.verdictById.values()]).toEqual(['n<10', 'n<10'])
+  })
+})
+
+describe('scoreRoster', () => {
+  const trader = (id: number) => ({ id, archetype: null, lifecycle: 'trader' })
+  const incubation = (id: number) => ({ id, archetype: null, lifecycle: 'incubation' })
+  const mirror = (id: number) => ({ id, archetype: 'external_tipster', lifecycle: 'dormant' })
+  const perf = (wallet_id: number, p_luck: number | null): Scored =>
+    ({ wallet_id, p_luck, n_wagers: p_luck == null ? 3 : 100 })
+
+  it('scores each cohort with its own k', () => {
+    const wallets = [trader(26), incubation(53), incubation(55), incubation(56), mirror(33), mirror(34)]
+    const r = scoreRoster(wallets, [perf(26, 0.5), perf(53, 0.4), perf(55, 0.5), perf(56, 0.6), perf(33, 0.3), perf(34, 0.2)])
+    expect(r.get(26)).toMatchObject({ cohort: 'ours', k: 1 })
+    expect(r.get(53)).toMatchObject({ cohort: 'incubation', k: 3 })
+    expect(r.get(33)).toMatchObject({ cohort: 'mirror', k: 2 })
+    expect(r.get(53)!.bar).toBeCloseTo(0.05 / 3, 12)
+  })
+
+  it('reads W53 as LUCK, not the RPC hint, at p=0.129 in an incubation cohort', () => {
+    const wallets = [incubation(53), incubation(55), incubation(56), incubation(57)]
+    const r = scoreRoster(wallets, [perf(53, 0.129), perf(55, 0.5), perf(56, 0.6), perf(57, 0.7)])
+    expect(r.get(53)!.verdict).toBe('LUCK')
+  })
+
+  it('gives n<10 wallets (no p-value) the n<10 verdict and keeps them out of k', () => {
+    const r = scoreRoster([incubation(53), incubation(59)], [perf(53, 0.5), perf(59, null)])
+    expect(r.get(59)).toMatchObject({ verdict: 'n<10', k: 1 })
+  })
+
+  it('reads a wallet with no performance row as n<10', () => {
+    expect(scoreRoster([trader(27)], []).get(27)!.verdict).toBe('n<10')
+  })
+
+  it('is the same verdict for a wallet whatever else is on the screen, given the same roster', () => {
+    const wallets = [trader(26), incubation(53), incubation(55), mirror(33)]
+    const p = [perf(26, 0.5), perf(53, 0.129), perf(55, 0.4), perf(33, 0.01)]
+    const a = scoreRoster(wallets, p)
+    const b = scoreRoster([...wallets].reverse(), [...p].reverse())
+    for (const w of wallets) expect(b.get(w.id)).toEqual(a.get(w.id))
+  })
+})
+
+describe('roiInk', () => {
+  it('mutes a figure under ten wagers: no sign colour, with the tooltip', () => {
+    const ink = roiInk(89.67, 'n<10')
+    expect(ink.class).not.toMatch(/emerald|red/)
+    expect(ink.title).toBe('n<10 — not a result')
+    expect(roiInk(-40, 'n<10').class).not.toMatch(/emerald|red/)
+  })
+
+  it('keeps the sign colour once there is a verdict', () => {
+    expect(roiInk(4, 'LUCK').class).toMatch(/emerald/)
+    expect(roiInk(-4, 'LUCK').class).toMatch(/red/)
+    expect(roiInk(null, 'LUCK').class).toMatch(/zinc-600/)
   })
 })

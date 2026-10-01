@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 import { getCached, setCache, invalidateCache } from '~/server/utils/cache'
 import { getOptionalUserId } from '~/server/utils/auth'
 import {
@@ -9,6 +10,7 @@ import {
 import { currentSeason } from '~/utils/season'
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const slug = getRouterParam(event, 'slug')
   const { round, season } = getQuery(event)
   const supabase = getSupabase()

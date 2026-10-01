@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 import { fetchRawRecentFixtures, buildFormSide } from '~/server/utils/team-form'
 import { fetchTwinRatings } from '~/server/utils/twin-ratings'
 import { fetchCompetitionRules } from '~/server/utils/competition-rules'
@@ -53,6 +54,7 @@ function bettingStatus(sport: string, leagueKey: string) {
 }
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const gameId = Number(getRouterParam(event, 'id'))
   if (!Number.isFinite(gameId)) {
     throw createError({ statusCode: 400, message: 'Numeric game id required' })

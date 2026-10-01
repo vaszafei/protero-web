@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 import { getCached, setCache } from '~/server/utils/cache'
 import { currentSeason } from '~/utils/season'
 
@@ -6,6 +7,7 @@ import { currentSeason } from '~/utils/season'
 const CACHE_TTL = 180
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const query = getQuery(event)
 
   // Date window — defaults to -14 days … +60 days from today

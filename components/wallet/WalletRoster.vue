@@ -73,9 +73,9 @@
               <td class="px-2 py-2 text-right tabular-nums" :class="signClass(r.perf.pnl)">{{ signed(r.perf.pnl) }}</td>
               <td
                 class="px-2 py-2 text-right tabular-nums font-semibold"
-                :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic font-normal' : signClass(r.perf.roi_pct)"
+                :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic font-normal' : roiInk(r.perf.roi_pct, r.verdict).class"
                 :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE
-                      : priceBasisOf(r.id) === 'mixed' ? MIXED_PRICE_TITLE : undefined"
+                      : priceBasisOf(r.id) === 'mixed' ? MIXED_PRICE_TITLE : roiInk(r.perf.roi_pct, r.verdict).title"
               >
                 <template v-if="priceBasisOf(r.id) === 'synthetic'">{{ UNPRICED_LABEL }}</template>
                 <template v-else>
@@ -127,8 +127,8 @@
             <span class="text-zinc-500">n <span class="text-zinc-300">{{ r.perf.n_wagers }}</span></span>
             <span v-if="r.perf.n_pending" class="text-amber-400">{{ r.perf.n_pending }} open</span>
             <span
-              :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic' : signClass(r.perf.roi_pct)"
-              :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE : undefined"
+              :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic' : roiInk(r.perf.roi_pct, r.verdict).class"
+              :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE : roiInk(r.perf.roi_pct, r.verdict).title"
             >
               <template v-if="priceBasisOf(r.id) === 'synthetic'">ROI {{ UNPRICED_LABEL }}</template>
               <template v-else>ROI {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}<span
@@ -162,7 +162,7 @@
 <script setup>
 import { computed } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
-import { cohortOf, scoreFamily, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
+import { cohortOf, scoreRoster, roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
          priceBasisOf, UNPRICED_LABEL, UNPRICED_TITLE, MIXED_PRICE_TITLE } from '~/utils/wallet-stats'
 
 const props = defineProps({
@@ -232,6 +232,11 @@ const rows = computed(() => {
  * would let the 15-wallet tipster archive inflate the bar our own strategies
  * must clear, and vice versa — they are separate searches.
  */
+const scores = computed(() => scoreRoster(
+  props.wallets || [],
+  (props.performance || []).map(p => ({ wallet_id: p.wallet_id, p_luck: p.p_luck, n_wagers: p.n_wagers })),
+))
+
 const groups = computed(() => {
   const all = rows.value
   const inCohort = k => all.filter(r => cohortOf(r.raw) === k)
@@ -255,10 +260,11 @@ const groups = computed(() => {
       rows: legacy.sort(byVolume), showCoverage: false },
   ]
     .filter(g => g.rows.length > 0)
-    .map(g => ({ ...g, family: scoreFamily(g.rows.map(r => ({
-      wallet_id: r.id, p_luck: r.perf.p_luck, n_wagers: r.perf.n_wagers,
-    }))) }))
-    .map(g => ({ ...g, rows: g.rows.map(r => ({ ...r, verdict: g.family.verdictById.get(r.id) })) }))
+    .map(g => ({
+      ...g,
+      family: { k: scores.value.get(g.rows[0].id).k, bonferroni: scores.value.get(g.rows[0].id).bar },
+      rows: g.rows.map(r => ({ ...r, verdict: scores.value.get(r.id).verdict })),
+    }))
 })
 
 function money(v) {

@@ -178,6 +178,7 @@
 </template>
 
 <script setup lang="ts">
+const apiFetch = useApiFetch()
 /**
  * Add / edit a real-money slip (`user_real_bets`, CD #31).
  *
@@ -345,7 +346,7 @@ async function findFixture(leg: any) {
   leg._searching = true
   leg._candidates = null
   try {
-    const res = await $fetch<{ candidates: any[] }>('/api/fixtures/search', {
+    const res = await apiFetch<{ candidates: any[] }>('/api/fixtures/search', {
       query: { q: leg.match, date: leg.match_date, sport: leg.sport },
     })
     leg._candidates = res.candidates
@@ -437,7 +438,7 @@ async function save() {
       legs: form.value.legs.map(cleanLeg),
     }
     if (editingBet.value) {
-      await $fetch(`/api/user-real-bets/${editingBet.value.id}`, {
+      await apiFetch(`/api/user-real-bets/${editingBet.value.id}`, {
         method: 'PATCH',
         body: {
           status: payload.status,
@@ -447,9 +448,9 @@ async function save() {
         },
       })
     } else if (props.walletId) {
-      await $fetch(`/api/wallet/${props.walletId}/real-bet`, { method: 'POST', body: payload })
+      await apiFetch(`/api/wallet/${props.walletId}/real-bet`, { method: 'POST', body: payload })
     } else {
-      await $fetch('/api/user-real-bets', { method: 'POST', body: payload })
+      await apiFetch('/api/user-real-bets', { method: 'POST', body: payload })
     }
     toast.add({
       title: editingBet.value ? 'Bet updated' : 'Slip logged',

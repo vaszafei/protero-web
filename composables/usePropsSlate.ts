@@ -1,10 +1,6 @@
 /**
  * A player-props slate for one league and Athens date: its status, and "Load
  * props" (server/utils/props-slate.ts). Polls while a load runs.
- *
- * Sends the stored JWT as a Bearer header, like `useAuth().checkAuth()`: the app
- * counts a user as signed in on that token alone, so a request carrying only the
- * cookie answered 401 whenever the cookie was gone (2026-09-30).
  */
 import { ref, computed, watch, onBeforeUnmount, type Ref } from 'vue'
 
@@ -15,21 +11,17 @@ export function athensToday(): string {
 }
 
 export function usePropsSlate(league: Ref<string | null>, date: Ref<string>) {
-  const { getToken } = useAuthToken()
+  const apiFetch = useApiFetch()
   const status = ref<any>(null)
   const error = ref<string | null>(null)
   let timer: ReturnType<typeof setTimeout> | null = null
 
   const loading = computed(() => status.value?.job?.state === 'running')
-  const headers = () => {
-    const token = getToken()
-    return token ? { Authorization: `Bearer ${token}` } : undefined
-  }
   const message = (e: any, fallback: string) => e?.data?.statusMessage || e?.statusMessage || e?.message || fallback
 
   async function refresh() {
     try {
-      status.value = await $fetch('/api/props/slate/status', { query: { league: league.value, date: date.value }, headers: headers() })
+      status.value = await apiFetch('/api/props/slate/status', { query: { league: league.value, date: date.value } })
       error.value = null
     } catch (e: any) {
       error.value = message(e, 'status failed')
@@ -41,7 +33,7 @@ export function usePropsSlate(league: Ref<string | null>, date: Ref<string>) {
   async function load() {
     error.value = null
     try {
-      await $fetch('/api/props/slate/run', { method: 'POST', body: { league: league.value, date: date.value }, headers: headers() })
+      await apiFetch('/api/props/slate/run', { method: 'POST', body: { league: league.value, date: date.value } })
     } catch (e: any) {
       error.value = message(e, 'load failed to start')
     }

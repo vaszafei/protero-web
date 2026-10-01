@@ -73,6 +73,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { cohortOf } from '~/utils/wallet-stats'
 
+const apiFetch = useApiFetch()
+
 definePageMeta({ middleware: 'auth' })
 
 const toast = useToast()
@@ -118,7 +120,7 @@ onMounted(async () => {
     const [walletsData, perf, tips] = await Promise.all([
       api.fetchWallets(),
       api.fetchWalletPerformance().catch(() => []),
-      $fetch('/api/wallet/tipsters').catch(() => null),
+      apiFetch('/api/wallet/tipsters').catch(() => null),
     ])
     allWallets.value = walletsData.wallets || []
     performance.value = perf || []

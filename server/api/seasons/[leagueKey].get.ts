@@ -1,6 +1,8 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const leagueKey = getRouterParam(event, 'leagueKey')
   
   if (!leagueKey) {

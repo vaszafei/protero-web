@@ -1,6 +1,8 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const sessionId = getCookie(event, 'session_id')
   if (!sessionId) throw createError({ statusCode: 401, message: 'Not authenticated' })
 

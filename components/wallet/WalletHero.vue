@@ -24,9 +24,8 @@
           <p class="text-[10px] text-zinc-500 uppercase" title="Profit / turnover">ROI</p>
           <p
             class="text-sm font-bold tabular-nums"
-            :class="unpriced ? 'text-neutral-500 italic font-normal'
-                  : roi == null ? 'text-zinc-600' : roi >= 0 ? 'text-emerald-400' : 'text-red-400'"
-            :title="unpriced ? UNPRICED_TITLE : mixedPrice ? MIXED_PRICE_TITLE : undefined"
+            :class="unpriced ? 'text-neutral-500 italic font-normal' : roiInk(roi, verdict).class"
+            :title="unpriced ? UNPRICED_TITLE : mixedPrice ? MIXED_PRICE_TITLE : roiInk(roi, verdict).title"
           >
             <template v-if="unpriced">{{ UNPRICED_LABEL }}</template>
             <template v-else>{{ roi == null ? '—' : (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%'
@@ -98,7 +97,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
+import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
          priceBasisOf, UNPRICED_LABEL, UNPRICED_TITLE, MIXED_PRICE_TITLE } from '~/utils/wallet-stats'
 
 const props = defineProps({

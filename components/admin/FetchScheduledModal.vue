@@ -202,6 +202,8 @@ import {
   Calendar, AlertCircle, ArrowLeft, Save, RefreshCw, Zap 
 } from 'lucide-vue-next'
 
+const apiFetch = useApiFetch()
+
 const props = defineProps<{
   isOpen: boolean
 }>()
@@ -239,7 +241,7 @@ watch(() => props.isOpen, async (isOpen) => {
 
 async function loadLeagueStats() {
   try {
-    const response = await $fetch('/api/admin/league-stats')
+    const response = await apiFetch('/api/admin/league-stats')
     if (response.success) {
       leagueStats.value = response.stats
     }
@@ -274,7 +276,7 @@ async function fetchPreview(leagueKey: string) {
       ? '/api/admin/fetch-scores' 
       : '/api/admin/fetch-scheduled'
     
-    const response = await $fetch(endpoint, {
+    const response = await apiFetch(endpoint, {
       method: 'POST',
       body: { action: 'preview', leagueKey }
     })
@@ -322,7 +324,7 @@ async function saveGames() {
     
     const allGames = preview.value.rounds.flatMap((r: any) => r.games)
     
-    const response = await $fetch(endpoint, {
+    const response = await apiFetch(endpoint, {
       method: 'POST',
       body: {
         action: 'save',

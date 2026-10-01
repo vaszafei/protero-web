@@ -12,8 +12,8 @@
     <!-- ROI -->
     <div class="flex-shrink-0">
       <p class="text-[10px] text-zinc-500 uppercase tracking-wide">ROI</p>
-      <p :class="['text-sm font-bold leading-tight tabular-nums', roi == null ? 'text-zinc-600' : roiPositive ? 'text-emerald-400' : 'text-red-400']">
-        {{ roi == null ? '—' : (roiPositive ? '+' : '') + roi.toFixed(1) + '%' }}
+      <p :class="['text-sm font-bold leading-tight tabular-nums', ink.class]" :title="ink.title">
+        {{ roi == null ? '—' : (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%' }}
       </p>
     </div>
 
@@ -45,10 +45,12 @@
     </div>
 
     <!-- Verdict + p(luck) — ROI never travels alone -->
-    <div v-if="perf && perf.verdict !== 'n<10'" class="flex-shrink-0 flex items-center gap-1.5">
-      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="verdictClass(perf.verdict)">
-        {{ perf.verdict }}
-      </span>
+    <div v-if="perf && verdict !== 'n<10'" class="flex-shrink-0 flex items-center gap-1.5">
+      <span
+        class="text-[10px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap"
+        :class="VERDICT_CLASS[verdict]"
+        :title="`${VERDICT_TITLE[verdict]}${k > 1 ? ` Scored at k=${k}, needs p<${bar?.toFixed(4)}.` : ''}`"
+      >{{ VERDICT_LABEL[verdict] }}</span>
       <span v-if="perf.p_luck != null" class="text-[10px] text-zinc-500 tabular-nums">
         p={{ Number(perf.p_luck).toFixed(2) }}
       </span>
@@ -65,11 +67,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE, type FamilyVerdict } from '~/utils/wallet-stats'
 
 /**
  * The compact dashboard wallet card. Every number comes from
  * `get_wallet_performance` (via fetchWalletStats) — never computed here, never
- * read from the stale `wallets.roi` / `total_bets` columns.
+ * read from the stale `wallets.roi` / `total_bets` columns. The verdict is the
+ * cohort-corrected one fetchWalletStats scored; the RPC's own is never shown.
  */
 const props = defineProps<{
   walletStats: {
@@ -81,8 +85,10 @@ const props = defineProps<{
       n_won?: number
       n_pending?: number
       p_luck?: number | null
-      verdict?: string
     } | null
+    verdict?: FamilyVerdict
+    k?: number
+    bar?: number | null
   } | null
 }>()
 
@@ -94,7 +100,10 @@ function toNum(val: any): number {
 const balance = computed(() => toNum(props.walletStats?.wallet?.balance))
 const perf = computed(() => props.walletStats?.performance ?? null)
 const roi = computed(() => perf.value?.roi_pct == null ? null : Number(perf.value.roi_pct))
-const roiPositive = computed(() => (roi.value ?? 0) >= 0)
+const verdict = computed<FamilyVerdict>(() => props.walletStats?.verdict ?? 'n<10')
+const k = computed(() => props.walletStats?.k ?? 0)
+const bar = computed(() => props.walletStats?.bar ?? null)
+const ink = computed(() => roiInk(roi.value, verdict.value))
 const nWagers = computed(() => toNum(perf.value?.n_wagers))
 const nWon = computed(() => toNum(perf.value?.n_won))
 const lostBets = computed(() => Math.max(0, nWagers.value - nWon.value))
@@ -105,14 +114,6 @@ function formatCurrency(val: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val)
 }
 
-function verdictClass(v: string): string {
-  return {
-    EDGE:   'bg-emerald-500/15 text-emerald-300',
-    hint:   'bg-amber-500/15 text-amber-300',
-    LUCK:   'bg-zinc-700/40 text-zinc-400',
-    'n<10': 'bg-zinc-800/60 text-zinc-600',
-  }[v] || 'bg-zinc-800/60 text-zinc-600'
-}
 </script>
 
 <style scoped>

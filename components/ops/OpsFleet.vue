@@ -48,13 +48,19 @@
             <td class="px-2 py-2 text-right tabular-nums" :class="open(r) ? 'text-amber-400' : 'text-zinc-600'">
               {{ open(r) || '—' }}
             </td>
-            <td class="px-2 py-2 text-right tabular-nums font-semibold" :class="signClass(r.perf?.roi_pct)">
+            <td
+              class="px-2 py-2 text-right tabular-nums font-semibold"
+              :class="roiInk(r.perf?.roi_pct, r.verdict).class"
+              :title="roiInk(r.perf?.roi_pct, r.verdict).title"
+            >
               {{ r.perf?.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}
             </td>
             <td class="px-2 py-2 text-right">
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="verdictClass(r.perf?.verdict)">
-                {{ r.perf?.verdict || 'n<10' }}
-              </span>
+              <span
+                class="px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap"
+                :class="VERDICT_CLASS[r.verdict]"
+                :title="`${VERDICT_TITLE[r.verdict]}${r.k > 1 ? ` Scored at k=${r.k}, needs p<${r.bar.toFixed(4)}.` : ''}`"
+              >{{ VERDICT_LABEL[r.verdict] }}</span>
             </td>
           </tr>
         </tbody>
@@ -67,8 +73,9 @@
     </p>
 
     <p class="text-[10px] text-zinc-600 px-3 py-2 border-t border-edge/40 leading-relaxed">
-      ROI is profit over turnover. Verdict is the RPC's read of p(luck): EDGE below 0.05, hint below
-      0.20, LUCK above. Nothing here reaches EDGE — run
+      ROI is profit over turnover. The verdict is corrected for the cohort each wallet was scored in
+      (the same one /wallet shows), and a figure under ten settled wagers is greyed — it is not a
+      result. Nothing here reaches EDGE — run
       <code class="text-zinc-500">python3 -m common.wallet_significance</code> before quoting any of it.
     </p>
 
@@ -93,13 +100,16 @@
  * on an active persona reads as a quiet day, when in fact nothing can ever
  * write to it.
  *
- * The ROI and the verdict come from `get_wallet_performance`; the grey sub-line
+ * The ROI comes from `get_wallet_performance` and the verdict from
+ * `utils/wallet-stats.scoreRoster` (computed server-side, one per wallet — the RPC's
+ * own verdict is uncorrected for its cohort and is never rendered); the grey sub-line
  * comes from `wallet_scorecards`. They are two bases and are kept visibly apart
  * — a risk read is not a significance read, and the scorecard's own KEEP/PAUSE
  * verdict is NOT rendered, because it would sit beside the RPC's LUCK/EDGE
  * verdict in the same row saying a different thing about the same wallet.
  */
 import { computed } from 'vue'
+import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE } from '~/utils/wallet-stats'
 
 const props = defineProps({
   fleet: { type: Array, default: () => [] },
@@ -153,17 +163,5 @@ function signed(v) {
   return (x >= 0 ? '+' : '') + x.toFixed(2)
 }
 
-function signClass(v) {
-  if (v == null || Number(v) === 0) return 'text-zinc-600'
-  return Number(v) > 0 ? 'text-emerald-400' : 'text-red-400'
-}
 
-function verdictClass(v) {
-  return {
-    EDGE:   'bg-emerald-500/15 text-emerald-300',
-    hint:   'bg-amber-500/15 text-amber-300',
-    LUCK:   'bg-zinc-700/40 text-zinc-400',
-    'n<10': 'bg-zinc-800/60 text-zinc-600',
-  }[v] || 'bg-zinc-800/60 text-zinc-600'
-}
 </script>

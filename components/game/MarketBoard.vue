@@ -89,12 +89,14 @@ import UiProbBar from '~/components/ui/ProbBar.vue'
 import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import UiTooltip from '~/components/ui/Tooltip.vue'
 
+const apiFetch = useApiFetch()
+
 const props = defineProps<{ gameId: number | string }>()
 
 // Same key as GamePrediction, so switching tabs does not refetch.
 const { data: board, pending, error: fetchErr } = useSwr<any>(
   computed(() => `market:${props.gameId}`),
-  () => $fetch(`/api/game/${props.gameId}/market`),
+  () => apiFetch(`/api/game/${props.gameId}/market`),
   { memoryTtl: 2 * 60_000 },
 )
 const error = computed(() => (fetchErr.value as any)?.data?.message || fetchErr.value?.message || null)

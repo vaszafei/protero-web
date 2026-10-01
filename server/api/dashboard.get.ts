@@ -1,5 +1,7 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 import { enabledCells } from '~/server/utils/football-masks'
+import { scoreRoster } from '~/utils/wallet-stats'
 
 /**
  * GET /api/dashboard — the operator control room readout.
@@ -46,7 +48,8 @@ const PIPELINE_STALE_HOURS = 36
 /** `wallet_scorecards.window_days` sentinel for "every settled wager". */
 const LIFETIME_WINDOW = -1
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const supabase = getSupabase()
 
   const now = new Date()
@@ -82,8 +85,8 @@ export default defineEventHandler(async () => {
         placed_at, sport, strategy, notes,
         game:games!game_id(
           id, date, status, league_key,
-          home_team:teams!home_team_id(id, name),
-          away_team:teams!away_team_id(id, name)
+          home_team:teams!home_team_id(id, name, team_key),
+          away_team:teams!away_team_id(id, name, team_key)
         )
       `)
       .eq('status', 'pending')
@@ -150,6 +153,24 @@ export default defineEventHandler(async () => {
   const openParlays = openParlaysRes.data || []
   const settled = settledRes.data || []
   const risk = riskRes.data || []
+
+  // twin_fixture_risk has no team_key column (it carries names only) — fetch keys for the
+  // slice actually rendered (top 8) via a follow-up join on games, rather than altering the
+  // view for a display-only concern.
+  const riskGameIds = risk.slice(0, 8).map((r: any) => r.game_id)
+  const riskTeamKeys = new Map<number, { home_key: string | null; away_key: string | null }>()
+  if (riskGameIds.length) {
+    const { data: riskGames } = await supabase
+      .from('games')
+      .select('id, home_team:teams!home_team_id(team_key), away_team:teams!away_team_id(team_key)')
+      .in('id', riskGameIds)
+    for (const g of riskGames || []) {
+      riskTeamKeys.set(g.id, {
+        home_key: (g.home_team as any)?.team_key ?? null,
+        away_key: (g.away_team as any)?.team_key ?? null,
+      })
+    }
+  }
 
   // ── Parlay legs must not be counted as open singles ──────────────────
   // `parlay_legs` is the authority on what a leg is; `notes.parlay_id` is a
@@ -221,6 +242,8 @@ export default defineEventHandler(async () => {
       league_key: b.game.league_key,
       home: b.game.home_team?.name ?? null,
       away: b.game.away_team?.name ?? null,
+      home_key: b.game.home_team?.team_key ?? null,
+      away_key: b.game.away_team?.team_key ?? null,
       bet_type: b.bet_type,
       line: b.line,
       stake: Number(b.stake),
@@ -303,6 +326,11 @@ export default defineEventHandler(async () => {
   // would swamp a seven-wallet control room with rows an operator cannot act
   // on. They live on /wallet, where the coverage that qualifies their numbers
   // is rendered beside them.
+  // The verdict is scored against the WHOLE roster's cohorts (the mirrors are
+  // dropped from the fleet but not from the families they belong to), so the
+  // Fleet reads the same verdict /wallet does. The client renders, never derives.
+  const scores = scoreRoster(wallets, performance)
+
   const fleet = wallets
     .filter((w: any) => w.archetype !== 'external_tipster' && w.lifecycle !== 'user_mirror')
     .map((w: any) => ({
@@ -312,6 +340,9 @@ export default defineEventHandler(async () => {
       lifecycle: w.lifecycle,
       is_active: w.is_active,
       perf: perfById.get(w.id) || null,
+      verdict: scores.get(w.id)?.verdict ?? 'n<10',
+      k: scores.get(w.id)?.k ?? 0,
+      bar: scores.get(w.id)?.bar ?? null,
       risk: riskOf(scorecardByWallet.get(w.id)),
     }))
     .filter((w: any) => w.lifecycle === 'trader' || (w.perf && Number(w.perf.n_wagers) > 0))
@@ -363,7 +394,11 @@ export default defineEventHandler(async () => {
     pipelines,
     blind_spots: {
       total: risk.length,
-      rows: risk.slice(0, 8),
+      rows: risk.slice(0, 8).map((r: any) => ({
+        ...r,
+        home_key: riskTeamKeys.get(r.game_id)?.home_key ?? null,
+        away_key: riskTeamKeys.get(r.game_id)?.away_key ?? null,
+      })),
     },
   }
 })

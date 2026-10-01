@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * One player's season profile.
@@ -16,6 +17,7 @@ import { getSupabase } from '~/server/utils/supabase'
  * charts. Sport is resolved from which corpus holds the player.
  */
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const rawId = (getRouterParam(event, 'id') || '').trim()
   if (!rawId) {
     throw createError({ statusCode: 400, message: 'Player id required' })

@@ -11,6 +11,8 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 import { computed, reactive, ref } from 'vue'
 import { getTeamLogoUrl } from '~/utils/teamLogo'
 
+const apiFetch = useApiFetch()
+
 const route = useRoute()
 const slateId = route.params.slateId as string
 
@@ -21,7 +23,7 @@ const generating = ref(false)
 async function load() {
   loading.value = true
   try {
-    data.value = await $fetch(`/api/fantasy/slates/${slateId}`)
+    data.value = await apiFetch(`/api/fantasy/slates/${slateId}`)
   } catch (e) {
     console.warn('slate fetch failed:', e)
   } finally {
@@ -32,7 +34,7 @@ async function load() {
 async function generatePicks() {
   generating.value = true
   try {
-    await $fetch(`/api/fantasy/slates/${slateId}/generate`, {
+    await apiFetch(`/api/fantasy/slates/${slateId}/generate`, {
       method: 'POST',
       body: { n_lineups: 5 },
     })
@@ -66,7 +68,7 @@ const pickSaved = ref(false)
 
 async function loadUsers() {
   try {
-    const res = await $fetch('/api/fantasy/users')
+    const res = await apiFetch('/api/fantasy/users')
     users.value = res.users
   } catch (e) {
     console.warn('user list failed:', e)
@@ -99,7 +101,7 @@ async function saveManualPick() {
   savingPick.value = true
   pickSaved.value = false
   try {
-    await $fetch(`/api/fantasy/slates/${slateId}/manual-pick`, {
+    await apiFetch(`/api/fantasy/slates/${slateId}/manual-pick`, {
       method: 'POST',
       body: { user_id: pickUser.value, lineup },
     })
@@ -153,7 +155,7 @@ async function saveResult() {
   saving.value = true
   saved.value = false
   try {
-    await $fetch(`/api/fantasy/entries/${result.entry_id}/result`, {
+    await apiFetch(`/api/fantasy/entries/${result.entry_id}/result`, {
       method: 'POST',
       body: {
         actual_rank: result.actual_rank ?? null,
@@ -195,6 +197,11 @@ function clubLogoUrl(clubCode: string | null | undefined): string | null {
   const key = clubTeamKeys.value[clubCode]
   return getTeamLogoUrl(key)
 }
+
+// Basketball slates (EuroLeague/NBA) have no D3 map (fantasy_player_map is football-only) —
+// fantasy.dfs_slate does its own name/club matching at generate time instead, so "unmatched"
+// here would be a false positive, not a real join failure.
+const isBasketball = computed(() => ['euroleague', 'nba'].includes(data.value?.slate?.league_key ?? ''))
 </script>
 
 <template>
@@ -389,7 +396,8 @@ function clubLogoUrl(clubCode: string | null | undefined): string | null {
               <td class="p-2" :class="lineupStatusClass(p.lineup_status)">{{ p.lineup_status }}</td>
               <td class="p-2 text-right text-zinc-300 tabular-nums">{{ p.price }}</td>
               <td class="p-2">
-                <span v-if="p.mapped_player_id" class="text-emerald-400">{{ p.map_confidence?.toFixed(2) }}</span>
+                <span v-if="isBasketball" class="text-zinc-600">—</span>
+                <span v-else-if="p.mapped_player_id" class="text-emerald-400">{{ p.map_confidence?.toFixed(2) }}</span>
                 <span v-else class="text-red-400">unmatched</span>
               </td>
             </tr>

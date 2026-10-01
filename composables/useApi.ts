@@ -5,6 +5,8 @@
  * Every function here mirrors a former server/api/ route.
  */
 
+import { scoreRoster } from '~/utils/wallet-stats'
+
 // Identity + bankroll columns for a wallet row. `persona_name`/`bio`/
 // `archetype`/`lifecycle` are what utils/wallet-meta.ts resolves a wallet's
 // identity from; omitting them is why every trader persona rendered as
@@ -33,6 +35,7 @@ export interface WalletPerformance {
 }
 
 export const useApi = () => {
+  const apiFetch = useApiFetch()
   const supabase = useSupabaseClient()
   const { user } = useAuth()
 
@@ -518,7 +521,7 @@ export const useApi = () => {
     if (leagueKey) params.league = leagueKey
     params.limit = '30'
 
-    const data = await $fetch(`/api/player/${playerId}/season`, { params })
+    const data = await apiFetch(`/api/player/${playerId}/season`, { params })
     return data as { games: any[], averages: any, gameCount: number }
   }
 
@@ -855,11 +858,18 @@ export const useApi = () => {
     if (wErr) throw wErr
     if (!wallet) return null
 
-    const perf = await fetchWalletPerformance(walletId)
+    // The verdict is cohort-corrected, so it needs the whole roster: scoring one
+    // row alone would reproduce the RPC's uncorrected p (utils/wallet-stats.scoreRoster).
+    const [roster, perfAll] = await Promise.all([fetchWallets(), fetchWalletPerformance()])
+    const members = roster.wallets.some((w: any) => w.id === walletId) ? roster.wallets : [...roster.wallets, wallet]
+    const score = scoreRoster(members, perfAll).get(walletId)
 
     return {
       wallet,
-      performance: perf[0] || null,
+      performance: perfAll.find(p => p.wallet_id === walletId) || null,
+      verdict: score?.verdict ?? 'n<10',
+      k: score?.k ?? 0,
+      bar: score?.bar ?? null,
     }
   }
 

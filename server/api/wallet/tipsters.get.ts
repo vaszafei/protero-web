@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * GET /api/wallet/tipsters — provenance and coverage for the mirrored wallets.
@@ -32,7 +33,8 @@ import { getSupabase } from '~/server/utils/supabase'
  *
  * A source that is registered but never scraped must still appear, AS THAT.
  */
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const supabase = getSupabase()
 
   const [sourcesRes, coverageRes, userMirrorRes, walletsRes] = await Promise.all([

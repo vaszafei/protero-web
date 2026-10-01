@@ -1,7 +1,9 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 
 // Get wallet status and recent bets
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   try {
     const supabase = getSupabase()
     const query = getQuery(event)

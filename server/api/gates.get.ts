@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * GET /api/gates — the gate-status readout for the operator console.
@@ -16,7 +17,8 @@ import { getSupabase } from '~/server/utils/supabase'
  *      the recorder was never run), the gates render as "not recorded" with
  *      the exact command to run them — never as a fabricated green tick.
  */
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const supabase = getSupabase()
 
   // Latest run per pipeline, newest first.

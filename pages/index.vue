@@ -93,6 +93,8 @@ import OpsCalibration from '~/components/ops/OpsCalibration.vue'
 // bare tag never resolved and "Run pipeline" opened nothing.
 import PipelineRunModal from '~/components/dashboard/PipelineRunModal.vue'
 
+const apiFetch = useApiFetch()
+
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const data = ref(null)
@@ -104,7 +106,7 @@ async function reload() {
   loading.value = true
   error.value = null
   try {
-    data.value = await $fetch('/api/dashboard')
+    data.value = await apiFetch('/api/dashboard')
   } catch (e) {
     error.value = e?.data?.message || e?.message || 'Unknown error'
   } finally {

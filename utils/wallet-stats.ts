@@ -83,6 +83,79 @@ export function scoreFamily(rows: Scored[], alpha = ALPHA): FamilyResult {
   return { k, bonferroni, verdictById }
 }
 
+export type Cohort = ReturnType<typeof cohortOf>
+
+export interface RosterWallet {
+  id: number
+  archetype?: string | null
+  lifecycle?: string | null
+}
+
+export interface RosterScore {
+  verdict: FamilyVerdict
+  cohort: Cohort
+  /** Wallets in this wallet's cohort that carry a p-value. */
+  k: number
+  /** The Bonferroni bar this wallet's p had to clear. */
+  bar: number
+}
+
+/**
+ * The ONE place a roster is scored: every wallet read in its own cohort's
+ * family, with that cohort's k. The roster, the wallet page, the dashboard
+ * Fleet and the calendar card all read this, so a wallet cannot carry two
+ * verdicts (W53 read `hint` on `/` and `LUCK` on `/wallet`, 2026-10-01 — the
+ * dashboard was rendering the RPC's uncorrected verdict).
+ *
+ * `wallets` must be the WHOLE roster, not a filtered view of it: k is a
+ * property of the cohort, and a fleet that hides the mirrors still has to be
+ * scored against the cohort it was picked from.
+ */
+export function scoreRoster(
+  wallets: RosterWallet[],
+  performance: Scored[],
+  alpha = ALPHA,
+): Map<number, RosterScore> {
+  const perfById = new Map(performance.map(p => [p.wallet_id, p]))
+  const byCohort = new Map<Cohort, RosterWallet[]>()
+  for (const w of wallets) {
+    const c = cohortOf(w)
+    byCohort.set(c, [...(byCohort.get(c) ?? []), w])
+  }
+
+  const out = new Map<number, RosterScore>()
+  for (const [cohort, members] of byCohort) {
+    const family = scoreFamily(members.map(w => ({
+      wallet_id: w.id,
+      p_luck: perfById.get(w.id)?.p_luck ?? null,
+      n_wagers: Number(perfById.get(w.id)?.n_wagers ?? 0),
+    })), alpha)
+    for (const w of members) {
+      out.set(w.id, {
+        verdict: family.verdictById.get(w.id) ?? 'n<10',
+        cohort,
+        k: family.k,
+        bar: family.bonferroni,
+      })
+    }
+  }
+  return out
+}
+
+export const NO_RESULT_TITLE = 'n<10 — not a result'
+
+/**
+ * How a wallet's ROI is inked. Below ten settled wagers the verdict is `n<10`
+ * and the figure is not a result, so it renders muted with no sign colour —
+ * W59's +89.67% on n=3 must not read as a win. One rule for the roster, Fleet,
+ * hero and calendar card.
+ */
+export function roiInk(roi: number | null | undefined, verdict: string | null | undefined): { class: string; title?: string } {
+  if (roi == null || Number(roi) === 0) return { class: 'text-zinc-600' }
+  if (verdict === 'n<10') return { class: 'text-zinc-500 font-normal', title: NO_RESULT_TITLE }
+  return { class: Number(roi) > 0 ? 'text-emerald-400' : 'text-red-400' }
+}
+
 /** Tailwind classes per verdict — one definition, used by roster and hero. */
 export const VERDICT_CLASS: Record<FamilyVerdict, string> = {
   EDGE:          'bg-emerald-500/15 text-emerald-300',

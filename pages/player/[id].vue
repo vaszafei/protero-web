@@ -142,6 +142,8 @@ import PlayerPlayerMatchLog from '~/components/player/PlayerMatchLog.vue'
 import PlayerPlayerTrend from '~/components/player/PlayerTrend.vue'
 import PlayerShootingZones from '~/components/player/ShootingZones.vue'
 
+const apiFetch = useApiFetch()
+
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const route = useRoute()
@@ -168,7 +170,7 @@ async function load(season?: string) {
   error.value = null
   try {
     const q = season ? `?season=${encodeURIComponent(season)}` : ''
-    const res = await $fetch<any>(`/api/player/${route.params.id}/season${q}`)
+    const res = await apiFetch<any>(`/api/player/${route.params.id}/season${q}`)
     data.value = res
     activeSeason.value = res?.season || season || ''
 

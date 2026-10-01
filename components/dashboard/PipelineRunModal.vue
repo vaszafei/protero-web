@@ -115,13 +115,12 @@
 
         <p v-else-if="run && !phases.length" class="text-[11px] text-zinc-600 leading-relaxed">
           <template v-if="run.active">Phases appear as they land — the runner persists each one to <code class="text-zinc-500">phase_runs</code> as it completes.</template>
-          <template v-else>This run wrote no phase telemetry (a bash-pipeline run writes only the summary row).</template>
+          <template v-else>This run wrote no phase telemetry (runs before 2026-10-01 wrote only the summary row).</template>
         </p>
 
         <p v-if="!run" class="text-[11px] text-zinc-600 leading-relaxed">
-          Runs the Python DAG runner — the same phases as the scheduled pipeline, with one
-          <code class="text-zinc-500">phase_runs</code> row per step. The bash pipeline is still the
-          scheduled production path; this is the on-demand trigger.
+          Runs the production bash pipeline — the same script the scheduled timer runs — and
+          writes one <code class="text-zinc-500">phase_runs</code> row per step when it finishes.
         </p>
       </div>
 
@@ -149,6 +148,8 @@
  */
 import { ref, computed, watch, onUnmounted } from 'vue'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+
+const apiFetch = useApiFetch()
 
 const props = defineProps<{ isOpen: boolean }>()
 defineEmits<{ close: [] }>()
@@ -186,7 +187,7 @@ function selectPipeline(p: 'football' | 'basketball') {
 
 async function fetchRun() {
   try {
-    const data = await $fetch(`/api/pipeline/runs?pipeline=${selected.value}`)
+    const data = await apiFetch(`/api/pipeline/runs?pipeline=${selected.value}`)
     run.value = data.run ? { ...data.run, active: data.active } : null
     phases.value = data.phases || []
   } catch (e: any) {
@@ -198,7 +199,7 @@ async function startRun() {
   busy.value = true
   error.value = null
   try {
-    await $fetch('/api/pipeline/run', {
+    await apiFetch('/api/pipeline/run', {
       method: 'POST',
       body: { pipeline: selected.value, dry_run: dryRun.value },
     })

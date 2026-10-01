@@ -78,12 +78,12 @@
         v-for="flag in pick.green_flags"
         :key="'g-'+flag"
         class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-      >✓ {{ flag }}</span>
+      >{{ flag }}</span>
       <span
         v-for="flag in pick.red_flags"
         :key="'r-'+flag"
         class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20"
-      >⚠ {{ flag }}</span>
+      >{{ flag }}</span>
     </div>
 
     <!-- Last 10 game values chart -->
@@ -166,9 +166,9 @@ const tierBadge = computed(() => {
 })
 
 const tierLabel = computed(() => {
-  if (props.tier === 1) return '★★★★★'
-  if (props.tier === 2) return '★★★★'
-  return 'SKIP'
+  if (props.tier === 1) return 'Tier 1'
+  if (props.tier === 2) return 'Tier 2'
+  return 'Skip'
 })
 
 const confColor = computed(() => {

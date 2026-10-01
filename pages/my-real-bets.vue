@@ -128,6 +128,7 @@
 </template>
 
 <script setup lang="ts">
+const apiFetch = useApiFetch()
 definePageMeta({ middleware: 'auth' })
 
 const toast = useToast()
@@ -181,7 +182,7 @@ function rowMenu(bet: any) {
 
 async function quickStatus(bet: any, status: string) {
   try {
-    await $fetch(`/api/user-real-bets/${bet.id}`, { method: 'PATCH', body: { status } })
+    await apiFetch(`/api/user-real-bets/${bet.id}`, { method: 'PATCH', body: { status } })
     toast.add({ title: `Marked ${status}`, color: 'green' })
     await load()
   } catch (e: any) {
@@ -192,7 +193,7 @@ async function quickStatus(bet: any, status: string) {
 async function deleteBet(id: number) {
   if (!confirm('Delete this bet?')) return
   try {
-    await $fetch(`/api/user-real-bets/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/user-real-bets/${id}`, { method: 'DELETE' })
     toast.add({ title: 'Deleted', color: 'green' })
     await load()
   } catch (e: any) {
@@ -203,7 +204,7 @@ async function deleteBet(id: number) {
 async function load() {
   loading.value = true
   try {
-    const res = await $fetch<{ bets: any[]; summary: any }>('/api/user-real-bets')
+    const res = await apiFetch<{ bets: any[]; summary: any }>('/api/user-real-bets')
     bets.value = res.bets || []
     summary.value = res.summary || null
   } catch (e: any) {

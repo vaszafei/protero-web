@@ -2,15 +2,11 @@
   <div class="space-y-2.5 sm:space-y-4">
     <!-- ===== ODDS SECTION ===== -->
     <div v-if="showOdds && hasOdds" class="space-y-2.5 sm:space-y-3">
-      <div class="flex items-center justify-between">
-        <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Betting Odds</h4>
-        <span v-if="recommendedMarket" class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">AI Pick highlighted</span>
-      </div>
+      <h4 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Betting Odds</h4>
       
       <!-- Moneyline -->
       <div class="grid gap-1" :class="isBball ? 'grid-cols-2' : 'grid-cols-3'">
-        <div :class="['odds-cell relative', recommendedMarket === 'home' ? 'odds-cell-recommended' : '']">
-          <span v-if="recommendedMarket === 'home'" class="ai-pick-badge">AI Pick</span>
+        <div class="odds-cell">
           <span class="text-[10px] text-zinc-500 font-medium uppercase">Home</span>
           <span class="text-lg font-bold tabular-nums" :class="homeOddsFavorite ? 'text-green-400' : 'text-zinc-200'">
             {{ formatOdds(mlOdds.home) }}
@@ -20,8 +16,7 @@
           <span class="text-[10px] text-zinc-500 font-medium uppercase">Draw</span>
           <span class="text-lg font-bold text-zinc-200 tabular-nums">{{ formatOdds(mlOdds.draw) }}</span>
         </div>
-        <div :class="['odds-cell relative', recommendedMarket === 'away' ? 'odds-cell-recommended' : '']">
-          <span v-if="recommendedMarket === 'away'" class="ai-pick-badge">AI Pick</span>
+        <div class="odds-cell">
           <span class="text-[10px] text-zinc-500 font-medium uppercase">Away</span>
           <span class="text-lg font-bold tabular-nums" :class="awayOddsFavorite ? 'text-green-400' : 'text-zinc-200'">
             {{ formatOdds(mlOdds.away) }}
@@ -49,20 +44,18 @@
         </div>
 
         <div v-if="bballOdds.over_under" class="grid grid-cols-2 gap-1">
-          <div :class="['odds-cell relative', recommendedMarket === 'over' ? 'odds-cell-over' : '']">
-            <span v-if="recommendedMarket === 'over'" class="ai-pick-badge ai-pick-over">AI Pick</span>
+          <div class="odds-cell">
             <span class="text-[10px] text-zinc-500 font-medium uppercase">Over</span>
             <div class="flex flex-col items-center">
               <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ bballOdds.over_under.line }}</span>
-              <span class="text-[11px] tabular-nums" :class="recommendedMarket === 'over' ? 'text-emerald-400 font-bold' : 'text-zinc-400'">{{ formatOdds(bballOdds.over_under.over) }}</span>
+              <span class="text-[11px] tabular-nums text-zinc-400">{{ formatOdds(bballOdds.over_under.over) }}</span>
             </div>
           </div>
-          <div :class="['odds-cell relative', recommendedMarket === 'under' ? 'odds-cell-under' : '']">
-            <span v-if="recommendedMarket === 'under'" class="ai-pick-badge ai-pick-under">AI Pick</span>
+          <div class="odds-cell">
             <span class="text-[10px] text-zinc-500 font-medium uppercase">Under</span>
             <div class="flex flex-col items-center">
               <span class="text-sm font-bold text-zinc-200 tabular-nums">{{ bballOdds.over_under.line }}</span>
-              <span class="text-[11px] tabular-nums" :class="recommendedMarket === 'under' ? 'text-purple-400 font-bold' : 'text-zinc-400'">{{ formatOdds(bballOdds.over_under.under) }}</span>
+              <span class="text-[11px] tabular-nums text-zinc-400">{{ formatOdds(bballOdds.over_under.under) }}</span>
             </div>
           </div>
         </div>
@@ -70,15 +63,13 @@
 
       <!-- Football O/U -->
       <div v-if="!isBball && (game.odds_over || game.odds_under)" class="grid grid-cols-2 gap-1">
-        <div :class="['odds-cell relative', recommendedMarket === 'over' ? 'odds-cell-over' : '']">
-          <span v-if="recommendedMarket === 'over'" class="ai-pick-badge ai-pick-over">AI Pick</span>
+        <div class="odds-cell">
           <span class="text-[10px] text-zinc-500 font-medium uppercase">Over 2.5</span>
-          <span class="text-lg font-bold tabular-nums" :class="recommendedMarket === 'over' ? 'text-emerald-400' : 'text-zinc-200'">{{ formatOdds(game.odds_over) }}</span>
+          <span class="text-lg font-bold tabular-nums text-zinc-200">{{ formatOdds(game.odds_over) }}</span>
         </div>
-        <div :class="['odds-cell relative', recommendedMarket === 'under' ? 'odds-cell-under' : '']">
-          <span v-if="recommendedMarket === 'under'" class="ai-pick-badge ai-pick-under">AI Pick</span>
+        <div class="odds-cell">
           <span class="text-[10px] text-zinc-500 font-medium uppercase">Under 2.5</span>
-          <span class="text-lg font-bold tabular-nums" :class="recommendedMarket === 'under' ? 'text-purple-400' : 'text-zinc-200'">{{ formatOdds(game.odds_under) }}</span>
+          <span class="text-lg font-bold tabular-nums text-zinc-200">{{ formatOdds(game.odds_under) }}</span>
         </div>
       </div>
     </div>
@@ -209,7 +200,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { parsePrediction } from '~/utils/prediction-label'
 import { VIZ_HOME, VIZ_AWAY } from '~/utils/viz'
 import { displayTeamName as shortName } from '~/utils/team-name'
 
@@ -222,7 +212,6 @@ const props = defineProps({
   // `docs/plans/unified-analysis-layer.md` §4 (Track C).
   analysis: { type: Object, default: null },
   analysisLoading: { type: Boolean, default: false },
-  prediction: { type: Object, default: null },
   // Football's odds now live in the dedicated Market tab (OddsLadder), so the
   // odds section here renders only for basketball.
   showOdds: { type: Boolean, default: true }
@@ -259,18 +248,6 @@ const spreadAwaySign = computed(() => {
   const line = bballOdds.value?.handicap?.line
   if (!line || line === 0) return ''
   return line < 0 ? '+' : '-'
-})
-
-// ─── Recommended market highlight ────────────────────────
-// Canonical parse — same function GamePrediction.vue uses, so the two can no
-// longer disagree about what a prediction code means.
-const recommendedMarket = computed(() => {
-  const line = isBball.value ? bballOdds.value?.over_under?.line : null
-  return parsePrediction(props.prediction?.prediction, {
-    homeTeam: props.game.home_name,
-    awayTeam: props.game.away_name,
-    ouLine: line,
-  }).side
 })
 
 const mlOdds = computed(() => {
@@ -459,47 +436,6 @@ const correlations = computed(() => props.analysis?.correlations || null)
   @apply bg-surface-light rounded-lg px-2.5 py-2 flex flex-col items-center gap-0.5;
 }
 
-/* Recommended market highlight styles */
-.odds-cell-recommended {
-  @apply bg-surface-light rounded-lg px-2.5 py-2 flex flex-col items-center gap-0.5;
-  box-shadow: 0 0 0 1.5px rgba(251, 191, 36, 0.5), inset 0 0 12px rgba(251, 191, 36, 0.05);
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  background: rgba(251, 191, 36, 0.06);
-}
-.odds-cell-over {
-  @apply bg-surface-light rounded-lg px-2.5 py-2 flex flex-col items-center gap-0.5;
-  box-shadow: 0 0 0 1.5px rgba(52, 211, 153, 0.5), inset 0 0 12px rgba(52, 211, 153, 0.05);
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  background: rgba(52, 211, 153, 0.06);
-}
-.odds-cell-under {
-  @apply bg-surface-light rounded-lg px-2.5 py-2 flex flex-col items-center gap-0.5;
-  box-shadow: 0 0 0 1.5px rgba(168, 85, 247, 0.5), inset 0 0 12px rgba(168, 85, 247, 0.05);
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  background: rgba(168, 85, 247, 0.06);
-}
-
-/* Small "AI Pick" badge at top-right of highlighted cell */
-.ai-pick-badge {
-  position: absolute;
-  top: -7px;
-  right: 6px;
-  font-size: 8px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 2px 5px;
-  border-radius: 9999px;
-  background: rgba(251, 191, 36, 0.9);
-  color: #1a1c22;
-  line-height: 1;
-}
-.ai-pick-over {
-  background: rgba(52, 211, 153, 0.9);
-}
-.ai-pick-under {
-  background: rgba(168, 85, 247, 0.9);
-}
 
 .h2h-home {
   background: var(--viz-home);

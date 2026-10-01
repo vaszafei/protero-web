@@ -141,12 +141,6 @@
           :leagueKey="data.key"
           :season="selectedSeason"
           :sport="data.sport"
-          @predictions-updated="onPredictionsUpdated"
-        />
-
-        <ParlayGenerator
-          v-if="predictionsList.length > 0"
-          :predictions="predictionsList"
         />
       </div>
     </div>
@@ -163,9 +157,12 @@ import LeagueOverview from '~/components/league/LeagueOverview.vue'
 import LeagueStandingsTable from '~/components/league/LeagueStandingsTable.vue'
 import AnalysisView from '~/components/league/AnalysisView.vue'
 import PredictionsView from '~/components/league/PredictionsView.vue'
-import ParlayGenerator from '~/components/league/ParlayGenerator.vue'
 import { useLeagueStats } from '~/composables/useLeagueStats'
 import { getLeagueLogoUrl } from '~/utils/teamLogo'
+
+definePageMeta({ middleware: 'auth' })
+
+const apiFetch = useApiFetch()
 
 // Route and initial data
 const route = useRoute()
@@ -244,7 +241,7 @@ const allLeagues = computed(() => twinData.value?.allLeagues ?? [])
 // Every season this league has fixtures for — the "visit an older season" picker.
 const { data: seasonsData } = await useAsyncData(
   `seasons-${leagueName}`,
-  () => $fetch(`/api/seasons/${leagueName}`).catch(() => ({ seasons: [] }))
+  () => apiFetch(`/api/seasons/${leagueName}`).catch(() => ({ seasons: [] }))
 )
 const availableSeasons = computed(() => seasonsData.value?.seasons || [])
 
@@ -886,9 +883,6 @@ const nextUnplayedMatches = computed(() => {
     .sort((a, b) => a.dateObj - b.dateObj)
 })
 
-// Computed: Predictions list for parlay generator (this mirrors PredictionsView computed)
-const predictionsList = ref([])
-
 // Computed: Filtered standings - use live calculated standings
 const filteredStandings = computed(() => {
   if (!liveStandings.value || liveStandings.value.length === 0) return []
@@ -979,11 +973,6 @@ const groupStandings = computed(() => {
 // it owns — stepper, rail segment and "go to now" — so there is one setter.
 function changeRound(round) {
   selectedRound.value = Math.min(maxRound.value, Math.max(1, Number(round) || 1))
-}
-
-// Predictions handler for parlay generator
-function onPredictionsUpdated(predictions) {
-  predictionsList.value = predictions
 }
 </script>
 

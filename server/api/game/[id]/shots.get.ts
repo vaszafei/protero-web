@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * Shot locations for one basketball fixture, projected into a single
@@ -84,6 +85,7 @@ type ShotRow = {
 }
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const gameId = Number(getRouterParam(event, 'id'))
   if (!Number.isFinite(gameId)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid game id' })

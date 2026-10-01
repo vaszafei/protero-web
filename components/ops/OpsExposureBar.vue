@@ -57,7 +57,7 @@
 /**
  * The four numbers that open the console.
  *
- * "Proven edge" counts wallets the RPC verdicts as EDGE (p<0.05). It reads
+ * "Proven edge" counts wallets whose cohort-corrected verdict is EDGE. It reads
  * zero, and that is the honest state of the project — detecting a true +5% ROI
  * edge needs ~3,128 wagers. Never replace this tile with a "best ROI" tile:
  * ROI without its p-value is the number that has misled this project before.
@@ -81,7 +81,7 @@ const lifetime = computed(() => {
   return {
     n_wagers: withN.reduce((a, p) => a + Number(p.n_wagers || 0), 0),
     pnl: withN.reduce((a, p) => a + Number(p.pnl || 0), 0),
-    n_edge: withN.filter(p => p.verdict === 'EDGE').length,
+    n_edge: props.fleet.filter(w => w.verdict === 'EDGE' && Number(w.perf?.n_wagers) > 0).length,
     best: bestWallet ? { name: bestWallet.name, p_luck: best.p_luck } : null,
   }
 })

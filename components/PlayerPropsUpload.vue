@@ -241,6 +241,8 @@ import { ref, computed, onMounted } from 'vue'
 import { X, Zap, ImagePlus, Sparkles, CheckCircle, RotateCcw, ChevronDown } from 'lucide-vue-next'
 import { useStoiximanParser, type ParsedProps } from '~/composables/useStoiximanParser'
 
+const apiFetch = useApiFetch()
+
 const props = defineProps<{
   gameId: number
   leagueKey: string
@@ -396,7 +398,7 @@ async function runAnalysis() {
   picks.value = []
 
   try {
-    const res = await $fetch<{ picks: any[]; meta?: any }>(`/api/game/${props.gameId}/player-props`, {
+    const res = await apiFetch<{ picks: any[]; meta?: any }>(`/api/game/${props.gameId}/player-props`, {
       method: 'POST',
       body: {
         game_id: props.gameId,
@@ -431,7 +433,7 @@ function reset() {
 
 onMounted(async () => {
   try {
-    const res = await $fetch<{ picks: any[] }>(`/api/game/${props.gameId}/player-props`)
+    const res = await apiFetch<{ picks: any[] }>(`/api/game/${props.gameId}/player-props`)
     if (res.picks?.length) picks.value = res.picks
   } catch {
     // No existing picks

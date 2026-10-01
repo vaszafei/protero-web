@@ -1,4 +1,5 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 import { isEnabled, probSourceFor, disabledReason } from '~/server/utils/football-masks'
 import { fitImpliedGoals, bookMargin } from '~/server/utils/market-implied'
 
@@ -77,6 +78,7 @@ const toNum = (v: any): number | null => {
 }
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const gameId = Number(getRouterParam(event, 'id'))
   if (!Number.isFinite(gameId)) {
     throw createError({ statusCode: 400, message: 'Numeric game id required' })

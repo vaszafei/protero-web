@@ -1,7 +1,9 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 import { getCached, setCache } from '~/server/utils/cache'
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const query = getQuery(event)
   const walletId = Number(query.walletId)
   if (!walletId) throw createError({ statusCode: 400, message: 'walletId is required' })

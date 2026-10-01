@@ -4,8 +4,10 @@
  * Used by the onboarding wizard and leagues page for dynamic rendering.
  */
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const supabase = getSupabase()
 
   // Fetch active sports

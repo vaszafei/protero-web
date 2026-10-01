@@ -243,7 +243,6 @@
                     :sport="gameSport"
                     :analysis="analysisData"
                     :analysis-loading="analysisLoading"
-                    :prediction="data.prediction"
                     :show-odds="gameSport !== 'football'"
                   />
                 </div>
@@ -323,6 +322,8 @@ import GameGameLeaders from '~/components/game/GameLeaders.vue'
 import GameMarketBoard from '~/components/game/MarketBoard.vue'
 import GamePostMortem from '~/components/game/PostMortem.vue'
 import GameTeamFormRail from '~/components/game/TeamFormRail.vue'
+
+const apiFetch = useApiFetch()
 
 definePageMeta({
   layout: 'default',
@@ -503,7 +504,7 @@ const showFormRails = computed(() => !isCompleted.value)
 const preview = ref(null)
 watch(() => [data.value?.game?.id, showFormRails.value], async ([id, show]) => {
   if (!id || !show) { preview.value = null; return }
-  preview.value = await $fetch(`/api/game/${id}/preview`).catch(() => null)
+  preview.value = await apiFetch(`/api/game/${id}/preview`).catch(() => null)
 }, { immediate: true })
 
 /**
@@ -634,7 +635,7 @@ async function loadShots() {
   if (!isCompleted.value || gameSport.value !== 'basketball') return
   shotsLoading.value = true
   try {
-    shotData.value = await $fetch(`/api/game/${g.id}/shots`)
+    shotData.value = await apiFetch(`/api/game/${g.id}/shots`)
   } catch (e) {
     console.warn('Shot chart fetch failed:', e)
     // Leave `shotData` null: the tab simply does not appear, which is the same
@@ -662,7 +663,7 @@ async function loadAnalysis() {
   if (analysisLoadedForGameId === g.id) return
   analysisLoading.value = true
   try {
-    analysisData.value = await $fetch(`/api/game/${g.id}/analysis`)
+    analysisData.value = await apiFetch(`/api/game/${g.id}/analysis`)
     analysisLoadedForGameId = g.id
   } catch (e) {
     console.warn('Analysis fetch failed:', e)

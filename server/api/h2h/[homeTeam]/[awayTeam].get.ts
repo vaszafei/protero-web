@@ -1,6 +1,8 @@
 import { getSupabase } from '~/server/utils/supabase'
+import { requireUserId } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
+  await requireUserId(event)
   const homeTeam = decodeURIComponent(getRouterParam(event, 'homeTeam') || '')
   const awayTeam = decodeURIComponent(getRouterParam(event, 'awayTeam') || '')
   const query = getQuery(event)

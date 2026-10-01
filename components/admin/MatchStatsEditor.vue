@@ -278,7 +278,7 @@ const saveStats = async () => {
       ...stats.value
     }
     
-    await $fetch(`/api/admin/games/${props.match.id}`, {
+    await apiFetch(`/api/admin/games/${props.match.id}`, {
       method: 'PATCH',
       body: dataToSave
     })
@@ -315,5 +315,7 @@ const formatDate = (dateStr) => {
 
 // Import icons
 import { RefreshCw, X, Target, Save } from 'lucide-vue-next'
+
+const apiFetch = useApiFetch()
 
 </script>

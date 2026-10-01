@@ -263,6 +263,8 @@ import { VIZ_HOME, VIZ_AWAY, VIZ_STATUS } from '~/utils/viz'
 import { displayTeamName as shortName } from '~/utils/team-name'
 import UiTooltip from '~/components/ui/Tooltip.vue'
 
+const apiFetch = useApiFetch()
+
 const props = defineProps({
   game: { type: Object, required: true },
   prediction: { type: Object, default: null },
@@ -278,7 +280,7 @@ const isFootball = computed(() => props.sport === 'football')
 const marketKey = computed(() => `market:${props.game.id}`)
 const { data: market, pending: marketPending, error: marketErr } = useSwr<any>(
   marketKey,
-  () => $fetch(`/api/game/${props.game.id}/market`),
+  () => apiFetch(`/api/game/${props.game.id}/market`),
   { memoryTtl: 2 * 60_000 },
 )
 const marketError = computed(() => (marketErr.value as any)?.data?.message || marketErr.value?.message || null)

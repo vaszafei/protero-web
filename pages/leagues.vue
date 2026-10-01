@@ -172,6 +172,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { getLeagueLogoUrl } from '~/utils/teamLogo'
 
+const apiFetch = useApiFetch()
+
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const loading = ref(true)
@@ -275,7 +277,7 @@ function roleClass(role) {
 
 onMounted(async () => {
   try {
-    const d = await $fetch('/api/leagues/overview')
+    const d = await apiFetch('/api/leagues/overview')
     leagues.value = d.leagues || []
   } catch (e) {
     console.error('Failed to load competitions:', e)

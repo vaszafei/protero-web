@@ -109,6 +109,7 @@
 </template>
 
 <script setup lang="ts">
+const apiFetch = useApiFetch()
 definePageMeta({ middleware: 'auth' })
 
 const loading = ref(true)
@@ -138,7 +139,7 @@ function formatWhen(iso: string | null): string {
 
 onMounted(async () => {
   try {
-    const data = await $fetch('/api/gates')
+    const data = await apiFetch('/api/gates')
     pipelines.value = data.pipelines || []
     cliGates.value = data.cli_gates || []
     gateRun.value = data.gate_run || null
