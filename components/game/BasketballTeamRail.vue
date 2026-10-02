@@ -1,24 +1,10 @@
 <template>
   <div class="space-y-3">
-    <!-- Shooting -->
-    <section v-if="hasZones" class="panel overflow-hidden" data-testid="bball-rail-shooting">
-      <header class="panel-head">
-        <span class="panel-title">Shooting</span>
-        <span class="pill" :class="side === 'home' ? 'pill-blue' : 'pill-red'">{{ teamName }}</span>
-      </header>
-      <div class="p-2.5 sm:p-3">
-        <PlayerShootingZones
-          :zones="zones"
-          ref-label="opponent"
-          :note="courtNote"
-        />
-      </div>
-    </section>
-
     <!-- Four factors -->
     <section v-if="factors.length" class="panel overflow-hidden">
       <header class="panel-head">
         <span class="panel-title">Four factors</span>
+        <span class="pill" :class="side === 'home' ? 'pill-blue' : 'pill-red'">{{ teamName }}</span>
         <span class="panel-link">vs opponent</span>
       </header>
       <div class="ff">
@@ -67,7 +53,6 @@
 import { computed } from 'vue'
 import { VIZ_STATUS, VIZ_BRAND_HOME } from '~/utils/viz'
 import { boxScore, type BoxSide } from '~/utils/basketball-box'
-import PlayerShootingZones from '~/components/player/ShootingZones.vue'
 import UiTooltip from '~/components/ui/Tooltip.vue'
 
 const props = defineProps<{
@@ -79,44 +64,6 @@ const props = defineProps<{
 const box = computed(() => boxScore(props.sportStats))
 const mine = computed(() => box.value[props.side])
 const theirs = computed(() => box.value[props.side === 'home' ? 'away' : 'home'])
-
-/** The zone panel needs all three splits; any the feed lacks hides it rather than drawing a 0. */
-const hasZones = computed(() => !!(mine.value.fg2 && mine.value.fg3 && mine.value.ft))
-
-const pct = (made: number, att: number) => (att > 0 ? (100 * made) / att : null)
-
-const zones = computed(() => {
-  const m = mine.value
-  const o = theirs.value
-  if (!m.fg2 || !m.fg3 || !m.ft) return []
-  const cells = { '2PT': [m.fg2, o.fg2], '3PT': [m.fg3, o.fg3], FT: [m.ft, o.ft] } as const
-  return (['2PT', '3PT', 'FT'] as const).map((z) => {
-    const [own, opp] = cells[z]
-    return {
-      zone: z,
-      made: own.made,
-      att: own.att,
-      pct: pct(own.made, own.att),
-      // The reference is the OTHER team in this game — the only comparison a
-      // single fixture honestly supports.
-      cohortMedian: opp ? pct(opp.made, opp.att) : null,
-      percentile: null,
-    }
-  })
-})
-
-// These are the BOXSCORE's zone totals, which every basketball fixture has.
-// Per-shot coordinates are a different feed and exist only where the shot
-// backfill has run (EuroLeague 2025-2026), so this panel does not depend on
-// them — where they do exist the Shot Chart tab plots them individually.
-const courtNote = computed(() =>
-  'Zone totals for this game, not a shot chart — these are makes and attempts per zone, not individual shot locations. Shading compares each zone with the opposing team in this fixture.'
-)
-
-interface Factor {
-  key: string; label: string; value: number | null; opp: number | null
-  suffix: string; note: string; higherIsBetter: boolean
-}
 
 /** The terms the four factors are built from. All of them must be in the feed, or there is no factor. */
 interface Terms { fgm: number; fga: number; fg3m: number; ftm: number; fta: number; tov: number; oreb: number; dreb: number }

@@ -12,7 +12,7 @@
     <div v-else-if="data" class="max-w-[1680px] mx-auto px-4 pt-3 pb-4" :class="isCompleted ? 'h-full flex flex-col min-h-0' : ''">
 
       <!-- ── HERO: home stats rail · centered scorecard + court · away stats rail ── -->
-      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)_minmax(0,1fr)] gap-3" :class="isCompleted && gameSport === 'football' ? ['flex-1 min-h-0 hero-fit', showNoLineup ? 'hero-wide' : ''] : 'items-start'">
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)_minmax(0,1fr)] gap-3" :class="heroClass">
         <Reveal :delay="0" class="min-w-0 space-y-3" :class="isCompleted ? 'flex flex-col min-h-0 !space-y-0 gap-3' : ''">
           <!-- Basketball has no scalar stat columns — they are NULL by design —
                so its rail derives team totals from the box score instead. -->
@@ -42,7 +42,7 @@
           <TeamRatingsCard v-if="showRatings" class="flex-1 min-h-0" side="home" :lineup="data.lineups.home" :league-key="data.game.league_key" />
         </Reveal>
         <Reveal :delay="40" class="min-w-0 space-y-3" :class="isCompleted ? 'flex flex-col min-h-0 !space-y-0 gap-3 overflow-y-auto' : ''">
-          <GameHeader :game="data.game" :sport="gameSport">
+          <GameHeader :game="data.game" :sport="gameSport" class="flex-shrink-0">
             <template #lead>
               <button
                 type="button"
@@ -55,8 +55,18 @@
             </template>
           </GameHeader>
 
+          <!-- One court for both teams, replacing the two shooting panels the rails used to carry. -->
+          <GameBasketballCourt
+            v-if="showCourt"
+            class="flex-shrink-0"
+            :sport-stats="data.game.sport_stats"
+            :home-name="data.game.home_name"
+            :away-name="data.game.away_name"
+          />
+
           <GameQuarterFlow
             v-if="showQuarterFlow"
+            class="flex-shrink-0"
             :quarters="data.game.sport_stats.quarters"
             :home-name="data.game.home_name"
             :away-name="data.game.away_name"
@@ -64,6 +74,7 @@
 
           <GameGameLeaders
             v-if="showBballRails"
+            class="flex-shrink-0"
             :sport-stats="data.game.sport_stats"
             :home-name="data.game.home_name"
             :away-name="data.game.away_name"
@@ -196,7 +207,7 @@
       <!-- ── DETAIL: one panel, one minimal tab rail ──
            Everything below the fold lives behind a tab so the page is a
            screen of cards, not a 3,000px column. -->
-      <Reveal v-if="tabs.length > 0" :delay="120" :class="isCompleted ? 'flex-1 min-h-0 flex flex-col' : ''">
+      <Reveal v-if="tabs.length > 0" :delay="120" :class="isCompleted ? 'flex-1 min-h-[240px] flex flex-col' : ''">
         <section class="panel overflow-hidden mt-3" :class="isCompleted ? 'flex-1 min-h-0 flex flex-col' : ''">
           <header class="panel-head tabs-head">
             <UiTabs :tabs="tabs" v-model="activeTab" size="sm" />
@@ -356,6 +367,8 @@ import FormationPitch from '~/components/game/FormationPitch.vue'
 import FantasyProjections from '~/components/game/FantasyProjections.vue'
 import PlayerPropsUpload from '~/components/PlayerPropsUpload.vue'
 import GameBasketballTeamRail from '~/components/game/BasketballTeamRail.vue'
+import GameBasketballCourt from '~/components/game/BasketballCourt.vue'
+import { boxScore, hasBox } from '~/utils/basketball-box'
 import GameQuarterFlow from '~/components/game/QuarterFlow.vue'
 import GameShotChart from '~/components/game/ShotChart.vue'
 import GameGameLeaders from '~/components/game/GameLeaders.vue'
@@ -481,6 +494,17 @@ const showRatings = computed(() => {
 const showBballRails = computed(() =>
   isCompleted.value && gameSport.value === 'basketball' && hasBballPlayers.value
 )
+
+// Completed basketball: the hero is as tall as its content until that would push the Game Stats
+// panel off the screen; then it shrinks and the centre column scrolls its own body.
+const heroClass = computed(() => {
+  if (isCompleted.value && gameSport.value === 'football') return ['flex-1 min-h-0 hero-fit', showNoLineup.value ? 'hero-wide' : '']
+  if (isCompleted.value && gameSport.value === 'basketball') return 'min-h-0 grid-rows-[minmax(0,1fr)]'
+  return 'items-start'
+})
+
+const showCourt = computed(() =>
+  isCompleted.value && gameSport.value === 'basketball' && hasBox(boxScore(data.value?.game?.sport_stats)))
 
 /** `sport_stats.quarters` is present on ~8% of completed basketball fixtures. */
 const showQuarterFlow = computed(() => {

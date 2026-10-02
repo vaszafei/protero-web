@@ -80,7 +80,7 @@ protero-frontend/
 │   ├── account/            1
 │   ├── admin/              4 — FetchScheduledModal, MatchCard, MatchList, MatchStatsEditor
 │   ├── dashboard/          8 — DashboardDataProvider/Toolbar/WalletCard/GameCard, GamesCalendar, DayMatchesPanel, EmptyStateCard, PipelineRunModal
-│   ├── game/               24 — match detail views, stats, predictions, markets (MarketBoard, GamePrediction, PostMortem, GameAnalysis …)
+│   ├── game/               25 — match detail views, stats, predictions, markets (MarketBoard, GamePrediction, PostMortem, GameAnalysis, BasketballCourt …)
 │   ├── league/             11 — league detail tabs (LeagueOverview, LeagueRoundBoard, AnalysisView, LeagueStandingsTable …)
 │   ├── ops/                6 — control-room panels (OpsFleet, OpsHealth, OpsLiveSlate, OpsExposureBar, OpsCalibration, OpsBlindSpots)
 │   ├── player/             6 — player page panels
@@ -97,7 +97,7 @@ protero-frontend/
 ├── middleware/             1 — auth (redirects to /login when unauthenticated)
 ├── plugins/                1 — auth.client
 ├── types/                  1 — database.ts (Supabase schema types)
-├── utils/                  15 — cache, constants, dateTime, error-text, formatters, season, teamLogo,
+├── utils/                  17 — basketball-box (the ONE reader of basketball `sport_stats`), shooting-zones, cache, constants, dateTime, error-text, formatters, season, teamLogo,
 │                           team-name, league-name, wallet-meta, wallet-pnl, bet-label, props-joint,
 │                           viz (chart palette), motion (animation tokens)
 │

@@ -3,7 +3,7 @@ import { signIn } from './auth'
 import { completedBasketballPerLeague } from './ids'
 
 /**
- * #58: the shooting panel in each side rail and the Game Stats bars come from the same reader
+ * #58 / #59: the centre-column court and the Game Stats bars come from the same reader
  * (`utils/basketball-box`). They disagreed on every EuroLeague game because the stat bars read a
  * schema they did not understand and fell through to 0.
  */
@@ -17,23 +17,23 @@ test('discovery found a completed game for every basketball league that has box 
 const ZONE: Record<string, 'fg2' | 'fg3' | 'ft'> = { '2PT': 'fg2', '3PT': 'fg3', FT: 'ft' }
 
 for (const { league, id } of games) {
-  test(`${league} #${id}: rail shooting panels equal the stat-bar makes and attempts`, async ({ page }) => {
+  test(`${league} #${id}: court zone totals equal the stat-bar makes and attempts`, async ({ page }) => {
     await signIn(page)
     await page.goto(`/game/${id}`, { waitUntil: 'networkidle' })
 
-    const rails = page.locator('[data-testid="bball-rail-shooting"]')
-    await expect(rails, 'home and away shooting panels').toHaveCount(2)
+    const court = page.locator('[data-testid="bball-court"]')
+    await expect(court, 'one court').toHaveCount(1)
+    await expect(page.locator('[data-testid="bball-rail-shooting"]'), 'no shooting panel left in the rails').toHaveCount(0)
 
-    const zoneText = async (side: 0 | 1) => {
-      const all = (await rails.nth(side).locator('.z-vol').allTextContents()).map(t => t.replace(/\s+/g, ' ').trim())
+    const zoneText = async (side: 'home' | 'away') => {
       const out: Record<string, string> = {}
-      for (const t of all) {
-        const m = t.match(/^(\d+\/\d+) (2PT|3PT|FT)$/)
-        if (m) out[ZONE[m[2]]] = m[1]
+      for (const [zone, key] of Object.entries(ZONE)) {
+        const t = (await court.locator(`g[data-side="${side}"][data-zone="${zone}"] .z-vol`).textContent() ?? '').replace(/\s+/g, ' ').trim()
+        out[key] = t.replace(` ${zone}`, '')
       }
       return out
     }
-    const rail = { home: await zoneText(0), away: await zoneText(1) }
+    const rail = { home: await zoneText('home'), away: await zoneText('away') }
 
     for (const key of ['fg2', 'fg3', 'ft'] as const) {
       const row = page.locator(`[data-testid="bball-shot-${key}"]`)

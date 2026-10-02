@@ -112,20 +112,9 @@
  * 23.75ft arc breaking to 22ft corners at 14ft from the baseline.
  */
 import { computed } from 'vue'
-import { VIZ_SURFACE, VIZ_STATUS, VIZ_BRAND_HOME } from '~/utils/viz'
+import { VIZ_SURFACE } from '~/utils/viz'
+import { ZONE_NAMES, zoneColor, zoneOpacity, type Zone } from '~/utils/shooting-zones'
 import UiTooltip from '~/components/ui/Tooltip.vue'
-
-export interface Zone {
-  zone: string
-  made: number
-  att: number
-  pct: number | null
-  /** Rank within a cohort, when there is one (the player page). */
-  percentile?: number | null
-  /** The reference rate this zone is judged against. */
-  cohortMedian?: number | null
-  n?: number | null
-}
 
 const props = withDefaults(defineProps<{
   zones: Zone[]
@@ -155,49 +144,8 @@ const byZone = computed(() =>
   Object.fromEntries(props.zones.map((z) => [z.zone, z]))
 )
 
-/**
- * How far above or below the reference this zone is, on a −1…+1 scale.
- *
- * Two reference kinds. A percentile (the player page's position cohort) maps
- * straight off 50. A raw reference rate (the game page's opposing team) is
- * scaled by 10 percentage points, which is a large edge for a single game.
- * Returns null when there is nothing to compare against, and the zone then
- * renders neutral rather than picking a colour it has not earned.
- */
-function deviation(zone: string): number | null {
-  const z = byZone.value[zone]
-  if (!z || !z.att) return null
-  if (z.percentile != null) return (z.percentile - 50) / 50
-  if (z.cohortMedian != null && z.pct != null) {
-    return Math.max(-1, Math.min(1, (z.pct - z.cohortMedian) / 10))
-  }
-  return null
-}
-
-/**
- * Green above the reference, blue below. Blue rather than red for "below" on
- * purpose — a cold shooting zone is not an error, and red is reserved in this
- * app for the away side and for losses.
- */
-function colorFor(zone: string): string {
-  const d = deviation(zone)
-  if (d == null) return 'var(--ink-soft)'
-  if (d >= 0.2) return VIZ_STATUS.good
-  if (d <= -0.2) return VIZ_BRAND_HOME
-  return 'var(--ink-soft)'
-}
-const fillFor = (zone: string) => colorFor(zone)
-
-/**
- * Intensity carries distance from the reference. Kept deliberately low — the
- * court lines and the numbers are the content; the wash is a background cue,
- * and above ~0.2 it swallows both.
- */
-function opacityFor(zone: string): number {
-  const d = deviation(zone)
-  if (d == null) return 0.035
-  return 0.05 + Math.abs(d) * 0.13
-}
+const fillFor = (zone: string) => zoneColor(byZone.value[zone])
+const opacityFor = (zone: string) => zoneOpacity(byZone.value[zone])
 
 const POS: Record<string, { x: number; y: number }> = {
   '2PT': { x: 25, y: 40 },   // in the paint, below the FT block
@@ -208,11 +156,10 @@ const POS: Record<string, { x: number; y: number }> = {
 const placed = computed(() =>
   props.zones
     .filter((z) => POS[z.zone])
-    .map((z) => ({ ...z, ...POS[z.zone], color: colorFor(z.zone) }))
+    .map((z) => ({ ...z, ...POS[z.zone], color: zoneColor(z) }))
 )
 
-const zoneName = (z: string) =>
-  ({ '2PT': 'Two-point field goals', '3PT': 'Three-point field goals', FT: 'Free throws' }[z] || z)
+const zoneName = (z: string) => ZONE_NAMES[z] || z
 
 const ariaLabel = computed(() =>
   props.zones.map((z) => `${z.zone} ${z.made} of ${z.att}`).join(', ')
