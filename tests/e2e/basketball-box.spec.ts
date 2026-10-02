@@ -3,7 +3,7 @@ import { signIn } from './auth'
 import { completedBasketballPerLeague } from './ids'
 
 /**
- * #58 / #59: the centre-column court and the Game Stats bars come from the same reader
+ * #58 / #59: the centre-column court and each team's stat tiles come from the same reader
  * (`utils/basketball-box`). They disagreed on every EuroLeague game because the stat bars read a
  * schema they did not understand and fell through to 0.
  */
@@ -17,7 +17,7 @@ test('discovery found a completed game for every basketball league that has box 
 const ZONE: Record<string, 'fg2' | 'fg3' | 'ft'> = { '2PT': 'fg2', '3PT': 'fg3', FT: 'ft' }
 
 for (const { league, id } of games) {
-  test(`${league} #${id}: court zone totals equal the stat-bar makes and attempts`, async ({ page }) => {
+  test(`${league} #${id}: court zone totals equal each team's stat tiles`, async ({ page }) => {
     await signIn(page)
     await page.goto(`/game/${id}`, { waitUntil: 'networkidle' })
 
@@ -35,19 +35,27 @@ for (const { league, id } of games) {
     }
     const rail = { home: await zoneText('home'), away: await zoneText('away') }
 
-    for (const key of ['fg2', 'fg3', 'ft'] as const) {
-      const row = page.locator(`[data-testid="bball-shot-${key}"]`)
-      await expect(row, `stat bar ${key}`).toHaveCount(1)
-      expect((await row.locator('[data-testid="shot-home"]').innerText()).trim(), `${league} home ${key}`).toBe(rail.home[key])
-      expect((await row.locator('[data-testid="shot-away"]').innerText()).trim(), `${league} away ${key}`).toBe(rail.away[key])
+    for (const side of ['home', 'away'] as const) {
+      const stats = page.locator(`[data-testid="bball-team-stats-${side}"]`)
+      await expect(stats, `${side} team stats`).toHaveCount(1)
+      for (const key of ['fg2', 'fg3', 'ft'] as const) {
+        const tile = stats.locator(`[data-testid="tile-${key}"] [data-testid="tile-value"]`)
+        expect((await tile.innerText()).trim(), `${league} ${side} ${key}`).toBe(rail[side][key])
+      }
     }
 
     const body = await page.locator('main').innerText()
     expect(body, 'no NaN on the page').not.toMatch(/\bNaN\b/)
 
-    // The rebound bars carry a number, not a fabricated 0, whenever the shooting does.
-    const rebounds = (await page.locator('[data-testid="bball-rebounds"]').first().innerText())
-    expect(rebounds).not.toMatch(/\bNaN\b/)
-    expect(rebounds.replace(/Total Rebounds|Offensive Reb|Defensive Reb/g, '')).toMatch(/\d/)
+    // The rebound tiles carry a number, not a fabricated 0 or a dash, wherever the shooting is there.
+    for (const side of ['home', 'away'] as const) {
+      const reb = (await page.locator(`[data-testid="bball-team-stats-${side}"] [data-testid="tile-reb"] [data-testid="tile-value"]`).innerText()).trim()
+      expect(reb, `${league} ${side} rebounds`).toMatch(/^\d+$/)
+    }
+
+    // Each team's players sit under its own stats, in the same column.
+    for (const side of ['home', 'away'] as const) {
+      await expect(page.locator(`[data-testid="bball-players-${side}"]`), `${side} players`).toHaveCount(1)
+    }
   })
 }

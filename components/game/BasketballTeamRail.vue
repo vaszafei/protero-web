@@ -1,11 +1,23 @@
 <template>
-  <div class="space-y-3">
+  <div class="flex flex-col gap-3 min-h-0 h-full">
     <!-- Four factors -->
-    <section v-if="factors.length" class="panel overflow-hidden">
+    <section v-if="factors.length" class="panel overflow-hidden flex-shrink-0">
       <header class="panel-head">
         <span class="panel-title">Four factors</span>
         <span class="pill" :class="side === 'home' ? 'pill-blue' : 'pill-red'">{{ teamName }}</span>
-        <span class="panel-link">vs opponent</span>
+        <UiTooltip class="ml-auto" :width="320" placement="bottom">
+          <span class="panel-link">how to read</span>
+          <template #content>
+            <p>
+              The notch is the opposing team in this game and the bar is raw magnitude, so <b>colour</b> carries
+              better-or-worse: green is the better of the two.
+            </p>
+            <p class="mt-2">
+              Four factors are the standard decomposition of a basketball result: shoot well, avoid turnovers,
+              rebound your misses, get to the line.
+            </p>
+          </template>
+        </UiTooltip>
       </header>
       <div class="ff">
         <div v-for="f in factors" :key="f.key" class="ff-row">
@@ -25,20 +37,24 @@
           <span class="ff-v" :style="{ color: f.color }">{{ f.text }}</span>
         </div>
       </div>
-      <p class="ff-note">
-        The notch is the opposing team in this game and the bar is raw magnitude, so
-        <strong>colour</strong> carries better-or-worse — green is the better of the two.
-        Four factors are the standard decomposition of a basketball result: shoot well,
-        avoid turnovers, rebound your misses, get to the line.
-      </p>
     </section>
 
+    <GameBasketballTeamStats class="flex-shrink-0" :sport-stats="sportStats" :side="side" :team-name="teamName" :score="score" />
+
+    <GameBasketballPlayerStats
+      v-if="hasPlayers"
+      class="flex-1 min-h-0"
+      :sport-stats="sportStats"
+      :side="side"
+      :team-name="teamName"
+      :league-key="leagueKey"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * One team's side rail on a completed basketball game.
+ * One team's column on a completed basketball game: four factors, its team stats, its players.
  *
  * What was here before: `TeamStatsRail`, which reads the football scalar
  * columns (`home_shots`, `home_corners`, `home_possession_pct`). Those are NULL
@@ -47,19 +63,25 @@
  * the width of the page.
  *
  * Basketball team totals are not stored as columns at all. They come from
- * `utils/basketball-box`, the one reader of `sport_stats` that `MatchStatistics`
- * and `BasketballPlayerStats` also use, so the three cannot disagree (#58).
+ * `utils/basketball-box`, the one reader of `sport_stats` that the team stats, the player table
+ * and the court in the centre all use, so they cannot disagree (#58).
  */
 import { computed } from 'vue'
 import { VIZ_STATUS, VIZ_BRAND_HOME } from '~/utils/viz'
 import { boxScore, type BoxSide } from '~/utils/basketball-box'
 import UiTooltip from '~/components/ui/Tooltip.vue'
+import GameBasketballTeamStats from '~/components/game/BasketballTeamStats.vue'
+import GameBasketballPlayerStats from '~/components/game/BasketballPlayerStats.vue'
 
 const props = defineProps<{
   sportStats: any
   side: 'home' | 'away'
   teamName: string
+  leagueKey: string
+  score?: { home: unknown; away: unknown } | null
 }>()
+
+const hasPlayers = computed(() => (props.sportStats?.[props.side]?.players?.length ?? 0) > 0)
 
 const box = computed(() => boxScore(props.sportStats))
 const mine = computed(() => box.value[props.side])
@@ -157,11 +179,6 @@ const factors = computed(() => {
   font-size: 0.66rem; font-weight: 700; text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.ff-note {
-  padding: 0.5rem 0.7rem 0.7rem;
-  font-size: 0.57rem; line-height: 1.55; color: var(--ink-faint);
-}
-.ff-note strong { color: var(--ink-mute); font-weight: 600; }
 
 .tip-title { font-weight: 700; color: var(--ink-strong); margin-bottom: 0.25rem; }
 .tip-row { display: flex; justify-content: space-between; gap: 1rem; }

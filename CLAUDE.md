@@ -80,7 +80,7 @@ protero-frontend/
 │   ├── account/            1
 │   ├── admin/              4 — FetchScheduledModal, MatchCard, MatchList, MatchStatsEditor
 │   ├── dashboard/          8 — DashboardDataProvider/Toolbar/WalletCard/GameCard, GamesCalendar, DayMatchesPanel, EmptyStateCard, PipelineRunModal
-│   ├── game/               25 — match detail views, stats, predictions, markets (MarketBoard, GamePrediction, PostMortem, GameAnalysis, BasketballCourt …)
+│   ├── game/               26 — match detail views, stats, predictions, markets (MarketBoard, GamePrediction, PostMortem, GameAnalysis, BasketballCourt, BasketballTeamStats …)
 │   ├── league/             11 — league detail tabs (LeagueOverview, LeagueRoundBoard, AnalysisView, LeagueStandingsTable …)
 │   ├── ops/                6 — control-room panels (OpsFleet, OpsHealth, OpsLiveSlate, OpsExposureBar, OpsCalibration, OpsBlindSpots)
 │   ├── player/             6 — player page panels

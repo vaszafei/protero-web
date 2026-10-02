@@ -21,6 +21,8 @@
             side="home"
             :sport-stats="data.game.sport_stats"
             :team-name="data.game.home_name"
+            :league-key="data.game.league_key"
+            :score="finalScore"
           />
           <UiErrorState
             v-else-if="showFormRails && previewError"
@@ -138,6 +140,8 @@
             side="away"
             :sport-stats="data.game.sport_stats"
             :team-name="data.game.away_name"
+            :league-key="data.game.league_key"
+            :score="finalScore"
           />
           <UiErrorState
             v-else-if="showFormRails && previewError"
@@ -216,38 +220,8 @@
           <div class="p-3" :class="isCompleted ? 'flex-1 min-h-0 overflow-y-auto' : ''">
             <Transition name="tab" mode="out-in">
               <div :key="activeTab">
-                <!-- Match / Game Stats (basketball) -->
-                <div v-if="activeTab === 'stats'">
-                  <MatchStatistics v-if="hasMatchStats" :game="data.game" :sport="gameSport" />
-                  <div v-else class="text-center py-10 text-zinc-500 text-sm">
-                    No {{ gameSport === 'basketball' ? 'game' : 'match' }} statistics available
-                  </div>
-                </div>
-
-                <!-- Player ratings / box score -->
-                <div v-else-if="activeTab === 'players'">
-                  <BasketballPlayerStats
-                    v-if="gameSport === 'basketball' && hasBballPlayers"
-                    :sport-stats="data.game.sport_stats"
-                    :home-name="data.game.home_name"
-                    :away-name="data.game.away_name"
-                    :league-key="data.game.league_key"
-                  />
-                  <PlayerStatsSection
-                    v-else-if="hasLineups"
-                    :home-lineup="data.lineups.home"
-                    :away-lineup="data.lineups.away"
-                    :home-name="data.game.home_name"
-                    :away-name="data.game.away_name"
-                    :league-key="data.game.league_key"
-                  />
-                  <div v-else class="text-center py-10 text-zinc-500 text-sm">
-                    No {{ gameSport === 'basketball' ? 'player stats' : 'lineup information' }} available
-                  </div>
-                </div>
-
                 <!-- Shot chart (completed basketball with located shots) -->
-                <div v-else-if="activeTab === 'shots'">
+                <div v-if="activeTab === 'shots'">
                   <UiErrorState v-if="shotsError" title="The shot chart failed to load." :error="shotsError" @retry="retryShots" />
                   <GameShotChart
                     v-else-if="shotData?.available"
@@ -356,10 +330,7 @@ import Reveal from '~/components/ui/Reveal.vue'
 import GameHeader from '~/components/game/GameHeader.vue'
 import TeamStatsRail from '~/components/game/TeamStatsRail.vue'
 import TeamRatingsCard from '~/components/game/TeamRatingsCard.vue'
-import MatchStatistics from '~/components/game/MatchStatistics.vue'
 import MatchEvents from '~/components/game/MatchEvents.vue'
-import PlayerStatsSection from '~/components/game/PlayerStatsSection.vue'
-import BasketballPlayerStats from '~/components/game/BasketballPlayerStats.vue'
 import GameAnalysis from '~/components/game/GameAnalysis.vue'
 import GamePrediction from '~/components/game/GamePrediction.vue'
 import OddsLadder from '~/components/game/OddsLadder.vue'
@@ -422,12 +393,12 @@ const contextError = computed<string | null>(() => bundle.value?.context?.error 
 const isCompleted = computed(() => data.value?.game?.status === 'completed')
 
 // Active tab state — depends on game status
-const activeTab = ref('stats')
+const activeTab = ref('shots')
 
 // Set the correct default tab based on game status
 watch(() => data.value?.game?.status, (status) => {
   if (status === 'completed') {
-    activeTab.value = gameSport.value === 'football' ? 'players' : 'stats'
+    activeTab.value = gameSport.value === 'football' ? 'players' : 'shots'
   } else {
     // Football's scheduled page leads with the full Market ladder.
     activeTab.value = gameSport.value === 'football' ? 'market' : 'analysis'
@@ -445,13 +416,8 @@ const tabs = computed(() => {
     if (gameSport.value === 'football') {
       return []
     }
-    const bt = [
-      { key: 'stats', label: 'Game Stats', badge: null },
-      { key: 'players', label: 'Player Stats', badge: null },
-    ]
-    // Only EuroLeague 2025-2026 is backfilled, so most fixtures have no shot
-    // rows at all — the tab appears when there is something behind it rather
-    // than opening onto an empty court.
+    // The box score lives in the two team columns; this panel only exists when located shots do.
+    const bt: { key: string; label: string; badge: number | null }[] = []
     if (hasShots.value) {
       bt.push({ key: 'shots', label: 'Shot Chart', badge: shotData.value?.shots?.length ?? null })
     }
@@ -491,8 +457,10 @@ const showRatings = computed(() => {
  * basketball rail derives its totals from the box score instead, which is where
  * basketball team stats actually live.
  */
+const finalScore = computed(() => ({ home: data.value?.game?.home_goals, away: data.value?.game?.away_goals }))
+
 const showBballRails = computed(() =>
-  isCompleted.value && gameSport.value === 'basketball' && hasBballPlayers.value
+  isCompleted.value && gameSport.value === 'basketball' && hasBox(boxScore(data.value?.game?.sport_stats))
 )
 
 // Completed basketball: the hero is as tall as its content until that would push the Game Stats
@@ -566,15 +534,6 @@ watch(tabs, (list) => {
 })
 
 // Computed properties
-const hasMatchStats = computed(() => {
-  if (!data.value?.game) return false
-  const g = data.value.game
-  if (gameSport.value === 'basketball') {
-    return !!g.sport_stats?.home
-  }
-  return g.home_shots !== null || g.home_possession !== null || g.home_corners !== null
-})
-
 const hasLineups = computed(() => {
   return data.value?.lineups?.home?.length > 0 || data.value?.lineups?.away?.length > 0
 })
@@ -594,11 +553,6 @@ function benchName(name: string): string {
 }
 const homeBench = computed(() => (data.value?.lineups?.home || []).filter(p => !isLineupStarter(p)))
 const awayBench = computed(() => (data.value?.lineups?.away || []).filter(p => !isLineupStarter(p)))
-
-const hasBballPlayers = computed(() => {
-  const ss = data.value?.game?.sport_stats
-  return ss?.home?.players?.length > 0 || ss?.away?.players?.length > 0
-})
 
 // Fantasy projections check — only for scheduled basketball games
 const hasFantasy = ref(false)
