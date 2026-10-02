@@ -1,41 +1,35 @@
 <template>
-  <section class="panel overflow-hidden">
+  <section class="panel panel-fill">
     <header class="panel-head">
       <h2 class="panel-title">Pipeline</h2>
-      <NuxtLink to="/gates" class="panel-link">Gates →</NuxtLink>
+      <UiTooltip class="ml-auto" :width="320" placement="bottom">
+        <span class="panel-link">gates are CLI-only</span>
+        <template #content>
+          <p>Settlement, money and mask gates are CLI-only and write nothing to the database — they cannot be shown green here. Run <code>bash scripts/gates.sh</code>.</p>
+        </template>
+      </UiTooltip>
+      <NuxtLink to="/gates" class="panel-link !ml-2">Gates →</NuxtLink>
     </header>
 
     <div class="divide-y divide-edge/40">
-      <div v-for="p in pipelines" :key="p.pipeline" class="px-3 py-2.5 transition-colors duration-150 hover:bg-white/[0.02]">
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-zinc-200 capitalize flex-1">{{ p.pipeline }}</span>
-          <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="statusClass(p)">
-            {{ p.stale ? 'STALE' : p.status.toUpperCase() }}
-          </span>
-        </div>
-        <p class="text-[10px] text-zinc-600 tabular-nums mt-0.5">
+      <div v-for="p in pipelines" :key="p.pipeline" class="flex items-center gap-2 px-3 py-1.5 transition-colors duration-150 hover:bg-white/[0.02]">
+        <span class="text-xs text-zinc-200 capitalize">{{ p.pipeline }}</span>
+        <span class="text-[10px] text-zinc-600 tabular-nums flex-1">
           {{ ago(p.age_hours) }}
-          <span v-if="p.errors" class="text-red-400">· {{ p.errors }} error{{ p.errors === 1 ? '' : 's' }}</span>
+          <span v-if="p.errors" class="text-negative">· {{ p.errors }} error{{ p.errors === 1 ? '' : 's' }}</span>
           <span v-else-if="p.warnings" class="text-amber-400/70">· {{ p.warnings }} warning{{ p.warnings === 1 ? '' : 's' }}</span>
-        </p>
+        </span>
+        <span class="pill" :class="statusClass(p)">
+          {{ p.stale ? 'STALE' : p.status.toUpperCase() }}
+        </span>
       </div>
 
-      <div v-if="!pipelines.length" class="px-3 py-6 text-center">
-        <p class="text-[11px] text-zinc-600">No pipeline run recorded.</p>
-      </div>
-    </div>
-
-    <!-- The three CLI gates persist nothing. Saying so is the point. -->
-    <div class="px-3 py-2 border-t border-edge/40">
-      <p class="text-[10px] text-zinc-600 leading-relaxed">
-        Settlement, money and mask gates are CLI-only and write nothing to the database — they
-        cannot be shown green here. Run <code class="text-zinc-500">bash scripts/gates.sh</code>.
-      </p>
+      <p v-if="!pipelines.length" class="px-3 py-2 text-[11px] text-zinc-600">No pipeline run recorded.</p>
     </div>
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 /**
  * Pipeline health.
  *
@@ -49,13 +43,13 @@ defineProps({
 })
 
 function statusClass(p) {
-  if (p.stale) return 'bg-red-500/15 text-red-300'
+  if (p.stale) return 'pill-red'
   return {
-    ok:       'bg-emerald-500/15 text-emerald-300',
-    success:  'bg-emerald-500/15 text-emerald-300',
-    warnings: 'bg-amber-500/15 text-amber-300',
-    errors:   'bg-red-500/15 text-red-300',
-  }[p.status] || 'bg-zinc-700/40 text-zinc-400'
+    ok:       'pill-blue',
+    success:  'pill-blue',
+    warnings: 'pill-amber',
+    errors:   'pill-red',
+  }[p.status] || 'pill-dim'
 }
 
 function ago(hours) {

@@ -24,7 +24,7 @@
     <div class="flex-shrink-0 flex items-center gap-2">
       <div class="text-center">
         <p class="text-[10px] text-zinc-500 uppercase tracking-wide">W</p>
-        <p class="text-sm font-bold text-emerald-400 leading-tight tabular-nums">{{ nWon }}</p>
+        <p class="text-sm font-bold text-positive leading-tight tabular-nums">{{ nWon }}</p>
       </div>
       <span class="text-zinc-600 text-xs">·</span>
       <div class="text-center">
@@ -37,7 +37,7 @@
     <div v-if="nWagers > 0" class="flex-1 min-w-0">
       <div class="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
         <div
-          class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+          class="h-full rounded-full bg-positive transition-all duration-500"
           :style="{ width: winRatePct + '%' }"
         />
       </div>

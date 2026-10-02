@@ -139,7 +139,7 @@
                         class="w-full text-left text-[11px] px-2 py-1 rounded bg-surface-light/60 hover:bg-surface-light border border-edge"
                         @click="bind(leg, c)">
                   <span class="text-zinc-200">{{ c.home }} v {{ c.away }}</span>
-                  <span class="text-zinc-500"> · {{ c.league_key }} · {{ c.date.slice(0, 16).replace('T', ' ') }}</span>
+                  <span class="text-zinc-500"> · {{ prettyLeagueKey(c.league_key) }} · {{ c.date.slice(0, 16).replace('T', ' ') }}</span>
                   <span v-if="c.matched === 'one'" class="text-amber-400"> · one side matched</span>
                 </button>
               </div>
@@ -360,7 +360,7 @@ async function findFixture(leg: any) {
 }
 function bind(leg: any, c: any) {
   leg.game_id = c.game_id
-  leg._bound_label = `${c.home} v ${c.away} · ${c.league_key} · ${c.date.slice(0, 10)}`
+  leg._bound_label = `${c.home} v ${c.away} · ${prettyLeagueKey(c.league_key)} · ${c.date.slice(0, 10)}`
   leg._candidates = null
 }
 function unbind(leg: any) {

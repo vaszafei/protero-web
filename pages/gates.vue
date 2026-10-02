@@ -1,129 +1,113 @@
 <template>
-  <div class="p-3 sm:p-6 max-w-[1200px] mx-auto">
-    <div class="mb-4">
-      <h1 class="text-xl sm:text-2xl font-bold text-white">Gates</h1>
-      <p class="text-zinc-500 text-xs sm:text-sm mt-0.5">
-        Pipeline health from <code class="text-zinc-600">pipeline_runs</code>, and the
-        regression suite (<code class="text-zinc-600">bash scripts/gates.sh</code>) recorded in
-        <code class="text-zinc-600">gate_runs</code> every 6h. Nothing here is invented — a gate
-        with no recorded run renders as <span class="text-zinc-400">not recorded</span>.
-      </p>
-    </div>
-
-    <div v-if="loading" class="flex justify-center py-20">
-      <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
-    </div>
-
-    <template v-else>
-      <!-- Pipeline health -->
-      <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 mt-6">
-        Pipelines · last run per pipeline
-      </h2>
-      <div v-if="pipelines.length === 0" class="rounded-xl border border-edge bg-surface p-4 text-sm text-zinc-500">
-        No pipeline runs recorded.
+  <UiPageShell title="Gates" subtitle="Pipeline health from pipeline_runs, and the regression suite recorded in gate_runs every 6h.">
+    <Transition name="swap" mode="out-in">
+      <div v-if="loading" class="grid-12 gates-grid">
+        <div class="col-4"><UiSkeletonPanel :rows="4" height="100%" /></div>
+        <div class="col-8"><UiSkeletonPanel :rows="12" height="100%" /></div>
       </div>
-      <div v-else class="grid sm:grid-cols-2 gap-3">
-        <div
-          v-for="p in pipelines"
-          :key="p.pipeline"
-          class="rounded-xl border border-edge bg-surface p-4"
-        >
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-bold text-zinc-100 capitalize">{{ p.pipeline }}</span>
-            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="statusClass(p.status)">
-              {{ p.status }}
-            </span>
-          </div>
-          <div class="text-[11px] text-zinc-500 tabular-nums space-y-1">
-            <div class="flex gap-3">
-              <span>errors <span class="text-zinc-300">{{ p.errors }}</span></span>
-              <span>warnings <span class="text-zinc-300">{{ p.warnings }}</span></span>
-            </div>
-            <div>
-              last run
-              <span class="text-zinc-400">{{ formatWhen(p.started_at) }}</span>
+
+      <UiErrorState v-else-if="error" title="Gates failed to load." :error="error" @retry="load" />
+
+      <div v-else class="grid-12 gates-grid">
+        <!-- Pipeline health -->
+        <section class="col-4 panel panel-fill">
+          <header class="panel-head">
+            <h2 class="panel-title">Pipelines</h2>
+            <span class="text-[10px] text-zinc-600">last run per pipeline</span>
+          </header>
+          <div class="panel-scroll">
+            <p v-if="pipelines.length === 0" class="px-3 py-3 text-[11px] text-zinc-500">No pipeline runs recorded.</p>
+            <div v-for="p in pipelines" :key="p.pipeline" class="px-3 py-2 border-b border-edge/40 last:border-b-0">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-semibold text-zinc-100 capitalize">{{ p.pipeline }}</span>
+                <span class="pill" :class="statusClass(p.status)">{{ p.status }}</span>
+              </div>
+              <p class="text-[11px] text-zinc-500 tabular-nums mt-1">
+                errors <span class="text-zinc-300">{{ p.errors }}</span>
+                · warnings <span class="text-zinc-300">{{ p.warnings }}</span>
+                · last run <span class="text-zinc-400">{{ formatWhen(p.started_at) }}</span>
+              </p>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <!-- Regression gates -->
-      <div class="flex items-baseline justify-between mt-8 mb-2">
-        <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-          Regression gates · bash scripts/gates.sh
-        </h2>
-        <span v-if="gateRun" class="text-[10px] text-zinc-600">
-          last run <span class="text-zinc-400">{{ formatWhen(gateRun.started_at) }}</span>
-        </span>
+        <!-- Regression gates -->
+        <section class="col-8 panel panel-fill">
+          <header class="panel-head !items-center">
+            <h2 class="panel-title">Regression gates</h2>
+            <span class="text-[10px] text-zinc-600">bash scripts/gates.sh</span>
+            <template v-if="gateRun">
+              <span class="pill" :class="gateRun.status === 'green' ? 'pill-blue' : 'pill-red'">
+                {{ gateRun.status === 'green' ? 'GREEN' : 'RED' }}
+              </span>
+              <span class="text-[10px] text-zinc-500 tabular-nums">{{ gateRun.passed }} passed · {{ gateRun.failed }} failed</span>
+              <span class="text-[10px] text-zinc-600">last run <span class="text-zinc-400">{{ formatWhen(gateRun.started_at) }}</span></span>
+            </template>
+            <UiTooltip class="ml-auto" :width="360" placement="bottom">
+              <span class="panel-link">how to read</span>
+              <template #content>
+                <p>
+                  Nothing here is invented — a gate with no recorded run renders as "not recorded". Run by
+                  <code>protero-gates.timer</code> every 6h via <code>common.gate_recorder</code>, which shells out to
+                  the same <code>bash scripts/gates.sh</code> a human runs and persists the verdict to
+                  <code>gate_runs</code>. The gates themselves write nothing — only the recorder's one-row summary
+                  touches the database.
+                </p>
+              </template>
+            </UiTooltip>
+          </header>
+          <div class="panel-scroll">
+            <table class="w-full text-xs">
+              <thead class="sticky top-0 z-[1] bg-surface">
+                <tr class="text-zinc-500">
+                  <th class="text-left font-medium px-3 py-1.5">Gate</th>
+                  <th class="text-left font-medium px-3 py-1.5">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(g, i) in cliGates" :key="g.key" class="border-t border-edge/40 row-in" :style="rowDelay(i)">
+                  <td class="px-3 py-1.5 text-zinc-200 font-medium">{{ g.label }}</td>
+                  <td class="px-3 py-1.5">
+                    <span v-if="g.recorded" class="pill" :class="g.status === 'ok' ? 'pill-blue' : 'pill-red'">
+                      {{ g.status === 'ok' ? 'ok' : 'failed' }}
+                    </span>
+                    <template v-else>
+                      <span class="pill pill-dim">not recorded</span>
+                      <span class="ml-2 text-[10px] text-zinc-600">{{ g.reason }}</span>
+                    </template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
-
-      <div v-if="gateRun" class="rounded-xl border border-edge bg-surface p-3 mb-3 flex items-center gap-3">
-        <span class="px-2 py-1 rounded text-[11px] font-semibold" :class="gateRun.status === 'green' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'">
-          {{ gateRun.status === 'green' ? 'GREEN' : 'RED' }}
-        </span>
-        <span class="text-xs text-zinc-500 tabular-nums">
-          {{ gateRun.passed }} passed · {{ gateRun.failed }} failed
-        </span>
-      </div>
-
-      <div class="rounded-xl border border-edge overflow-hidden">
-        <table class="w-full text-xs">
-          <thead>
-            <tr class="bg-surface-light/40 text-zinc-500">
-              <th class="text-left font-medium px-3 py-2">Gate</th>
-              <th class="text-left font-medium px-3 py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="g in cliGates" :key="g.key" class="border-t border-edge/40">
-              <td class="px-3 py-2 text-zinc-200 font-medium">{{ g.label }}</td>
-              <td class="px-3 py-2">
-                <span
-                  v-if="g.recorded"
-                  class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                  :class="g.status === 'ok' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'"
-                >
-                  {{ g.status === 'ok' ? 'ok' : 'failed' }}
-                </span>
-                <template v-else>
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-zinc-800/60 text-zinc-500">
-                    not recorded
-                  </span>
-                  <span class="ml-2 text-[10px] text-zinc-600">{{ g.reason }}</span>
-                </template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <p class="text-[10px] text-zinc-600 leading-relaxed mt-4">
-        Run by <code>protero-gates.timer</code> every 6h via
-        <code>common.gate_recorder</code>, which shells out to the same
-        <code class="text-zinc-500">bash scripts/gates.sh</code> a human runs and persists the
-        verdict to <code>gate_runs</code>. The gates themselves write nothing — only the
-        recorder's one-row summary touches the database.
-      </p>
-    </template>
-  </div>
+    </Transition>
+  </UiPageShell>
 </template>
 
 <script setup lang="ts">
+import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
+import UiErrorState from '~/components/ui/ErrorState.vue'
+import { errorText } from '~/utils/error-text'
+import { rowDelay } from '~/utils/motion'
+
 const apiFetch = useApiFetch()
 definePageMeta({ middleware: 'auth' })
 
 const loading = ref(true)
+const error = ref<string | null>(null)
 const pipelines = ref<any[]>([])
 const cliGates = ref<any[]>([])
 const gateRun = ref<any | null>(null)
 
 function statusClass(status: string): string {
   return {
-    ok: 'bg-emerald-500/15 text-emerald-300',
-    warnings: 'bg-amber-500/15 text-amber-300',
-    errors: 'bg-red-500/15 text-red-300',
-    running: 'bg-blue-500/15 text-blue-300',
-  }[status] || 'bg-zinc-800/60 text-zinc-400'
+    ok: 'pill-blue',
+    warnings: 'pill-amber',
+    errors: 'pill-red',
+    running: 'pill-blue',
+  }[status] || 'pill-dim'
 }
 
 function formatWhen(iso: string | null): string {
@@ -137,18 +121,30 @@ function formatWhen(iso: string | null): string {
   return `${Math.max(0, Math.floor(ageMs / 60_000))}m ago`
 }
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     const data = await apiFetch('/api/gates')
     pipelines.value = data.pipelines || []
     cliGates.value = data.cli_gates || []
     gateRun.value = data.gate_run || null
   } catch (e) {
-    console.error('Failed to load gates:', e)
+    error.value = errorText(e)
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(load)
 
 useHead({ title: 'Gates · Protero' })
 </script>
+
+<style scoped>
+.gates-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+</style>

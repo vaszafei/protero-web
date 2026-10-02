@@ -1,171 +1,133 @@
 <template>
-  <div>
-    <div v-for="group in groups" :key="group.key" class="mb-6 last:mb-0">
-      <div class="flex items-baseline gap-2 mb-1.5 px-1 flex-wrap">
-        <h3 class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">{{ group.label }}</h3>
-        <span class="text-[10px] text-zinc-600 tabular-nums">{{ group.rows.length }}</span>
-        <span class="text-[10px] text-zinc-600">— {{ group.hint }}</span>
-        <span
-          v-if="group.family.k > 1"
-          class="ml-auto text-[10px] text-zinc-600 tabular-nums"
-          :title="`${group.family.k} wallets in this cohort carry a p-value, so a p<0.05 picked out of it is not evidence. Bonferroni threshold shown.`"
-        >
-          k={{ group.family.k }} · needs p&lt;{{ group.family.bonferroni.toFixed(4) }}
-        </span>
-      </div>
+  <section class="panel panel-fill h-full">
+    <header class="panel-head !items-center gap-3 flex-shrink-0">
+      <UiTabs v-model="tab" :tabs="tabs" size="sm" />
 
-      <!-- Desktop: dense table. An operator reads a roster, not a card wall. -->
-      <div class="hidden md:block rounded-lg border border-edge overflow-x-auto">
-        <table class="w-full text-xs">
-          <thead>
-            <tr class="bg-surface-light/40 text-zinc-500">
-              <th class="text-left font-medium px-3 py-2">Wallet</th>
-              <th class="text-right font-medium px-2 py-2 w-16" title="Settled wagers. A parlay counts once, never its legs.">n</th>
-              <th class="text-right font-medium px-2 py-2 w-16" title="Unsettled wagers">Open</th>
-              <th
-                v-if="group.showCoverage"
-                class="text-right font-medium px-2 py-2 w-24"
-                title="Share of this tipster's published slips our resolver could bind to a fixture. The ROI describes only these."
-              >Covered</th>
-              <th class="text-right font-medium px-2 py-2 w-24">Turnover</th>
-              <th class="text-right font-medium px-2 py-2 w-24">P&amp;L</th>
-              <th class="text-right font-medium px-2 py-2 w-20" title="Profit / turnover — not bankroll return">ROI</th>
-              <th class="text-right font-medium px-2 py-2 w-20" title="Chance a zero-edge bettor matches this. Lower is better.">p(luck)</th>
-              <th class="text-left font-medium px-3 py-2 w-28">Verdict</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="(r, i) in group.rows" :key="r.id"
-              @click="$emit('select', r.id)"
-              :style="rowDelay(i)"
-              class="row-in border-t border-edge/40 cursor-pointer transition-colors"
-              :class="r.id === selectedId ? 'bg-blue-500/10' : 'hover:bg-surface-light/30'"
-            >
-              <td class="px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-surface-light text-zinc-400 border border-edge">
-                    {{ r.meta.badge }}
-                  </span>
+      <template v-if="active">
+        <span class="text-[10px] text-zinc-600 truncate">{{ active.hint }}</span>
+        <span
+          v-if="active.family.k > 1"
+          class="ml-auto text-[10px] text-zinc-600 tabular-nums flex-shrink-0"
+          :title="`${active.family.k} wallets in this cohort carry a p-value, so a p<0.05 picked out of it is not evidence. Bonferroni threshold shown.`"
+        >
+          k={{ active.family.k }} · needs p&lt;{{ active.family.bonferroni.toFixed(4) }}
+        </span>
+      </template>
+
+      <UiTooltip :class="active && active.family.k > 1 ? '' : 'ml-auto'" :width="400" placement="bottom">
+        <span class="panel-link !ml-0">how to read</span>
+        <template #content>
+          <p>
+            A wager is one settled bet, or one parlay at its parlay price — never a parlay's legs.
+            <b>unpriced</b> = struck at alt-line/SGP prices no book quoted, so the ROI measures our own model
+            against itself (CD #37); <b>*</b> = part of the record was. ROI is profit over turnover, not
+            bankroll return. p(luck) is the chance a bettor with no edge matches this P&amp;L.
+          </p>
+          <p class="mt-2">
+            Verdicts are corrected for the size of the cohort they were picked from — the whole roster is
+            scored at once, so an uncorrected p&lt;0.05 is a selection, not a finding. Run
+            <code>python3 -m common.wallet_significance</code> before publishing any of it.
+          </p>
+        </template>
+      </UiTooltip>
+    </header>
+
+    <div v-if="tab === SOURCES_KEY" class="panel-scroll">
+      <slot name="sources" />
+    </div>
+
+    <div v-else-if="active" :key="active.key" class="panel-scroll">
+      <table class="w-full text-xs">
+        <thead class="sticky top-0 z-[1] bg-surface">
+          <tr class="text-zinc-500">
+            <th class="text-left font-medium px-3 py-1.5">Wallet</th>
+            <th class="text-right font-medium px-2 py-1.5 w-16" title="Settled wagers. A parlay counts once, never its legs.">n</th>
+            <th class="text-right font-medium px-2 py-1.5 w-16" title="Unsettled wagers">Open</th>
+            <th
+              v-if="active.showCoverage"
+              class="text-right font-medium px-2 py-1.5 w-28"
+              title="Share of this tipster's published slips our resolver could bind to a fixture. The ROI describes only these."
+            >Covered</th>
+            <th class="text-right font-medium px-2 py-1.5 w-24">Turnover</th>
+            <th class="text-right font-medium px-2 py-1.5 w-24">P&amp;L</th>
+            <th class="text-right font-medium px-2 py-1.5 w-20" title="Profit / turnover — not bankroll return">ROI</th>
+            <th class="text-right font-medium px-2 py-1.5 w-20" title="Chance a zero-edge bettor matches this. Lower is better.">p(luck)</th>
+            <th class="text-left font-medium px-3 py-1.5 w-28">Verdict</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="(r, i) in active.rows" :key="r.id"
+            :style="rowDelay(i)"
+            class="row-in border-t border-edge/40 cursor-pointer transition-colors"
+            :class="r.id === selectedId ? 'bg-[var(--brand-blue-tint)]' : 'hover:bg-surface-light/30'"
+            @click="$emit('select', r.id)"
+          >
+            <td class="px-3 py-1.5">
+              <UiTooltip :width="320" placement="bottom">
+                <span class="inline-flex items-center gap-2 min-w-0">
+                  <span class="pill pill-dim flex-shrink-0 uppercase tracking-wider">{{ r.meta.badge }}</span>
                   <span
                     v-if="r.sourceName"
-                    class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    class="pill flex-shrink-0"
                     :class="sourceClass(r.sourceKey)"
                     :title="`External source: ${r.sourceName}`"
                   >{{ r.sourceName }}</span>
-                  <div class="min-w-0">
-                    <div class="text-zinc-200 font-medium truncate">{{ r.meta.longName }}</div>
-                    <div class="text-[10px] text-zinc-600 truncate">W{{ r.id }} · {{ r.blurbShort }}</div>
-                  </div>
-                </div>
-              </td>
-              <td class="px-2 py-2 text-right tabular-nums text-zinc-400">{{ r.perf.n_wagers }}</td>
-              <td class="px-2 py-2 text-right tabular-nums" :class="r.perf.n_pending > 0 ? 'text-amber-400' : 'text-zinc-600'">
-                {{ r.perf.n_pending || '—' }}
-              </td>
-              <td v-if="group.showCoverage" class="px-2 py-2 text-right tabular-nums">
-                <template v-if="r.coverage">
-                  <span :class="coverageClass(r.coverage.coverage_pct)">{{ r.coverage.coverage_pct.toFixed(1) }}%</span>
-                  <span class="text-zinc-600"> of {{ r.coverage.slips }}</span>
+                  <span class="text-zinc-200 font-medium truncate">{{ r.meta.longName }}</span>
+                  <span class="text-[10px] text-zinc-600 flex-shrink-0">W{{ r.id }}</span>
+                </span>
+                <template #content>
+                  <p>{{ r.bio || 'No bio recorded.' }}</p>
                 </template>
-                <span v-else class="text-zinc-600">—</span>
-              </td>
-              <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ money(r.perf.turnover) }}</td>
-              <td class="px-2 py-2 text-right tabular-nums" :class="signClass(r.perf.pnl)">{{ formatMoney(r.perf.pnl, { signed: true }) }}</td>
-              <td
-                class="px-2 py-2 text-right tabular-nums font-semibold"
-                :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic font-normal' : roiInk(r.perf.roi_pct, r.verdict).class"
-                :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE
-                      : priceBasisOf(r.id) === 'mixed' ? MIXED_PRICE_TITLE : roiInk(r.perf.roi_pct, r.verdict).title"
-              >
-                <template v-if="coverageError && group.showCoverage"><span class="text-[10px] text-red-300 font-normal" :title="coverageError">coverage unavailable</span></template>
-                <template v-else-if="priceBasisOf(r.id) === 'synthetic'">{{ UNPRICED_LABEL }}</template>
-                <template v-else>
-                  {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}<span
-                    v-if="priceBasisOf(r.id) === 'mixed'" class="text-amber-500/80 font-normal">*</span>
-                </template>
-              </td>
-              <td class="px-2 py-2 text-right tabular-nums" :class="pClass(r.perf.p_luck)">
-                {{ r.perf.p_luck == null ? '—' : Number(r.perf.p_luck).toFixed(3) }}
-              </td>
-              <td class="px-3 py-2">
-                <span
-                  class="px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap"
-                  :class="VERDICT_CLASS[r.verdict]"
-                  :title="VERDICT_TITLE[r.verdict]"
-                >{{ VERDICT_LABEL[r.verdict] }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Mobile: the same rows, stacked. -->
-      <div class="md:hidden space-y-1.5">
-        <button
-          v-for="r in group.rows" :key="r.id"
-          @click="$emit('select', r.id)"
-          class="w-full text-left rounded-lg border p-3 transition-colors"
-          :class="r.id === selectedId ? 'border-blue-500/40 bg-blue-500/10' : 'border-edge bg-surface hover:border-edge-light'"
-        >
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <div class="text-sm text-zinc-200 font-medium truncate">{{ r.meta.longName }}</div>
-              <div class="text-[10px] text-zinc-600">
-                W{{ r.id }} · {{ r.meta.badge }}
-                <span
-                  v-if="r.sourceName"
-                  class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                  :class="sourceClass(r.sourceKey)"
-                >{{ r.sourceName }}</span>
-              </div>
-            </div>
-            <span
-              class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold"
-              :class="VERDICT_CLASS[r.verdict]"
-            >{{ VERDICT_LABEL[r.verdict] }}</span>
-          </div>
-          <div class="flex items-center gap-3 mt-2 text-[11px] tabular-nums flex-wrap">
-            <span class="text-zinc-500">n <span class="text-zinc-300">{{ r.perf.n_wagers }}</span></span>
-            <span v-if="r.perf.n_pending" class="text-amber-400">{{ r.perf.n_pending }} open</span>
-            <span
-              :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic' : roiInk(r.perf.roi_pct, r.verdict).class"
-              :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE : roiInk(r.perf.roi_pct, r.verdict).title"
+              </UiTooltip>
+            </td>
+            <td class="px-2 py-1.5 text-right tabular-nums text-zinc-400">{{ r.perf.n_wagers }}</td>
+            <td class="px-2 py-1.5 text-right tabular-nums" :class="r.perf.n_pending > 0 ? 'text-amber-400' : 'text-zinc-600'">
+              {{ r.perf.n_pending || '—' }}
+            </td>
+            <td v-if="active.showCoverage" class="px-2 py-1.5 text-right tabular-nums">
+              <template v-if="r.coverage">
+                <span :class="coverageClass(r.coverage.coverage_pct)">{{ r.coverage.coverage_pct.toFixed(1) }}%</span>
+                <span class="text-zinc-600"> of {{ r.coverage.slips }}</span>
+              </template>
+              <span v-else class="text-zinc-600">—</span>
+            </td>
+            <td class="px-2 py-1.5 text-right tabular-nums text-zinc-500">{{ money(r.perf.turnover) }}</td>
+            <td class="px-2 py-1.5 text-right tabular-nums" :class="signClass(r.perf.pnl)">{{ formatMoney(r.perf.pnl, { signed: true }) }}</td>
+            <td
+              class="px-2 py-1.5 text-right tabular-nums font-semibold"
+              :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic font-normal' : roiInk(r.perf.roi_pct, r.verdict).class"
+              :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE
+                    : priceBasisOf(r.id) === 'mixed' ? MIXED_PRICE_TITLE : roiInk(r.perf.roi_pct, r.verdict).title"
             >
-              <template v-if="coverageError && group.showCoverage">ROI coverage unavailable</template>
-              <template v-else-if="priceBasisOf(r.id) === 'synthetic'">ROI {{ UNPRICED_LABEL }}</template>
-              <template v-else>ROI {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}<span
-                v-if="priceBasisOf(r.id) === 'mixed'" class="text-amber-500/80">*</span></template>
-            </span>
-            <span v-if="r.perf.p_luck != null" :class="pClass(r.perf.p_luck)">
-              p={{ Number(r.perf.p_luck).toFixed(2) }}
-            </span>
-            <span v-if="r.coverage" :class="coverageClass(r.coverage.coverage_pct)">
-              {{ r.coverage.coverage_pct.toFixed(0) }}% covered
-            </span>
-          </div>
-        </button>
-      </div>
+              <template v-if="coverageError && active.showCoverage"><span class="text-[10px] text-negative font-normal" :title="coverageError">coverage unavailable</span></template>
+              <template v-else-if="priceBasisOf(r.id) === 'synthetic'">{{ UNPRICED_LABEL }}</template>
+              <template v-else>
+                {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}<span
+                  v-if="priceBasisOf(r.id) === 'mixed'" class="text-amber-500/80 font-normal">*</span>
+              </template>
+            </td>
+            <td class="px-2 py-1.5 text-right tabular-nums" :class="pClass(r.perf.p_luck)">
+              {{ r.perf.p_luck == null ? '—' : Number(r.perf.p_luck).toFixed(3) }}
+            </td>
+            <td class="px-3 py-1.5">
+              <span
+                class="px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap"
+                :class="VERDICT_CLASS[r.verdict]"
+                :title="VERDICT_TITLE[r.verdict]"
+              >{{ VERDICT_LABEL[r.verdict] }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-
-    <p class="text-[10px] text-zinc-600 leading-relaxed mt-4 px-1">
-      A wager is one settled bet, or one parlay at its parlay price — never a parlay's legs.
-      <span class="text-neutral-500">unpriced</span> = struck at alt-line/SGP prices no book quoted, so the ROI
-      measures our own model against itself (CD #37); <span class="text-amber-500/80">*</span> = part of the record was.
-      ROI is profit over turnover, not bankroll return. p(luck) is the chance a bettor with no edge
-      matches this P&amp;L. <span class="text-zinc-500">Verdicts are corrected for the size of the
-      cohort they were picked from</span> — the whole roster is scored at once, so an uncorrected
-      p&lt;0.05 is a selection, not a finding. Run
-      <code class="text-zinc-500">python3 -m common.wallet_significance</code> before publishing any
-      of it.
-    </p>
-  </div>
+  </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { formatMoney } from '~/utils/formatters'
 import { rowDelay } from '~/utils/motion'
-import { computed } from 'vue'
+import { computed, ref, useSlots, watch } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
 import { cohortOf, scoreRoster, roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
          priceBasisOf, UNPRICED_LABEL, UNPRICED_TITLE, MIXED_PRICE_TITLE } from '~/utils/wallet-stats'
@@ -189,7 +151,7 @@ const sourceNameByKey = computed(() => {
   return m
 })
 
-defineEmits(['select'])
+defineEmits<{ (e: 'select', id: number): void }>()
 
 const EMPTY_PERF = {
   n_wagers: 0, n_won: 0, n_pending: 0, turnover: 0, pnl: 0,
@@ -205,12 +167,12 @@ const rows = computed(() => {
     return {
       id: w.id,
       raw: w,
+      bio: blurb,
       meta: resolveWalletMeta(w),
       perf: perfById.get(w.id) || EMPTY_PERF,
       coverage: cov,
       sourceKey: cov?.source_key || null,
       sourceName: cov?.source_key ? sourceNameByKey.value.get(cov.source_key) || cov.source_key : null,
-      blurbShort: blurb.length > 68 ? blurb.slice(0, 68) + '…' : (blurb || '—'),
     }
   })
 })
@@ -274,6 +236,24 @@ const groups = computed(() => {
     }))
 })
 
+const SOURCES_KEY = 'sources'
+const slots = useSlots()
+
+const tabs = computed(() => [
+  ...groups.value.map(g => ({ key: g.key, label: g.label, badge: g.rows.length })),
+  ...(slots.sources ? [{ key: SOURCES_KEY, label: 'Sources' }] : []),
+])
+
+/** `?w=` (the dashboard fleet links here) opens the cohort holding that wallet. */
+const tab = ref('')
+watch([groups, () => props.selectedId], () => {
+  if (tabs.value.some(t => t.key === tab.value)) return
+  const holder = groups.value.find(g => g.rows.some(r => r.id === props.selectedId))
+  tab.value = holder?.key || groups.value[0]?.key || ''
+}, { immediate: true })
+
+const active = computed(() => groups.value.find(g => g.key === tab.value) || null)
+
 function money(v) {
   const n = Number(v || 0)
   return n === 0 ? '—' : formatMoney(n)
@@ -287,14 +267,14 @@ function signed(v) {
 
 function signClass(v) {
   if (v == null || Number(v) === 0) return 'text-zinc-600'
-  return Number(v) > 0 ? 'text-emerald-400' : 'text-red-400'
+  return Number(v) > 0 ? 'text-positive' : 'text-negative'
 }
 
 // Only p<0.20 is worth visually distinguishing; everything above is noise.
 function pClass(p) {
   if (p == null) return 'text-zinc-600'
   const n = Number(p)
-  if (n < 0.05) return 'text-emerald-400 font-semibold'
+  if (n < 0.05) return 'text-[var(--brand-blue)] font-semibold'
   if (n < 0.20) return 'text-amber-400'
   return 'text-zinc-500'
 }
@@ -308,12 +288,8 @@ function coverageClass(pct) {
   return 'text-red-400'
 }
 
-// Source chip — one colour per external source so the cohort reads as two
-// groups at a glance. New sources fall through to the neutral zinc chip.
-function sourceClass(key) {
-  return {
-    betarades:   'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20',
-    freetips247: 'bg-sky-500/10 text-sky-300 border border-sky-500/20',
-  }[key] || 'bg-zinc-700/40 text-zinc-400 border border-edge'
+// Source chip — blue for betarades, neutral for the rest (green is money only).
+function sourceClass(key: string) {
+  return key === 'betarades' ? 'pill-blue' : 'pill-dim'
 }
 </script>

@@ -41,6 +41,25 @@
   color: rgb(212, 212, 216);
 }
 
+/* A panel that fills the height its grid cell gives it and scrolls its own body — the
+   fit-to-screen idiom. `.panel-head` stays put; wrap the rows in `.panel-scroll`. */
+.panel-fill {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.panel-count {
+  font-size: 0.625rem;
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The header's trailing action link — "All wallets →", "Gates →". */
 .panel-link {
   margin-left: auto;

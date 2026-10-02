@@ -40,7 +40,7 @@
     <!-- Evidence state. There is nothing at p<0.05 and the card says so. -->
     <div class="stat-tile">
       <p class="stat-label">Proven edge</p>
-      <p class="stat-value" :class="lifetime.n_edge > 0 ? 'text-emerald-400' : 'text-zinc-600'">
+      <p class="stat-value" :class="lifetime.n_edge > 0 ? 'text-[var(--brand-blue)]' : 'text-zinc-600'">
         {{ lifetime.n_edge }}
       </p>
       <p class="stat-foot">
@@ -91,7 +91,7 @@ const lifetime = computed(() => {
 function signClass(v) {
   const n = Number(v || 0)
   if (n === 0) return 'text-zinc-600'
-  return n > 0 ? 'text-emerald-400' : 'text-red-400'
+  return n > 0 ? 'text-positive' : 'text-negative'
 }
 </script>
 
