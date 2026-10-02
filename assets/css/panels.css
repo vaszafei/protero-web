@@ -323,3 +323,39 @@
   }
   .draw-in { stroke-dashoffset: 0 !important; }
 }
+
+
+/* ── Route transition ─────────────────────────────────────────────────────
+   `app.pageTransition` in nuxt.config.ts. out-in: the old page fades, then the new
+   one rises 4 px into place. */
+.page-enter-active,
+.page-leave-active {
+  transition:
+    opacity var(--dur-fast) var(--ease-glide),
+    transform var(--dur-fast) var(--ease-glide);
+}
+.page-enter-from { opacity: 0; transform: translateY(4px); }
+.page-leave-to { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active { transition: none; }
+  .page-enter-from,
+  .page-leave-to { opacity: 1; transform: none; }
+}
+
+/* ── Staggered entrance ───────────────────────────────────────────────────
+   Rows of a list that has just been (re)loaded — a ledger page or filter, the roster,
+   a round's fixtures. Entrance only: leaving rows are removed at once, so a filter
+   change never waits on the old list. `--row-delay` comes from utils/motion.stagger. */
+.row-in {
+  animation: row-in var(--dur) var(--ease-rise) both;
+  animation-delay: var(--row-delay, 0ms);
+}
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row-in { animation: none; }
+}

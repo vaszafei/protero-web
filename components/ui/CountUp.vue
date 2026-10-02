@@ -11,9 +11,12 @@ const props = withDefaults(defineProps<{
   value: number
   decimals?: number
   duration?: number
+  /** Render each frame through this (e.g. `formatMoney`); defaults to `toFixed(decimals)`. */
+  format?: (n: number) => string
 }>(), {
   decimals: 0,
   duration: MOTION.normal,
+  format: undefined,
 })
 
 const animated = useCountUp(
@@ -21,5 +24,5 @@ const animated = useCountUp(
   { duration: props.duration, decimals: props.decimals }
 )
 
-const display = computed(() => animated.value.toFixed(props.decimals))
+const display = computed(() => props.format ? props.format(animated.value) : animated.value.toFixed(props.decimals))
 </script>

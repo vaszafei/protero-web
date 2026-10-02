@@ -33,23 +33,43 @@
 </template>
 
 <script setup>
+/**
+ * A cold-start overlay and nothing else. It lives in app.vue, so it mounts once per
+ * hard load and never on in-app navigation. It leaves as soon as the first page has
+ * resolved (which includes the auth middleware's checkAuth), capped at 600 ms so a
+ * slow API can never keep it over a page that already has its data. Under reduced
+ * motion it is skipped outright.
+ */
+const SPLASH_CAP_MS = 600
+
 const visible = ref(true)
 const logoRevealed = ref(false)
 const nameRevealed = ref(false)
 
+const nuxtApp = useNuxtApp()
+let cap = null
+let nameTimer = null
+let unhook = null
+
+function hide() {
+  visible.value = false
+  clearTimeout(cap)
+  clearTimeout(nameTimer)
+  unhook?.()
+}
+
 onMounted(() => {
-  requestAnimationFrame(() => {
-    logoRevealed.value = true
-  })
-
-  setTimeout(() => {
-    nameRevealed.value = true
-  }, 400)
-
-  setTimeout(() => {
-    visible.value = false
-  }, 2000)
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    hide()
+    return
+  }
+  requestAnimationFrame(() => { logoRevealed.value = true })
+  nameTimer = setTimeout(() => { nameRevealed.value = true }, 200)
+  cap = setTimeout(hide, SPLASH_CAP_MS)
+  unhook = nuxtApp.hook('page:finish', hide)
 })
+
+onBeforeUnmount(hide)
 </script>
 
 <style scoped>
@@ -185,10 +205,14 @@ onMounted(() => {
 
 /* Fade out */
 .splash-fade-leave-active {
-  transition: opacity 0.5s ease-out;
+  transition: opacity var(--dur) ease-out;
 }
 
 .splash-fade-leave-to {
   opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-fade-leave-active { transition: none; }
 }
 </style>

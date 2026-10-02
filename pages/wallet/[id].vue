@@ -1,9 +1,9 @@
 <template>
-  <!-- Desktop operator page, sized to the viewport: nothing scrolls at
-       1920×1080. Three columns — the wallet's standing, its ledger, and the
-       selected slip with the analytics. The ledger pages to the rows its panel
-       can hold instead of growing the page. -->
   <div class="h-full max-w-[1680px] mx-auto px-4 pt-3 pb-3 flex flex-col gap-3">
+    <!-- Desktop operator page, sized to the viewport: nothing scrolls at
+         1920×1080. Three columns — the wallet's standing, its ledger, and the
+         selected slip with the analytics. The ledger pages to the rows its panel
+         can hold instead of growing the page. -->
     <!-- Identity: back to the roster, the wallet's name, and its actions. -->
     <div class="flex items-center gap-3 flex-shrink-0 min-w-0">
       <NuxtLink to="/wallet" title="All wallets" class="flex items-center text-zinc-500 hover:text-zinc-200 flex-shrink-0">
@@ -27,14 +27,7 @@
           <!-- Player-props wallets: tonight's slate. "Load props" runs injuries →
                Stoiximan capture → board → candidates as one job. -->
           <template v-if="propsLeague">
-            <div class="flex items-center gap-0.5 mr-2">
-              <button
-                v-for="v in VIEWS" :key="v.key"
-                class="text-[11px] px-2.5 py-1 rounded font-semibold transition-colors"
-                :class="view === v.key ? 'bg-blue-500/15 text-blue-300' : 'text-zinc-500 hover:text-zinc-300'"
-                @click="view = v.key"
-              >{{ v.label }}</button>
-            </div>
+            <UiTabs v-model="view" :tabs="VIEWS" size="sm" class="mr-2" />
             <UButton
               size="2xs"
               color="primary"
@@ -124,22 +117,16 @@
       </div>
 
       <!-- ── Ledger ── -->
-      <div class="rounded-xl bg-surface border border-edge flex flex-col min-h-0 overflow-hidden">
-        <div class="flex items-center gap-1 px-2.5 py-2 border-b border-edge/50 flex-shrink-0">
-          <button
-            v-for="t in LEDGER_TABS" :key="t.key"
-            class="text-[11px] px-2.5 py-1 rounded font-semibold transition-colors"
-            :class="ledgerTab === t.key ? 'bg-blue-500/15 text-blue-300' : 'text-zinc-500 hover:text-zinc-300'"
-            @click="setLedgerTab(t.key)"
-          >{{ t.label }} <span class="tabular-nums font-normal text-zinc-500">{{ t.key === 'slips' ? parlaysTotal : betsTotal }}</span></button>
-          <div class="ml-auto flex items-center gap-0.5">
-            <button
-              v-for="f in STATUS_FILTERS" :key="f.value"
-              class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
-              :class="betFilter === f.value ? 'bg-emerald-500/15 text-emerald-300' : 'text-zinc-500 hover:text-zinc-300'"
-              @click="setBetFilter(f.value)"
-            >{{ f.label }}</button>
-          </div>
+      <div class="panel flex flex-col min-h-0 overflow-hidden">
+        <div class="panel-head !items-center gap-3 flex-shrink-0">
+          <UiTabs :model-value="ledgerTab" :tabs="ledgerTabs" size="sm" @update:model-value="setLedgerTab" />
+          <UiTabs
+            class="ml-auto"
+            :model-value="betFilter || 'all'"
+            :tabs="STATUS_FILTERS"
+            size="sm"
+            @update:model-value="(k) => setBetFilter(k === 'all' ? '' : k)"
+          />
         </div>
 
         <div ref="listEl" class="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
@@ -150,7 +137,9 @@
             <UiErrorState v-if="parlaysError" title="The slips failed to load." :error="parlaysError" @retry="loadParlays" />
             <p v-else-if="!parlays.length" class="text-center text-[11px] text-zinc-500 py-8">No {{ betFilter }} slips.</p>
             <WalletParlayRow
-              v-for="p in parlays" :key="`p${p.id}`"
+              v-for="(p, i) in parlays" :key="`p${p.id}`"
+              class="row-in"
+              :style="rowDelay(i)"
               :parlay="p"
               :selected="selectedParlay?.id === p.id"
               @select="selectedParlay = p"
@@ -159,7 +148,7 @@
           <template v-else>
             <UiErrorState v-if="betsError" title="The singles failed to load." :error="betsError" @retry="loadBets" />
             <p v-else-if="!bets.length" class="text-center text-[11px] text-zinc-500 py-8">No {{ betFilter }} singles.</p>
-            <WalletBetRow v-for="bet in bets" :key="`b${bet.id}`" :bet="bet" />
+            <WalletBetRow v-for="(bet, i) in bets" :key="`b${bet.id}`" class="row-in" :style="rowDelay(i)" :bet="bet" />
           </template>
         </div>
 
@@ -213,6 +202,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
 import { cohortOf, scoreRoster } from '~/utils/wallet-stats'
 import { errorText } from '~/utils/error-text'
+import { rowDelay } from '~/utils/motion'
 import { usePropsSlate, athensToday } from '~/composables/usePropsSlate'
 
 const apiFetch = useApiFetch()
@@ -222,15 +212,16 @@ definePageMeta({ middleware: 'auth' })
 const route = useRoute()
 const api = useApi()
 
-const LEDGER_TABS = [
-  { key: 'slips',   label: 'Slips' },
-  { key: 'singles', label: 'Singles' },
-]
+const ledgerTabs = computed(() => [
+  { key: 'slips',   label: 'Slips',   badge: parlaysTotal.value },
+  { key: 'singles', label: 'Singles', badge: betsTotal.value },
+])
+// UiTabs keys are strings, so "All" is 'all' here and '' only where the API is called.
 const STATUS_FILTERS = [
-  { label: 'All',     value: '' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Won',     value: 'won' },
-  { label: 'Lost',    value: 'lost' },
+  { label: 'All',     key: 'all' },
+  { label: 'Pending', key: 'pending' },
+  { label: 'Won',     key: 'won' },
+  { label: 'Lost',    key: 'lost' },
 ]
 
 /** Rendered row heights (row + the list's 4px gap). A mirror single carries a

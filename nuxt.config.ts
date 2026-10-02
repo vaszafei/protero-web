@@ -4,6 +4,9 @@ export default defineNuxtConfig({
   // resolve their custom properties from it.
   css: ['~/assets/css/tokens.css', '~/assets/css/panels.css'],
   app: {
+    // 160 ms fade + 4 px rise between routes (CSS in assets/css/panels.css, with its own
+    // reduced-motion kill switch). Every page has ONE root element, which Transition requires.
+    pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: 'ΠροΤερο Admin',
       link: [

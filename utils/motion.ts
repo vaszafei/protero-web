@@ -23,3 +23,8 @@ export const MOTION = {
 export function stagger(index: number, step = 60): number {
   return Math.max(0, index * step)
 }
+
+/** Inline style for a `.row-in` element: its entrance delay, capped so a long list does not crawl. */
+export function rowDelay(index: number, step = 25, cap = 12): { '--row-delay': string } {
+  return { '--row-delay': `${stagger(Math.min(index, cap), step)}ms` }
+}

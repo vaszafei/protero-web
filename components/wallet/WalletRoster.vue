@@ -36,9 +36,10 @@
           </thead>
           <tbody>
             <tr
-              v-for="r in group.rows" :key="r.id"
+              v-for="(r, i) in group.rows" :key="r.id"
               @click="$emit('select', r.id)"
-              class="border-t border-edge/40 cursor-pointer transition-colors"
+              :style="rowDelay(i)"
+              class="row-in border-t border-edge/40 cursor-pointer transition-colors"
               :class="r.id === selectedId ? 'bg-blue-500/10' : 'hover:bg-surface-light/30'"
             >
               <td class="px-3 py-2">
@@ -163,6 +164,7 @@
 
 <script setup>
 import { formatMoney } from '~/utils/formatters'
+import { rowDelay } from '~/utils/motion'
 import { computed } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
 import { cohortOf, scoreRoster, roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,

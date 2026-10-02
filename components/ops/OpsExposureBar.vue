@@ -4,7 +4,7 @@
     <div class="stat-tile">
       <p class="stat-label">Open exposure</p>
       <p class="stat-value" :class="exposure.stake > 0 ? 'text-amber-400' : 'text-zinc-600'">
-        {{ formatMoney(exposure.stake) }}
+        <UiCountUp :value="Number(exposure.stake || 0)" :decimals="2" :format="(n) => formatMoney(n)" />
       </p>
       <p class="stat-foot">
         {{ exposure.n_wagers }} wager<span v-if="exposure.n_wagers !== 1">s</span>
@@ -18,7 +18,7 @@
     <div class="stat-tile">
       <p class="stat-label">Settled · 7d</p>
       <p class="stat-value" :class="signClass(week.pnl)">
-        {{ signed(week.pnl) }}
+        <UiCountUp :value="Number(week.pnl || 0)" :decimals="2" :format="(n) => formatMoney(n, { signed: true })" />
       </p>
       <p class="stat-foot">
         {{ week.n_wagers }} wagers · {{ week.n_won }}W {{ week.n_wagers - week.n_won }}L
@@ -30,7 +30,7 @@
     <div class="stat-tile">
       <p class="stat-label">Fleet lifetime</p>
       <p class="stat-value" :class="signClass(lifetime.pnl)">
-        {{ signed(lifetime.pnl) }}
+        <UiCountUp :value="Number(lifetime.pnl || 0)" :decimals="2" :format="(n) => formatMoney(n, { signed: true })" />
       </p>
       <p class="stat-foot">
         {{ lifetime.n_wagers }} settled wagers
@@ -87,11 +87,6 @@ const lifetime = computed(() => {
   }
 })
 
-
-function signed(v) {
-  const n = Number(v || 0)
-  return (n >= 0 ? '+' : '') + n.toFixed(2)
-}
 
 function signClass(v) {
   const n = Number(v || 0)

@@ -52,11 +52,11 @@ protero-frontend/
 ├── components/             67 components organized by domain
 │   ├── admin/              6 — admin panel components
 │   ├── dashboard/          12 — home page cards, calendar, stats (incl. DashboardWalletCard, DashboardToolbar)
-│   ├── game/               15 — match detail views, stats, predictions, markets (incl. GameTabs, MatchEvents, PossessionDonut, OddsLadder)
+│   ├── game/               15 — match detail views, stats, predictions, markets (incl. MatchEvents, PossessionDonut, OddsLadder)
 │   ├── league/             18 (incl. predictions/) — league detail tabs
 │   ├── twin/               1 — entity/blind-spot layer
 │   ├── wallet/             8 — roster, hero, breakdown, provenance, bet/parlay rows
-│   ├── ui/                 7 — shared primitives (Card, Reveal, CountUp, EmptyState, LoadingSpinner, PageHeader, StatCard)
+│   ├── ui/                 shared primitives (PageShell, Tabs, ErrorState, SkeletonPanel, CountUp, Reveal, ProbBar, Tooltip, Card, EmptyState, StatCard …)
 │   └── (root)              7 — Sidebar, BottomNav, etc.
 
 ├── composables/            14 — useApi, useAuth, useAuthEndpoint, useAuthToken,
@@ -165,6 +165,37 @@ protero-frontend/
 **Sport filtering (client-side).** Use `sportOf()` from `utils/constants.ts`, not ad-hoc `league_key IN [...]` checks.
 
 **Component splitting rule.** Each component should have a single responsibility. The two former giants (`PredictionsView.vue` 1,539L, `BasketballPlayerStats.vue` 1,012L) were split 2026-08-22 into `BasketballPredictions`, `FootballMatchCard`, `PlayerSeasonModal` + slim orchestrators. Keep doing this.
+
+## Page Contract (root #46)
+
+Every page is built from the same few pieces, so a new page looks and moves like the game and
+wallet pages without being copied from them.
+
+1. **`UiPageShell` frames the page.** It is `fit` by default: a flex column exactly the height of
+   `<main>`, no `100vh` floor, no bottom padding; the panels inside decide what scrolls. A page that
+   is genuinely a long document opts out with `:fit="false"` (the player page). Every page has
+   **one root element** — the route transition needs it (`node` check: all 16 pages pass).
+2. **Cards are `.panel` / `.panel-head` / `.panel-title`** (`assets/css/panels.css`). No ad-hoc
+   `rounded-xl bg-surface border`.
+3. **A panel whose data can take over 300 ms renders `UiSkeletonPanel`, not a bare spinner;** a
+   failure renders `UiErrorState`. Empty state only after a successful zero-row read.
+4. **Tokens only.** No stock `blue-*`/`emerald-*`/`green-*` for a meaning that is not money (green
+   = money-positive only). Colours come from `tokens.css`, `panels.css` and `utils/viz.ts`.
+5. **`lang="ts"` on every SFC you touch** (the honesty gate ratchets the count down).
+6. **One tab rail: `UiTabs`** (`size="md"` for a section switch, `size="sm"` for a panel head or a
+   filter row). Keys are strings; a disabled tab carries a `hint`. Do not write another.
+
+**Motion** uses the `--dur*` / `--ease-*` tokens and ships a `prefers-reduced-motion` kill switch,
+without exception:
+
+- Route: `app.pageTransition` (`.page-*` in `panels.css`), 160 ms fade + 4 px rise, out-in.
+- Lists: add `class="row-in"` and `:style="rowDelay(i)"` (`utils/motion.ts`) to the rows of a list
+  that reloads — entrance only, capped at 12 steps, so a filter change never waits on the old rows.
+- Numbers: `UiCountUp` with `:decimals` equal to what the format shows and `:format` for money
+  (`(n) => formatMoney(n)`). `decimals` rounds every frame, including the last one.
+- Bars and heatmap cells fade in (opacity only — their positions and tints are data).
+- Splash: cold start only, until the first page resolves, capped at 600 ms, skipped under reduced
+  motion.
 
 ## Wallet Stats
 

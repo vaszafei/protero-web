@@ -30,11 +30,12 @@
       <div v-if="roundGames.length" class="relative mt-2.5">
         <div ref="railEl" class="rail" @scroll.passive="syncRail">
           <LeagueFixtureCard
-            v-for="g in roundGames"
+            v-for="(g, i) in roundGames"
             :key="g.id || `${g.home_name}-${g.away_name}`"
             :game="g"
             :show-day="!!roundSpansDays"
-            class="rail-item"
+            class="rail-item row-in"
+            :style="rowDelay(i)"
           />
         </div>
 
@@ -254,6 +255,7 @@ import { computed, h, defineComponent, nextTick, onMounted, ref, watch } from 'v
 import LeagueFixtureCard from '~/components/league/LeagueFixtureCard.vue'
 import LeagueManagers from '~/components/league/LeagueManagers.vue'
 import { VIZ_HOME, VIZ_STATUS } from '~/utils/viz'
+import { rowDelay } from '~/utils/motion'
 import { getTeamLogoUrl, teamAbbreviation } from '~/utils/teamLogo'
 
 const props = defineProps({

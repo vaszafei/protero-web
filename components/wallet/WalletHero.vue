@@ -10,13 +10,13 @@
       <div class="mb-2.5">
         <p class="text-[10px] text-zinc-500 uppercase tracking-wider mb-0.5">Balance</p>
         <div class="flex items-baseline gap-2">
-          <span class="text-2xl sm:text-3xl font-extrabold text-white tabular-nums">{{ formatMoney(wallet.balance) }}</span>
+          <span class="text-2xl sm:text-3xl font-extrabold text-white tabular-nums"><UiCountUp :value="Number(wallet.balance)" :decimals="2" :format="(n) => formatMoney(n)" /></span>
           <span
             v-if="pnl != null"
             class="text-sm font-bold tabular-nums"
             :class="pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-red-400' : 'text-zinc-500'"
             title="Profit over settled wagers, from get_wallet_performance — the same figure as the roster"
-          >{{ formatMoney(pnl, { signed: true }) }}</span>
+          ><UiCountUp :value="pnl" :decimals="2" :format="(n) => formatMoney(n, { signed: true })" /></span>
         </div>
       </div>
 

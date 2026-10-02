@@ -1,5 +1,5 @@
 <template>
-  <UiPageShell>
+  <UiPageShell :fit="false">
     <template #header>
       <div class="ph-head">
         <button class="btn btn-ghost btn-sm" @click="$router.back()">

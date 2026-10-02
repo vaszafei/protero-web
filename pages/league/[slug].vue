@@ -101,14 +101,9 @@
         :error="seasonsError"
         @retry="refreshSeasons"
       />
-      <TabNavigation
-        v-model:activeTab="activeTab"
-        :fixture-count="roundGames.length"
-        :analysis-count="completedCount"
-        :prediction-count="nextUnplayedMatches.length"
-        :predictions-disabled="!isCurrentSeason"
-        :predictions-hint="isCurrentSeason ? '' : 'Predictions exist only for the season being played'"
-      />
+      <div class="flex justify-center mb-4">
+        <UiTabs v-model="activeTab" :tabs="leagueTabs" />
+      </div>
 
       <!-- Overview — the twin and the fixtures it is fitted on, one pane -->
       <div v-show="activeTab === 'overview'" class="tab-anim">
@@ -176,7 +171,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ChevronLeft } from 'lucide-vue-next'
-import TabNavigation from '~/components/league/TabNavigation.vue'
 import LeagueSeasonBar from '~/components/league/LeagueSeasonBar.vue'
 import LeagueOverview from '~/components/league/LeagueOverview.vue'
 import LeagueStandingsTable from '~/components/league/LeagueStandingsTable.vue'
@@ -302,6 +296,19 @@ const byDate = computed(() => isBball.value || !hasRounds.value)
 // UI State. "Twin" and "Fixtures" were merged into one Overview on 2026-08-23 —
 // they were two halves of one subject and reading either needed the other.
 const activeTab = ref('overview')
+// Predictions are a statement about fixtures not yet played: on a finished season there
+// are none, so the tab is disabled (with the reason) rather than a wall of zeros.
+const leagueTabs = computed(() => [
+  { key: 'overview', label: 'Overview', badge: roundGames.value.length },
+  { key: 'analysis', label: 'Analysis', badge: completedCount.value },
+  {
+    key: 'predictions',
+    label: 'Predictions',
+    badge: isCurrentSeason.value ? nextUnplayedMatches.value.length : null,
+    disabled: !isCurrentSeason.value,
+    hint: isCurrentSeason.value ? '' : 'Predictions exist only for the season being played',
+  },
+])
 const selectedRound = ref(1)
 const standingsFilter = ref('overall')
 

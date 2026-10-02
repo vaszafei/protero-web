@@ -192,7 +192,7 @@
       <Reveal v-if="tabs.length > 0" :delay="120">
         <section class="panel overflow-hidden mt-3">
           <header class="panel-head tabs-head">
-            <GameTabs :tabs="tabs" v-model="activeTab" />
+            <UiTabs :tabs="tabs" v-model="activeTab" size="sm" />
           </header>
 
           <div class="p-3" @touchstart="onTouchStart" @touchend="onTouchEnd">
@@ -338,7 +338,6 @@ import Reveal from '~/components/ui/Reveal.vue'
 import GameHeader from '~/components/game/GameHeader.vue'
 import TeamStatsRail from '~/components/game/TeamStatsRail.vue'
 import TeamRatingsCard from '~/components/game/TeamRatingsCard.vue'
-import GameTabs from '~/components/game/GameTabs.vue'
 import MatchStatistics from '~/components/game/MatchStatistics.vue'
 import MatchEvents from '~/components/game/MatchEvents.vue'
 import PlayerStatsSection from '~/components/game/PlayerStatsSection.vue'

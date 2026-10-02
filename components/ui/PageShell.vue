@@ -1,5 +1,5 @@
 <template>
-  <div class="shell">
+  <div class="shell" :class="{ 'shell-fit': fit }">
     <header v-if="title || $slots.actions || $slots.header" class="shell-head">
       <div v-if="$slots.header"><slot name="header" /></div>
       <template v-else>
@@ -41,10 +41,18 @@ withDefaults(defineProps<{
   subtitle?: string
   /** Narrower frame for a genuinely single-subject page (login, account). */
   narrow?: boolean
+  /**
+   * Fit the viewport (the default): the shell fills `<main>` and its children size to
+   * it, so nothing scrolls at 1920×1080. Pass `:fit="false"` for a page that is
+   * genuinely a long document (a player's season) — it gets a min-height and bottom
+   * padding and scrolls.
+   */
+  fit?: boolean
 }>(), {
   title: '',
   subtitle: '',
   narrow: false,
+  fit: true,
 })
 </script>
 
@@ -59,6 +67,19 @@ withDefaults(defineProps<{
 
 @media (min-width: 640px) {
   .shell { padding: 1.25rem 1.5rem; padding-bottom: 3rem; }
+}
+
+/* Fit mode — a flex column that takes exactly the height of <main>; the page's own
+   panels decide what scrolls inside it. No 100vh floor, no bottom padding. */
+.shell.shell-fit {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0.75rem;
+}
+@media (min-width: 640px) {
+  .shell.shell-fit { padding-bottom: 1.25rem; }
 }
 
 .shell-head {

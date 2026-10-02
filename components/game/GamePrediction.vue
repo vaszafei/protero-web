@@ -682,7 +682,10 @@ function signed(v: number, dp = 1) {
   height: 1.85rem; border-radius: 4px;
   font-size: 0.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
   cursor: default;
+  animation: gp-heat-in var(--dur-slow) var(--ease-rise) both;  /* opacity only: a cell's tint is data */
 }
+@keyframes gp-heat-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .gp-heat-cell { animation: none; } }
 .gp-heat-top { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.85); }
 .gp-heat-foot { margin-top: 0.5rem; font-size: 0.72rem; color: var(--ink-mute); }
 .gp-heat-foot b { color: var(--ink-strong); }

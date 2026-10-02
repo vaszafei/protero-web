@@ -190,6 +190,7 @@ const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
   top: 0;
   bottom: 0;
   opacity: 0.3;
+  animation: pb-gap-in var(--dur-slow) var(--ease-rise) both;
 }
 
 .pb-mkt-mark {
@@ -199,6 +200,7 @@ const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
   width: 2px;
   margin-left: -1px;
   background: var(--ink-mute);
+  animation: pb-in var(--dur-slow) var(--ease-rise) both;
 }
 
 .pb-our-mark {
@@ -211,6 +213,14 @@ const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
   border: 2px solid;
   transform: translateY(-50%);
   box-shadow: 0 0 0 2px var(--surface);
+  animation: pb-in var(--dur-slow) var(--ease-rise) 60ms both;
+}
+
+/* Opacity only — the markers' positions are data, so nothing slides. */
+@keyframes pb-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pb-gap-in { from { opacity: 0; } to { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  .pb-gap, .pb-mkt-mark, .pb-our-mark { animation: none; }
 }
 
 .pb-foot {
