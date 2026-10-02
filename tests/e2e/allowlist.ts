@@ -23,7 +23,9 @@ const OVER_BASELINE: Record<string, number> = {
   '/game/completed-basketball': 3,
   // The bundle + one ledger page sized to the measured panel. W29 also polls the props-slate job
   // runner (`/api/props/slate/status`), which is Nitro by design — it spawns host processes.
-  '/wallet/26': 2, '/wallet/29': 3, '/wallet/40': 2, '/wallet/54': 2, '/wallet/55': 2,
+  // +2 on every wallet page: `useRealtimeRefetch` re-reads the bundle and the ledger once on SUBSCRIBED,
+  // to catch rows written between the first read and the subscription landing (#52).
+  '/wallet/26': 4, '/wallet/29': 5, '/wallet/40': 4, '/wallet/54': 4, '/wallet/55': 4,
 }
 
 export const requestBudget = (routeKey: string): number =>
