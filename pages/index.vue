@@ -1,10 +1,21 @@
 <template>
   <UiPageShell title="Control room" subtitle="What the machine is exposed to, and whether it is healthy.">
     <template #actions>
+      <span
+        class="text-[10px] tabular-nums"
+        :class="live.state === 'live' ? 'text-emerald-400/70' : 'text-zinc-500'"
+        :title="live.state === 'live'
+          ? 'Subscribed to bets + parlays — the slate and exposure refresh when a wager is placed or settled.'
+          : live.state === 'offline'
+            ? `Realtime is not delivering (${live.reason}); reload to refresh.`
+            : 'Connecting to Realtime…'"
+      >
+        {{ live.state }}
+      </span>
       <span v-if="data" class="text-[10px] text-zinc-600 tabular-nums">
         {{ new Date(data.generated_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) }}
       </span>
-      <button class="btn btn-ghost btn-icon" :disabled="loading" title="Reload dashboard data" @click="reload">
+      <button class="btn btn-ghost btn-icon" :disabled="loading" title="Reload dashboard data" @click="reload()">
         <UIcon name="i-heroicons-arrow-path" class="w-3.5 h-3.5" :class="loading ? 'animate-spin' : ''" />
       </button>
       <button class="btn btn-brand" @click="runModalOpen = true">
@@ -27,7 +38,7 @@
         </div>
       </div>
 
-      <UiErrorState v-else-if="error" title="The dashboard failed to load." :error="error" @retry="reload" />
+      <UiErrorState v-else-if="error" title="The dashboard failed to load." :error="error" @retry="reload()" />
 
       <div v-else-if="data" class="dash-body">
         <OpsExposureBar :exposure="data.exposure" :week="data.week" :fleet="data.fleet" class="flex-shrink-0" />
@@ -89,8 +100,9 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const runModalOpen = ref(false)
 
-async function reload() {
-  loading.value = true
+async function reload(silent = false) {
+  // A Realtime-triggered refresh keeps the panels on screen instead of flashing the skeleton.
+  if (!silent) loading.value = true
   error.value = null
   try {
     data.value = await edge('dashboard')
@@ -101,7 +113,11 @@ async function reload() {
   }
 }
 
-onMounted(reload)
+onMounted(() => reload())
+
+// The slate and exposure move when a wager is struck or settled; re-read (debounced) on any change.
+const live = useRealtimeRefetch('dashboard', () => [{ table: 'bets' }, { table: 'parlays' }], () => reload(true), 2000)
+
 
 useHead({ title: 'Control room · Protero' })
 </script>

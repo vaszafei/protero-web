@@ -13,6 +13,15 @@
         <h1 class="text-lg font-bold text-white truncate">{{ meta.longName }}</h1>
 
         <div class="ml-auto flex items-center gap-2 flex-shrink-0">
+          <span
+            class="text-[10px] tabular-nums"
+            :class="live.state === 'live' ? 'text-emerald-400/70' : 'text-zinc-500'"
+            :title="live.state === 'live'
+              ? 'Subscribed to this wallet\'s bets + parlays — the ledger refreshes when one is placed or settled.'
+              : live.state === 'offline'
+                ? `Realtime is not delivering (${live.reason}); reload to refresh.`
+                : 'Connecting to Realtime…'"
+          >{{ live.state }}</span>
           <!-- User-mirror wallet: log a new real-money slip (with screenshot)
                straight from here. It lands in `user_real_bets`; the backend
                mirror chain (bind → project → settle) still runs separately. -->
@@ -100,7 +109,7 @@
           @retry="loadHistory"
           @update:days="setHistoryDays"
         />
-        <UiErrorState v-if="seasonLadderError" class="flex-shrink-0" title="The season ladder failed to load." :error="seasonLadderError" @retry="loadPage" />
+        <UiErrorState v-if="seasonLadderError" class="flex-shrink-0" title="The season ladder failed to load." :error="seasonLadderError" @retry="loadPage()" />
         <WalletSeasonLadder
           v-else-if="seasonLadder.length || seasonLadderLoading"
           class="flex-initial min-h-0"
@@ -108,7 +117,7 @@
           :loading="seasonLadderLoading"
         />
         <!-- Settled singles only — a slips-only wallet has nothing to show here. -->
-        <UiErrorState v-if="breakdownError" class="flex-shrink-0" title="The P&L breakdown failed to load." :error="breakdownError" @retry="loadPage" />
+        <UiErrorState v-if="breakdownError" class="flex-shrink-0" title="The P&L breakdown failed to load." :error="breakdownError" @retry="loadPage()" />
         <WalletBreakdown
           v-else-if="breakdownLoading || breakdownHasRows"
           class="flex-none max-h-[45%]"
@@ -173,8 +182,8 @@
       <!-- ── Selected slip + analytics ── -->
       <div v-if="hasRightColumn" class="flex flex-col gap-3 min-h-0">
         <WalletSlipDetail v-if="parlaysTotal > 0 || selectedParlay" class="flex-shrink max-h-[60%]" :parlay="selectedParlay" />
-        <UiErrorState v-if="marginOfLossError" class="flex-shrink-0" title="The margin-of-loss analytics failed to load." :error="marginOfLossError" @retry="loadPage" />
-        <UiErrorState v-if="vulnerabilityError" class="flex-shrink-0" title="The wallet analytics failed to load." :error="vulnerabilityError" @retry="loadPage" />
+        <UiErrorState v-if="marginOfLossError" class="flex-shrink-0" title="The margin-of-loss analytics failed to load." :error="marginOfLossError" @retry="loadPage()" />
+        <UiErrorState v-if="vulnerabilityError" class="flex-shrink-0" title="The wallet analytics failed to load." :error="vulnerabilityError" @retry="loadPage()" />
         <WalletVulnerability
           v-else
           class="flex-1 min-h-0"
@@ -365,11 +374,15 @@ const edge = useEdge()
 /** The page size the ledger was last fetched at — the page re-pages only when its panel measures differently. */
 let fetchedLimit = 0
 
-async function loadPage() {
+async function loadPage(silent = false) {
   const id = walletId.value
-  historyLoading.value = breakdownLoading.value = seasonLadderLoading.value = vulnerabilityLoading.value = true
-  marginOfLossLoading.value = cohort.value === 'mirror'
-  betsLoading.value = parlaysLoading.value = true
+  // A Realtime refresh keeps the panels on screen: no skeletons, and the ledger (its tab and page)
+  // is re-read separately by `loadLedger`, so a silent refresh never snaps the operator back to page 0.
+  if (!silent) {
+    historyLoading.value = breakdownLoading.value = seasonLadderLoading.value = vulnerabilityLoading.value = true
+    marginOfLossLoading.value = cohort.value === 'mirror'
+    betsLoading.value = parlaysLoading.value = true
+  }
   const limit = pageSize.value
   let b
   try {
@@ -407,6 +420,7 @@ async function loadPage() {
   marginOfLoss.value = b.marginOfLoss?.data ?? null
   marginOfLossLoading.value = false
 
+  if (silent) return
   fetchedLimit = limit
   ledgerTab.value = b.ledgerTab
   applyLedger(b.ledger)
@@ -532,6 +546,16 @@ function resetWalletState() {
   betsLoading.value = parlaysLoading.value = historyLoading.value = false
   breakdownLoading.value = seasonLadderLoading.value = vulnerabilityLoading.value = marginOfLossLoading.value = false
 }
+
+// A wager struck or settled on THIS wallet: refresh its standing and its ledger page, debounced.
+const live = useRealtimeRefetch(
+  'wallet',
+  () => Number.isFinite(walletId.value)
+    ? [{ table: 'bets', filter: `wallet_id=eq.${walletId.value}` }, { table: 'parlays', filter: `wallet_id=eq.${walletId.value}` }]
+    : [],
+  () => { if (!loading.value && !rosterError.value) { loadPage(true); loadLedger() } },
+  2000,
+)
 
 // Re-runs on sibling navigation — /wallet/40 → /wallet/41 reuses the component.
 watch(walletId, async (id) => {
