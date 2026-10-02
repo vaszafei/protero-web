@@ -101,7 +101,7 @@
             <span class="text-zinc-500" title="1 − Π(book fair chance × odds): the bookmaker margin this slip carries, compounded once per leg">Book margin carried</span>
             <span class="text-right text-zinc-300">{{ pct(margin, 1) }}</span>
             <span class="text-zinc-500" title="0.25 × Kelly at p* (root CD #2), capped at 5% of the bankroll">Stake · 0.25 Kelly</span>
-            <span class="text-right text-zinc-100">{{ stake > 0 ? `$${stake.toFixed(2)}` : '—' }} <span class="text-zinc-500">({{ pct(stakeFraction, 1) }})</span></span>
+            <span class="text-right text-zinc-100">{{ stake > 0 ? formatMoney(stake) : '—' }} <span class="text-zinc-500">({{ pct(stakeFraction, 1) }})</span></span>
           </div>
 
           <ul class="space-y-1 text-[10px] leading-snug">
@@ -145,6 +145,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/formatters'
 /**
  * The slip column of a props slate (docs/sessions/2026-09-30-props-spine-belief-parlays.md).
  * Reads `status.slips` — `props.slip_builder`'s artifact — and prices a ticked slip in the

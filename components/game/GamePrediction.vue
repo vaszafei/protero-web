@@ -12,7 +12,7 @@
       <section v-if="prediction" class="panel panel-accent overflow-hidden gp-pick-panel">
         <header class="panel-head">
           <span class="panel-title">Our pick</span>
-          <span class="pill" :class="pickEnabled ? 'pill-good' : 'pill-dim'">{{ pickEnabled ? 'cell enabled' : 'cell not enabled' }}</span>
+          <span class="pill" :class="pickEnabled ? 'pill-good' : 'pill-dim'">{{ pickUnmatched ? 'cell not verified' : pickEnabled ? 'cell enabled' : 'cell not enabled' }}</span>
           <span v-if="sourceLabel" class="panel-link">probability from {{ sourceLabel }}</span>
         </header>
         <div class="gp-pick">
@@ -39,7 +39,10 @@
             </div>
             <div class="gp-metric">
               <span class="gp-k">EV</span>
-              <span class="gp-v" :class="evPct == null ? '' : evPct >= 0 ? 'gp-pos' : 'gp-neg'">{{ evPct == null ? '—' : signed(evPct, 0) + '%' }}</span>
+              <UiTooltip v-if="evPct != null && !pickEnabled" :width="240" text="EV on a cell with no holdout evidence">
+                <span class="gp-v gp-soft gp-help">{{ signed(evPct, 0) }}%</span>
+              </UiTooltip>
+              <span v-else class="gp-v" :class="evPct == null ? '' : evPct >= 0 ? 'gp-pos' : 'gp-neg'">{{ evPct == null ? '—' : signed(evPct, 0) + '%' }}</span>
               <span class="gp-n">at the price</span>
             </div>
             <div class="gp-metric">
@@ -57,6 +60,9 @@
           </div>
           <span class="gp-axis-legend"><i class="gp-lg-mkt" />market <i class="gp-lg-our" :style="{ borderColor: gapColor }" />ours</span>
         </div>
+        <p v-if="pickUnmatched" class="gp-warn">
+          Pick not among the scored candidates — Model, Market and Gap are withheld rather than borrowed from another market.
+        </p>
         <p v-if="bigDisagreement" class="gp-warn">
           Ours is {{ ratio?.toFixed(1) }}× the market's. A gap this wide is usually missing information
           (team news, a stale rating), not an edge — check Analysis before trusting it.
@@ -103,7 +109,7 @@
       <section v-if="resultRows.length" class="panel overflow-hidden">
         <header class="panel-head">
           <span class="panel-title">Result</span>
-          <span class="panel-link">{{ basisLabel }} · de-vigged</span>
+          <span class="panel-link">{{ resultBasis }} · de-vigged</span>
         </header>
         <div class="gp-body">
           <div v-for="r in resultRows" :key="r.key" class="gp-res">
@@ -160,12 +166,12 @@
               <tr>
                 <td>{{ shortName(game.home_name) }} clean sheet</td>
                 <td class="r tabular-nums"><b>{{ pct(implied.home_clean_sheet) }}</b></td>
-                <td class="r tabular-nums gp-dim">fair {{ odds(implied.home_clean_sheet) }}</td>
+                <td class="r tabular-nums gp-dim">fit {{ odds(implied.home_clean_sheet) }}</td>
               </tr>
               <tr>
                 <td>{{ shortName(game.away_name) }} clean sheet</td>
                 <td class="r tabular-nums"><b>{{ pct(implied.away_clean_sheet) }}</b></td>
-                <td class="r tabular-nums gp-dim">fair {{ odds(implied.away_clean_sheet) }}</td>
+                <td class="r tabular-nums gp-dim">fit {{ odds(implied.away_clean_sheet) }}</td>
               </tr>
             </tbody>
           </table>
@@ -190,7 +196,7 @@
                 class="gp-heat-cell"
                 :class="{ 'gp-heat-top': isTop(h - 1, a - 1) }"
                 :style="heatStyle(h - 1, a - 1)"
-                :title="`${h - 1}–${a - 1}: ${pct(implied.grid[h - 1][a - 1])} · fair ${odds(implied.grid[h - 1][a - 1])}`"
+                :title="`${h - 1}–${a - 1}: ${pct(implied.grid[h - 1][a - 1])} · fit ${odds(implied.grid[h - 1][a - 1])}`"
               >{{ cellText(implied.grid[h - 1][a - 1]) }}</span>
             </template>
           </div>
@@ -229,7 +235,7 @@
     </section>
 
     <div v-if="marketPending && isFootball && !implied" class="gp-muted">Loading the market read…</div>
-    <div v-else-if="marketError" class="gp-muted">The market read failed to load: {{ marketError }}</div>
+    <UiErrorState v-else-if="marketError" title="The market read failed to load." :error="marketError" @retry="refreshMarket" />
 
     <PlayerPropPicks v-if="isBball && game.id" :game-id="game.id" />
   </div>
@@ -259,9 +265,12 @@ import { computed } from 'vue'
 import PlayerPropPicks from '~/components/game/PlayerPropPicks.vue'
 import { betLabelShort } from '~/utils/bet-label'
 import { parsePrediction } from '~/utils/prediction-label'
-import { VIZ_HOME, VIZ_AWAY, VIZ_STATUS } from '~/utils/viz'
+import { VIZ_HOME, VIZ_AWAY, VIZ_DRAW, VIZ_STATUS, vizRgba } from '~/utils/viz'
+import { basisLabel, summariseBases } from '~/utils/market-basis'
 import { displayTeamName as shortName } from '~/utils/team-name'
 import UiTooltip from '~/components/ui/Tooltip.vue'
+import UiErrorState from '~/components/ui/ErrorState.vue'
+import { errorText } from '~/utils/error-text'
 
 const apiFetch = useApiFetch()
 
@@ -278,12 +287,12 @@ const isFootball = computed(() => props.sport === 'football')
 
 // Same key as MarketBoard, so the two tabs share one request.
 const marketKey = computed(() => `market:${props.game.id}`)
-const { data: market, pending: marketPending, error: marketErr } = useSwr<any>(
+const { data: market, pending: marketPending, error: marketErr, refresh: refreshMarket } = useSwr<any>(
   marketKey,
   () => apiFetch(`/api/game/${props.game.id}/market`),
   { memoryTtl: 2 * 60_000 },
 )
-const marketError = computed(() => (marketErr.value as any)?.data?.message || marketErr.value?.message || null)
+const marketError = computed(() => (marketErr.value ? errorText(marketErr.value) : null))
 
 // ─── Status ─────────────────────────────────────────────────
 const PIPELINE_AT: Record<string, string> = { football: '09:00', basketball: '11:00' }
@@ -350,8 +359,12 @@ const marketLabel = computed(() => MARKET_LABEL[parsed.value.market as string] |
 const candidates = computed<any[]>(() => market.value?.pick?.candidates || [])
 const mainCandidate = computed(() => {
   const sel = (props.prediction?.prediction || '').toLowerCase()
-  return candidates.value.find((c) => (c.selection || '').toLowerCase() === sel) || candidates.value[0] || null
+  // Exact match only. Falling back to candidates[0] let Model/Market/Gap describe
+  // a different market from the pick shown above them.
+  return candidates.value.find((c) => (c.selection || '').toLowerCase() === sel) || null
 })
+/** The market scored candidates for this pick, but none of them is it. */
+const pickUnmatched = computed(() => candidates.value.length > 0 && !mainCandidate.value)
 const otherCandidates = computed(() => candidates.value.filter((c) => c !== mainCandidate.value))
 const pickEnabled = computed(() => !!mainCandidate.value?.enabled)
 
@@ -436,8 +449,7 @@ function statusClass(w: any) {
 // ─── Market read ────────────────────────────────────────────
 const implied = computed(() => market.value?.implied || null)
 
-const BASIS: Record<string, string> = { close_avg: 'Closing price', open_avg: 'Opening price', book: 'Our scraped price' }
-const basisLabel = computed(() => BASIS[market.value?.basis as string] || 'No price')
+const resultBasis = computed(() => basisLabel(summariseBases(market.value?.rows || []).bases))
 
 const rowOf = (k: string) => (market.value?.rows || []).find((r: any) => r.key === k)
 
@@ -446,7 +458,7 @@ const resultRows = computed(() => {
   if (h?.market == null || d?.market == null || a?.market == null) return []
   return [
     { key: 'h', label: shortName(props.game.home_name), p: h.market, price: h.price, color: VIZ_HOME },
-    { key: 'd', label: 'Draw', p: d.market, price: d.price, color: '#6b7280' },
+    { key: 'd', label: 'Draw', p: d.market, price: d.price, color: VIZ_DRAW },
     { key: 'a', label: shortName(props.game.away_name), p: a.market, price: a.price, color: VIZ_AWAY },
   ]
 })
@@ -476,8 +488,8 @@ function isTop(h: number, a: number) {
 function heatStyle(h: number, a: number) {
   const p = implied.value?.grid?.[h]?.[a] ?? 0
   const t = heatMax.value ? p / heatMax.value : 0
-  const rgb = h > a ? '77, 143, 255' : h < a ? '248, 81, 79' : '148, 150, 160'
-  return { background: `rgba(${rgb}, ${(0.06 + 0.62 * t).toFixed(3)})`, color: t > 0.45 ? '#fff' : 'var(--ink-soft)' }
+  const hue = h > a ? VIZ_HOME : h < a ? VIZ_AWAY : VIZ_DRAW
+  return { background: vizRgba(hue, 0.06 + 0.62 * t), color: t > 0.45 ? '#fff' : 'var(--ink-soft)' }
 }
 function cellText(p: number) {
   const v = p * 100
@@ -503,7 +515,7 @@ const probRows = computed(() => {
   if (!p) return []
   return [
     { key: 'h', label: shortName(props.game.home_name), p: toPct(p.home_win_prob), color: VIZ_HOME },
-    ...(isBball.value ? [] : [{ key: 'd', label: 'Draw', p: toPct(p.draw_prob), color: '#4a5060' }]),
+    ...(isBball.value ? [] : [{ key: 'd', label: 'Draw', p: toPct(p.draw_prob), color: VIZ_DRAW }]),
     { key: 'a', label: shortName(props.game.away_name), p: toPct(p.away_win_prob), color: VIZ_AWAY },
   ].filter((r) => r.p != null)
 })
@@ -547,6 +559,8 @@ function signed(v: number, dp = 1) {
 }
 .gp-status-text { font-size: 0.78rem; color: var(--ink-soft); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gp-status-model { font-size: 0.7rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.gp-v.gp-soft { color: var(--ink-soft); }
+.gp-help { cursor: help; }
 .gp-status-bet { border-color: var(--brand-blue-edge); background: var(--brand-blue-tint); }
 .gp-status-bet .gp-status-tag { background: var(--brand-blue); color: #fff; }
 .gp-status-on .gp-status-tag { background: var(--brand-blue-tint); color: var(--brand-blue-hi); }

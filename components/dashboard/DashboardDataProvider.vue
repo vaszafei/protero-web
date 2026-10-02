@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { errorText } from '~/utils/error-text'
+
 const props = defineProps<{
   leagues: any[]
   userLeagueKeys?: string[]
@@ -90,125 +92,88 @@ const statsData = computed(() => {
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 
-/** Full reload: games + wallet stats + admin extras */
-const loadData = async () => {
+/**
+ * One error per source. A failed read is REPORTED through the slot; it must
+ * never collapse into an empty list, because "No matches found" and "the games
+ * query failed" are different facts (the old catch-all `console.error` rendered
+ * the second as the first).
+ */
+const errors = ref<{ games: string | null; walletStats: string | null; parlays: string | null; accuracy: string | null }>(
+  { games: null, walletStats: null, parlays: null, accuracy: null },
+)
+
+let loadSeq = 0
+
+/**
+ * Games + wallet stats + parlays (+ admin accuracy on a full reload). Wallet
+ * change re-runs this too: parlays are wallet-scoped, so leaving them from the
+ * previous wallet showed another wallet's slips. A response for a wallet the
+ * operator has already moved off is dropped (`seq`).
+ */
+const load = async (opts: { admin: boolean }) => {
+  const seq = ++loadSeq
   loading.value = true
+  const walletId = props.walletId
   try {
     const { from, to } = getWindow()
-    
+
     // Build league filter for API — admin sees all, users see subscribed leagues
     const leagueFilter = (!isAdmin.value && props.userLeagueKeys && props.userLeagueKeys.length > 0)
       ? props.userLeagueKeys.join(',')
       : ''
 
     // Cache key includes wallet so changing wallet gets fresh bets
-    const cacheKey = `games:${from}:${to}:lg=${leagueFilter || 'all'}:w=${props.walletId || 'all'}`
+    const cacheKey = `games:${from}:${to}:lg=${leagueFilter || 'all'}:w=${walletId || 'all'}`
     const cached = _gameCache.get(cacheKey)
     const useCache = cached && Date.now() - cached.ts < CACHE_MS
 
-    // Fetch games (with wallet-scoped bets) — include bets whenever a
-    // wallet is selected so the dashboard chip reflects what THAT wallet
-    // actually placed. Admins additionally get bets when no wallet picked
-    // (used by the admin overview).
-    const wantBets = !!props.walletId || isAdmin.value
-    const gamesPromise = useCache
-      ? null
-      : api.fetchGames({
-          from, to,
-          leagues: leagueFilter ? leagueFilter.split(',') : [],
-          includeBets: wantBets,
-          walletId: props.walletId || undefined
-        })
-
-    // Wallet stats
-    const walletPromise = props.walletId
-      ? api.fetchWalletStats(props.walletId).catch(() => null)
-      : null
-
-    // Wallet-scoped parlays — fetch for ANY user with a selected wallet so
-    // the dashboard "Parlays" toggle shows their picks. Window the fetch by
-    // created_at so we don't pull all-time history (wallet 19 has 1000+).
+    // Include bets whenever a wallet is selected so the dashboard chip reflects
+    // what THAT wallet actually placed. Admins additionally get bets when no
+    // wallet is picked (used by the admin overview).
+    const wantBets = !!walletId || isAdmin.value
+    // Parlays are windowed by created_at so we don't pull all-time history.
     const parlayFromIso = new Date(Date.now() - 30 * 86400_000).toISOString()
-    const parlaysPromise = props.walletId
-      ? api.fetchWalletParlays(props.walletId, { from: parlayFromIso, limit: 200 }).catch(() => ({ parlays: [] }))
-      : null
 
-    // Accuracy (admin only, wallet-independent)
-    const adminPromise = isAdmin.value
-      ? api.fetchPredictionsAccuracy().catch(() => null)
-      : null
-
-    // Resolve games
-    if (useCache) {
-      rawGames.value = cached!.games
-    } else {
-      const gamesData = await gamesPromise as any
-      const games = gamesData?.games || []
-      _gameCache.set(cacheKey, { games, ts: Date.now() })
-      rawGames.value = games
-    }
-
-    // Resolve wallet stats
-    walletStats.value = await walletPromise
-
-    // Resolve parlays
-    if (parlaysPromise) {
-      const parlaysData = await parlaysPromise as any
-      allParlays.value = parlaysData?.parlays || []
-    } else {
-      allParlays.value = []
-    }
-
-    // Resolve admin data
-    if (adminPromise) {
-      accuracy.value = await adminPromise
-    }
-  } catch (error) {
-    console.error('Error loading dashboard data:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-/** Wallet-only reload: just re-fetch games with new wallet filter + wallet stats */
-const loadWalletData = async () => {
-  if (!props.walletId) return
-  loading.value = true
-  try {
-    const { from, to } = getWindow()
-    const leagueFilter = (!isAdmin.value && props.userLeagueKeys && props.userLeagueKeys.length > 0)
-      ? props.userLeagueKeys.join(',')
-      : ''
-
-    const cacheKey = `games:${from}:${to}:lg=${leagueFilter || 'all'}:w=${props.walletId}`
-    const cached = _gameCache.get(cacheKey)
-    if (cached && Date.now() - cached.ts < CACHE_MS) {
-      rawGames.value = cached.games
-      walletStats.value = await api.fetchWalletStats(props.walletId).catch(() => null)
-      loading.value = false
-      return
-    }
-
-    const [gamesData, wsData] = await Promise.all([
-      api.fetchGames({
-        from, to,
-        leagues: leagueFilter ? leagueFilter.split(',') : [],
-        includeBets: true,
-        walletId: props.walletId
-      }),
-      api.fetchWalletStats(props.walletId).catch(() => null)
+    const [gamesR, statsR, parlaysR, accuracyR] = await Promise.allSettled([
+      useCache
+        ? Promise.resolve({ games: cached!.games })
+        : api.fetchGames({
+            from, to,
+            leagues: leagueFilter ? leagueFilter.split(',') : [],
+            includeBets: wantBets,
+            walletId: walletId || undefined,
+          }),
+      walletId ? api.fetchWalletStats(walletId) : Promise.resolve(null),
+      walletId ? api.fetchWalletParlays(walletId, { from: parlayFromIso, limit: 200 }) : Promise.resolve({ parlays: [] }),
+      opts.admin && isAdmin.value ? api.fetchPredictionsAccuracy() : Promise.resolve(accuracy.value),
     ])
+    if (seq !== loadSeq) return
 
-    const games = (gamesData as any)?.games || []
-    _gameCache.set(cacheKey, { games, ts: Date.now() })
-    rawGames.value = games
-    walletStats.value = wsData
-  } catch (error) {
-    console.error('Error loading wallet data:', error)
+    errors.value = {
+      games: gamesR.status === 'rejected' ? errorText(gamesR.reason) : null,
+      walletStats: statsR.status === 'rejected' ? errorText(statsR.reason) : null,
+      parlays: parlaysR.status === 'rejected' ? errorText(parlaysR.reason) : null,
+      accuracy: accuracyR.status === 'rejected' ? errorText(accuracyR.reason) : null,
+    }
+
+    if (gamesR.status === 'fulfilled') {
+      const games = (gamesR.value as any)?.games || []
+      if (!useCache) _gameCache.set(cacheKey, { games, ts: Date.now() })
+      rawGames.value = games
+    } else {
+      rawGames.value = []
+    }
+    walletStats.value = statsR.status === 'fulfilled' ? statsR.value : null
+    allParlays.value = parlaysR.status === 'fulfilled' ? ((parlaysR.value as any)?.parlays || []) : []
+    if (opts.admin && accuracyR.status === 'fulfilled') accuracy.value = accuracyR.value
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
+
+const loadData = () => load({ admin: true })
+/** Wallet-only reload: re-fetch with the new wallet filter, stats and slips. */
+const loadWalletData = () => (props.walletId ? load({ admin: false }) : undefined)
 
 // Expose so parent can force a full refresh (clears cache)
 const refresh = () => {
@@ -233,6 +198,7 @@ watch(() => props.walletId, (newId, oldId) => {
     :wallet-stats="walletStats"
     :loading="loading"
     :refresh="refresh"
+    :errors="errors"
     :has-league-games="hasLeagueGames"
   />
 </template>

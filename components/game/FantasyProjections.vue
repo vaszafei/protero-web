@@ -5,6 +5,8 @@
       <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
     </div>
 
+    <UiErrorState v-else-if="error" title="Fantasy projections failed to load." :error="error" @retry="load" />
+
     <!-- Empty -->
     <div v-else-if="projections.length === 0" class="text-center py-12 text-zinc-500">
       No fantasy projections available for this game
@@ -82,6 +84,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { errorText } from '~/utils/error-text'
 
 const props = defineProps<{
   gameId: number
@@ -92,6 +95,7 @@ const props = defineProps<{
 const api = useApi()
 const projections = ref<any[]>([])
 const loading = ref(true)
+const error = ref<string | null>(null)
 const activeScoringType = ref<string>('')
 
 function scoringLabelOf(st: string) {
@@ -132,7 +136,9 @@ function shortTeamName(teamName?: string) {
   return teamName.split(' ').slice(-1)[0].toUpperCase()
 }
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     projections.value = await api.fetchFantasyProjections(props.gameId)
     if (availableScoringTypes.value.length) {
@@ -142,9 +148,11 @@ onMounted(async () => {
         pref.find(t => availableScoringTypes.value.includes(t)) || availableScoringTypes.value[0]
     }
   } catch (e) {
-    console.warn('Fantasy projections fetch failed:', e)
+    projections.value = []
+    error.value = errorText(e)
   } finally {
     loading.value = false
   }
-})
+}
+onMounted(load)
 </script>

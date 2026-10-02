@@ -15,13 +15,13 @@
           · {{ wonLegs }}/{{ legs.length }} legs won
         </span>
         <div class="ml-auto text-right flex-shrink-0 tabular-nums">
-          <span class="text-[12px] font-semibold text-zinc-200">${{ Number(parlay.total_stake || 0).toFixed(2) }}</span>
+          <span class="text-[12px] font-semibold text-zinc-200">{{ formatMoney(parlay.total_stake || 0) }}</span>
           <span v-if="parlay.status === 'pending'" class="text-[11px] text-amber-400/80 ml-2">
-            → ${{ (Number(parlay.total_stake || 0) * Number(parlay.parlay_odds || 0)).toFixed(2) }}
+            → {{ formatMoney(Number(parlay.total_stake || 0) * Number(parlay.parlay_odds || 0)) }}
           </span>
           <span v-else-if="parlay.profit != null" class="text-[11px] font-bold ml-2"
                 :class="Number(parlay.profit) >= 0 ? 'text-emerald-400' : 'text-red-400'">
-            {{ Number(parlay.profit) >= 0 ? '+' : '' }}${{ Number(parlay.profit).toFixed(2) }}
+            {{ formatMoney(parlay.profit, { signed: true }) }}
           </span>
         </div>
       </div>
@@ -75,6 +75,7 @@
 </template>
 
 <script setup>
+import { formatMoney } from '~/utils/formatters'
 import { computed } from 'vue'
 import { legParts } from '~/utils/bet-label'
 import { displayTeamName } from '~/utils/team-name'

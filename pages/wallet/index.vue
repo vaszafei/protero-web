@@ -35,8 +35,32 @@
       <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
     </div>
 
+    <UiErrorState
+      v-else-if="walletsError"
+      title="The wallets failed to load."
+      :error="walletsError"
+      @retry="load"
+    />
+
+    <!-- Without performance every row would read `n<10` — a failure, not a result. -->
+    <UiErrorState
+      v-else-if="performanceError"
+      title="Wallet performance failed to load — no verdict or ROI to show."
+      :error="performanceError"
+      @retry="load"
+    />
+
     <template v-else>
+      <UiErrorState
+        v-if="coverageError"
+        compact
+        class="mb-3"
+        title="Coverage unavailable — mirrored wallets' ROI is withheld."
+        :error="coverageError"
+        @retry="load"
+      />
       <WalletRoster
+        :coverage-error="coverageError"
         :wallets="allWallets"
         :performance="performance"
         :coverage="coverageRows"
@@ -72,18 +96,21 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { cohortOf } from '~/utils/wallet-stats'
+import { errorText } from '~/utils/error-text'
 
 const apiFetch = useApiFetch()
 
 definePageMeta({ middleware: 'auth' })
 
-const toast = useToast()
 const api = useApi()
 
 const loading = ref(true)
 const allWallets = ref([])
 const performance = ref([])
 const tipsters = ref(null)
+const walletsError = ref(null)
+const performanceError = ref(null)
+const coverageError = ref(null)
 
 const coverageRows = computed(() => tipsters.value?.authors || [])
 
@@ -115,23 +142,23 @@ function open(id) {
   navigateTo(`/wallet/${id}`)
 }
 
-onMounted(async () => {
-  try {
-    const [walletsData, perf, tips] = await Promise.all([
-      api.fetchWallets(),
-      api.fetchWalletPerformance().catch(() => []),
-      apiFetch('/api/wallet/tipsters').catch(() => null),
-    ])
-    allWallets.value = walletsData.wallets || []
-    performance.value = perf || []
-    tipsters.value = tips
-  } catch (e) {
-    console.error('Failed to load wallet data:', e)
-    toast.add({ title: 'Failed to load wallets', color: 'red' })
-  } finally {
-    loading.value = false
-  }
-})
+async function load() {
+  loading.value = true
+  const [w, p, t] = await Promise.allSettled([
+    api.fetchWallets(),
+    api.fetchWalletPerformance(),
+    apiFetch('/api/wallet/tipsters'),
+  ])
+  walletsError.value = w.status === 'rejected' ? errorText(w.reason) : null
+  performanceError.value = p.status === 'rejected' ? errorText(p.reason) : null
+  coverageError.value = t.status === 'rejected' ? errorText(t.reason) : null
+  allWallets.value = w.status === 'fulfilled' ? (w.value.wallets || []) : []
+  performance.value = p.status === 'fulfilled' ? (p.value || []) : []
+  tipsters.value = t.status === 'fulfilled' ? t.value : null
+  loading.value = false
+}
+
+onMounted(load)
 
 useHead({ title: 'Wallets · Protero' })
 </script>

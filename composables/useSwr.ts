@@ -19,6 +19,7 @@ import { ref, shallowRef, computed, watch, isRef, onBeforeUnmount, type Ref } fr
 import {
   getMem, setMem, getPersist, setPersist, dedupFetch, invalidate as cacheInvalidate,
 } from '~/utils/cache'
+import { errorText } from '~/utils/error-text'
 
 export interface UseSwrOptions {
   /** Memory TTL in ms. Default 60_000 (1 min). */
@@ -81,7 +82,8 @@ export function useSwr<T>(
       if (persistTtl > 0) await setPersist(keyRef.value, fresh, persistTtl)
     } catch (e: any) {
       if (disposed) return
-      error.value = e instanceof Error ? e : new Error(String(e))
+      // A PostgREST error is a plain object, not an Error: String(e) would read "[object Object]".
+      error.value = e instanceof Error ? e : Object.assign(new Error(errorText(e)), { cause: e })
     } finally {
       if (!disposed) pending.value = false
     }

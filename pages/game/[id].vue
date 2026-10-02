@@ -22,6 +22,12 @@
             :sport-stats="data.game.sport_stats"
             :team-name="data.game.home_name"
           />
+          <UiErrorState
+            v-else-if="showFormRails && previewError"
+            title="The form rail failed to load."
+            :error="previewError"
+            @retry="loadPreview"
+          />
           <GameTeamFormRail
             v-else-if="showFormRails"
             side="home"
@@ -107,6 +113,12 @@
             :sport-stats="data.game.sport_stats"
             :team-name="data.game.away_name"
           />
+          <UiErrorState
+            v-else-if="showFormRails && previewError"
+            title="The form rail failed to load."
+            :error="previewError"
+            @retry="loadPreview"
+          />
           <GameTeamFormRail
             v-else-if="showFormRails"
             side="away"
@@ -123,6 +135,14 @@
         </Reveal>
       </div>
 
+      <UiErrorState
+        v-if="contextError"
+        compact
+        class="mt-3"
+        title="Division context failed to load."
+        :error="contextError"
+        @retry="loadContext"
+      />
       <Reveal v-if="blindSpot" :delay="60">
         <TwinBlindSpotBanner :risk="blindSpot" :moves="moves" class="mt-3" />
       </Reveal>
@@ -210,8 +230,9 @@
 
                 <!-- Shot chart (completed basketball with located shots) -->
                 <div v-else-if="activeTab === 'shots'">
+                  <UiErrorState v-if="shotsError" title="The shot chart failed to load." :error="shotsError" @retry="retryShots" />
                   <GameShotChart
-                    v-if="shotData?.available"
+                    v-else-if="shotData?.available"
                     :shots="shotData.shots"
                     :teams="shotData.teams"
                     :coord-system="shotData.coord_system"
@@ -238,7 +259,9 @@
 
                 <!-- Analysis -->
                 <div v-else-if="activeTab === 'analysis'">
+                  <UiErrorState v-if="analysisError" title="The analysis failed to load." :error="analysisError" @retry="loadAnalysis" />
                   <GameAnalysis
+                    v-else
                     :game="data.game"
                     :sport="gameSport"
                     :analysis="analysisData"
@@ -249,6 +272,14 @@
 
                 <!-- Prediction -->
                 <div v-else-if="activeTab === 'prediction'">
+                  <UiErrorState
+                    v-if="analysisError"
+                    compact
+                    class="mb-3"
+                    title="The betting-status read failed to load — the status line below may be incomplete."
+                    :error="analysisError"
+                    @retry="loadAnalysis"
+                  />
                   <GamePrediction
                     :game="data.game"
                     :prediction="data.prediction"
@@ -259,7 +290,9 @@
 
                 <!-- Fantasy -->
                 <div v-else-if="activeTab === 'fantasy'">
+                  <UiErrorState v-if="fantasyError" title="Fantasy projections failed to load." :error="fantasyError" @retry="refreshGame" />
                   <FantasyProjections
+                    v-else
                     :game-id="data.game.id"
                     :home-name="data.game.home_name"
                     :away-name="data.game.away_name"
@@ -285,9 +318,9 @@
 
     <!-- Error State -->
     <div v-else class="flex justify-center items-center min-h-screen">
-      <div class="text-center">
-        <p class="text-lg text-zinc-400">Failed to load game details</p>
-        <NuxtLink to="/leagues" class="text-zinc-400 hover:text-zinc-200 mt-4 inline-block">
+      <div class="text-center space-y-3 max-w-md">
+        <UiErrorState title="Failed to load game details." :error="error ? errorText(error) : 'No such game.'" :retryable="!!error" @retry="refreshGame" />
+        <NuxtLink to="/leagues" class="text-zinc-400 hover:text-zinc-200 inline-block text-sm">
           Return to Dashboard
         </NuxtLink>
       </div>
@@ -298,6 +331,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { ChevronLeft } from 'lucide-vue-next'
+import { errorText } from '~/utils/error-text'
 import { VIZ_HOME, VIZ_AWAY } from '~/utils/viz'
 import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
 import Reveal from '~/components/ui/Reveal.vue'
@@ -353,7 +387,7 @@ function goBack() {
 // documented fetcher for new code. Its key is a computed, so routing straight
 // from one game to another refetches instead of showing the previous match.
 const swrKey = computed(() => `game:${gameId.value}`)
-const { data, pending: loading, error } = useSwr(
+const { data, pending: loading, error, refresh: refreshGame } = useSwr(
   swrKey,
   () => api.fetchGameDetail(Number(gameId.value)),
   { memoryTtl: 5 * 60_000 },
@@ -369,27 +403,42 @@ const gameSport = computed(() =>
 // the common case and simply renders nothing.
 const twins = useTwins()
 const blindSpot = ref(null)
-watch(() => data.value?.game?.id, async (id) => {
-  if (!id) { blindSpot.value = null; return }
-  const m = await twins.fetchFixtureRiskFor([Number(id)]).catch(() => new Map())
-  blindSpot.value = m.get(Number(id)) || null
-}, { immediate: true })
 
 // Each club's most recent promotion/relegation — the rails show it as a chip
 // and the division line names it. Football only: basketball has no divisions.
 const moves = ref<{ home: any; away: any }>({ home: null, away: null })
-watch(() => data.value?.game?.id, async (id) => {
+
+// Both reads are optional context, but a FAILED one is reported — an empty
+// result means "no risk / no move", a rejected one means we do not know.
+const contextError = ref<string | null>(null)
+
+async function loadContext() {
   const g = data.value?.game
+  const id = g?.id
+  blindSpot.value = null
   moves.value = { home: null, away: null }
-  if (!id || !g || gameSport.value !== 'football') return
+  contextError.value = null
+  if (!id) return
   const latest = async (teamId: number | null) => {
     if (!teamId) return null
-    const rows = await twins.fetchTeamTransitions(Number(teamId)).catch(() => [])
+    const rows = await twins.fetchTeamTransitions(Number(teamId))
     return rows.length ? rows[rows.length - 1] : null
   }
-  const [home, away] = await Promise.all([latest(g.home_team_id), latest(g.away_team_id)])
-  moves.value = { home, away }
-}, { immediate: true })
+  const [risk, home, away] = await Promise.allSettled([
+    twins.fetchFixtureRiskFor([Number(id)]),
+    gameSport.value === 'football' ? latest(g.home_team_id) : Promise.resolve(null),
+    gameSport.value === 'football' ? latest(g.away_team_id) : Promise.resolve(null),
+  ])
+  if (data.value?.game?.id !== id) return
+  const failed = [risk, home, away].find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined
+  if (failed) contextError.value = errorText(failed.reason)
+  if (risk.status === 'fulfilled') blindSpot.value = risk.value.get(Number(id)) || null
+  moves.value = {
+    home: home.status === 'fulfilled' ? home.value : null,
+    away: away.status === 'fulfilled' ? away.value : null,
+  }
+}
+watch(() => data.value?.game?.id, loadContext, { immediate: true })
 
 // Is the game completed?
 const isCompleted = computed(() => data.value?.game?.status === 'completed')
@@ -439,7 +488,7 @@ const tabs = computed(() => {
     { key: 'analysis', label: 'Analysis', badge: null },
     { key: 'prediction', label: 'Prediction', badge: null },
   ]
-  if (hasFantasy.value) t.push({ key: 'fantasy', label: 'Fantasy', badge: null })
+  if (hasFantasy.value || fantasyError.value) t.push({ key: 'fantasy', label: 'Fantasy', badge: null })
   if (isAdmin.value) t.push({ key: 'props', label: 'Props', badge: null })
   return t
 })
@@ -502,10 +551,20 @@ const showTimeline = computed(() => {
 const showFormRails = computed(() => !isCompleted.value)
 
 const preview = ref(null)
-watch(() => [data.value?.game?.id, showFormRails.value], async ([id, show]) => {
-  if (!id || !show) { preview.value = null; return }
-  preview.value = await apiFetch(`/api/game/${id}/preview`).catch(() => null)
-}, { immediate: true })
+const previewError = ref<string | null>(null)
+async function loadPreview() {
+  const id = data.value?.game?.id
+  preview.value = null
+  previewError.value = null
+  if (!id || !showFormRails.value) return
+  try {
+    const p = await apiFetch(`/api/game/${id}/preview`)
+    if (data.value?.game?.id === id) preview.value = p
+  } catch (e) {
+    if (data.value?.game?.id === id) previewError.value = errorText(e)
+  }
+}
+watch(() => [data.value?.game?.id, showFormRails.value], loadPreview, { immediate: true })
 
 /**
  * The post-mortem renders for a completed football fixture. The component
@@ -592,21 +651,24 @@ const hasBballPlayers = computed(() => {
 // Fantasy projections check — only for scheduled basketball games
 const hasFantasy = ref(false)
 
+const fantasyError = ref<string | null>(null)
 async function checkFantasy() {
   if (!data.value?.game || isCompleted.value) return
   const sport = gameSport.value
   if (sport !== 'basketball') return
-  // Use bundled fantasy data when available (saves a round trip)
-  const bundled = (data.value as Record<string, any>)?.fantasy
-  if (Array.isArray(bundled)) {
-    hasFantasy.value = bundled.length > 0
+  const d = data.value as Record<string, any>
+  // The bundled call already ran: report its failure rather than reading it as "no projections".
+  fantasyError.value = d?.fantasyError || null
+  if (fantasyError.value) return
+  if (Array.isArray(d?.fantasy)) {
+    hasFantasy.value = d.fantasy.length > 0
     return
   }
   try {
     const projections = await api.fetchFantasyProjections(data.value.game.id)
     hasFantasy.value = projections.length > 0
-  } catch {
-    hasFantasy.value = false
+  } catch (e) {
+    fantasyError.value = errorText(e)
   }
 }
 
@@ -627,22 +689,29 @@ watch(() => data.value?.game, (game) => {
  */
 const shotData = ref<Record<string, any> | null>(null)
 const shotsLoading = ref(false)
-const hasShots = computed(() => (shotData.value?.shots?.length ?? 0) > 0)
+const shotsError = ref<string | null>(null)
+// The tab appears when there is something behind it — or when the load FAILED, so a
+// fetch error is not indistinguishable from a fixture with no located shots.
+const hasShots = computed(() => (shotData.value?.shots?.length ?? 0) > 0 || !!shotsError.value)
 
 async function loadShots() {
   const g = data.value?.game
   if (!g || shotData.value || shotsLoading.value) return
   if (!isCompleted.value || gameSport.value !== 'basketball') return
   shotsLoading.value = true
+  shotsError.value = null
   try {
     shotData.value = await apiFetch(`/api/game/${g.id}/shots`)
   } catch (e) {
-    console.warn('Shot chart fetch failed:', e)
-    // Leave `shotData` null: the tab simply does not appear, which is the same
-    // outcome as a fixture with no shots and needs no separate error state.
+    shotsError.value = errorText(e)
   } finally {
     shotsLoading.value = false
   }
+}
+
+function retryShots() {
+  shotData.value = null
+  loadShots()
 }
 
 watch(() => data.value?.game, (game) => {
@@ -655,6 +724,7 @@ watch(() => data.value?.game, (game) => {
 // then cached per game id (switching Analysis <-> Prediction doesn't refetch).
 const analysisData = ref<Record<string, any> | null>(null)
 const analysisLoading = ref(false)
+const analysisError = ref<string | null>(null)
 let analysisLoadedForGameId: number | null = null
 
 async function loadAnalysis() {
@@ -662,12 +732,13 @@ async function loadAnalysis() {
   if (!g) return
   if (analysisLoadedForGameId === g.id) return
   analysisLoading.value = true
+  analysisError.value = null
   try {
     analysisData.value = await apiFetch(`/api/game/${g.id}/analysis`)
     analysisLoadedForGameId = g.id
   } catch (e) {
-    console.warn('Analysis fetch failed:', e)
     analysisData.value = null
+    analysisError.value = errorText(e)
   } finally {
     analysisLoading.value = false
   }

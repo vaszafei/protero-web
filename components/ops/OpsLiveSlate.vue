@@ -58,7 +58,7 @@
             </td>
             <td class="px-3 py-2 text-zinc-300">{{ pickLabel(r) }}</td>
             <td class="px-2 py-2 text-right tabular-nums text-zinc-400">{{ Number(r.odds).toFixed(2) }}</td>
-            <td class="px-2 py-2 text-right tabular-nums text-zinc-300">${{ Number(r.stake).toFixed(2) }}</td>
+            <td class="px-2 py-2 text-right tabular-nums text-zinc-300">{{ formatMoney(r.stake) }}</td>
             <td class="px-2 py-2 text-right tabular-nums" :class="evClass(r.expected_value)">
               {{ r.expected_value == null ? '—' : (Number(r.expected_value) * 100).toFixed(0) + '%' }}
             </td>
@@ -78,6 +78,7 @@
 </template>
 
 <script setup>
+import { formatMoney } from '~/utils/formatters'
 /**
  * What the machine currently has money on.
  *

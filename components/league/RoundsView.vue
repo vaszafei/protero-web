@@ -49,7 +49,7 @@
             
             <!-- Stake -->
             <span v-if="roundBetsCount > 0" class="px-2 sm:px-3 py-0.5 sm:py-1 bg-zinc-700 text-zinc-300 text-[11px] sm:text-sm font-semibold rounded-full hidden sm:inline-flex">
-              Stake: €{{ roundTotalStake.toFixed(2) }}
+              Stake: {{ formatMoney(roundTotalStake) }}
             </span>
             
             <!-- Profit/Loss -->
@@ -57,7 +57,7 @@
               'px-2 sm:px-3 py-0.5 sm:py-1 text-[11px] sm:text-sm font-semibold rounded-full',
               roundProfitLoss >= 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
             ]">
-              {{ roundProfitLoss >= 0 ? '+' : '' }}€{{ roundProfitLoss.toFixed(2) }}
+              {{ formatMoney(roundProfitLoss, { signed: true }) }}
             </span>
           </div>
         </div>
@@ -121,6 +121,7 @@
 </template>
 
 <script setup>
+import { formatMoney } from '~/utils/formatters'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import Card from '~/components/ui/Card.vue'
 import EmptyState from '~/components/ui/EmptyState.vue'

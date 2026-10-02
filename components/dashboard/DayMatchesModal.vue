@@ -73,7 +73,7 @@
                           <div class="text-purple-600">{{ parlay.parlay_odds ? parlay.parlay_odds.toFixed(2) : '0.00' }}x</div>
                         </div>
                         <div>
-                          <div class="text-purple-600">${{ parlay.total_stake ? parlay.total_stake.toFixed(2) : '0.00' }}</div>
+                          <div class="text-purple-600">{{ formatMoney(parlay.total_stake || 0) }}</div>
                         </div>
                       </div>
                       
@@ -104,14 +104,14 @@
                             class="font-bold"
                             :class="parlay.status === 'won' ? 'text-green-400' : 'text-red-400'"
                           >
-                            {{ parlay.status === 'won' ? '+' : '-' }}€{{ parlay.status === 'won' ? ((parlay.actual_payout || 0) - (parlay.total_stake || 0)).toFixed(2) : (parlay.total_stake || 0).toFixed(2) }}
+                            {{ formatMoney(parlay.status === 'won' ? (parlay.actual_payout || 0) - (parlay.total_stake || 0) : -(parlay.total_stake || 0), { signed: true }) }}
                           </span>
                         </div>
                       </div>
                       <div v-else class="mt-1 pt-1 border-t border-purple-500/20">
                         <div class="flex justify-between items-center text-[11px]">
                           <span class="text-purple-600">Pot. Win</span>
-                          <span class="font-bold text-purple-300">${{ ((parlay.total_stake || 0) * (parlay.parlay_odds || 0)).toFixed(2) }}</span>
+                          <span class="font-bold text-purple-300">{{ formatMoney((parlay.total_stake || 0) * (parlay.parlay_odds || 0)) }}</span>
                         </div>
                       </div>
                     </div>
@@ -132,6 +132,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/formatters'
 import { computed } from 'vue'
 
 const props = defineProps<{

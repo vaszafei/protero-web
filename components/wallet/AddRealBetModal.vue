@@ -162,7 +162,7 @@
           <p class="text-xs text-zinc-500">
             Auto profit:
             <span :class="autoProfit >= 0 ? 'text-green-400' : 'text-red-400'">
-              {{ autoProfit >= 0 ? '+' : '' }}€{{ autoProfit.toFixed(2) }}
+              {{ formatMoney(autoProfit, { signed: true }) }}
             </span>
           </p>
           <div class="flex gap-2">
@@ -178,6 +178,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/formatters'
 const apiFetch = useApiFetch()
 /**
  * Add / edit a real-money slip (`user_real_bets`, CD #31).

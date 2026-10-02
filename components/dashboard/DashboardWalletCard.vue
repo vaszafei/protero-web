@@ -3,7 +3,7 @@
     <!-- Balance -->
     <div class="flex-shrink-0">
       <p class="text-[10px] text-zinc-500 uppercase tracking-wide">Balance</p>
-      <p class="text-sm font-bold text-zinc-100 leading-tight tabular-nums">{{ formatCurrency(balance) }}</p>
+      <p class="text-sm font-bold text-zinc-100 leading-tight tabular-nums">{{ formatMoney(balance, { whole: true }) }}</p>
     </div>
 
     <!-- Divider -->
@@ -66,6 +66,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/formatters'
 import { computed } from 'vue'
 import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE, type FamilyVerdict } from '~/utils/wallet-stats'
 
@@ -110,9 +111,6 @@ const lostBets = computed(() => Math.max(0, nWagers.value - nWon.value))
 const pendingBets = computed(() => toNum(perf.value?.n_pending))
 const winRatePct = computed(() => perf.value?.win_rate_pct == null ? 0 : Number(perf.value.win_rate_pct))
 
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val)
-}
 
 </script>
 

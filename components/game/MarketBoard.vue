@@ -2,10 +2,7 @@
   <div>
     <div v-if="pending && !board" class="mb-3"><UiSkeletonPanel :rows="8" /></div>
 
-    <div v-else-if="error" class="panel mb-3 mb-err">
-      <p class="mb-err-t">The market board failed to load.</p>
-      <p class="mb-err-b">{{ error }}</p>
-    </div>
+    <UiErrorState v-else-if="error" class="mb-3" title="The market board failed to load." :error="error" @retry="refresh" />
 
     <template v-else-if="board">
       <!-- Provenance, one line. Every number below is only as good as the
@@ -88,47 +85,52 @@ import { computed } from 'vue'
 import UiProbBar from '~/components/ui/ProbBar.vue'
 import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import UiTooltip from '~/components/ui/Tooltip.vue'
+import UiErrorState from '~/components/ui/ErrorState.vue'
+import { errorText } from '~/utils/error-text'
+import { basisLabel, mixedNote, summariseBases, type Basis } from '~/utils/market-basis'
 
 const apiFetch = useApiFetch()
 
 const props = defineProps<{ gameId: number | string }>()
 
 // Same key as GamePrediction, so switching tabs does not refetch.
-const { data: board, pending, error: fetchErr } = useSwr<any>(
+const { data: board, pending, error: fetchErr, refresh } = useSwr<any>(
   computed(() => `market:${props.gameId}`),
   () => apiFetch(`/api/game/${props.gameId}/market`),
   { memoryTtl: 2 * 60_000 },
 )
-const error = computed(() => (fetchErr.value as any)?.data?.message || fetchErr.value?.message || null)
+const error = computed(() => (fetchErr.value ? errorText(fetchErr.value) : null))
 
 const devig = computed(() => board.value?.rows?.find((r: any) => r.devig)?.devig || null)
 
 const devigNote = computed(() =>
   `Market probability is ${(devig.value || 'un').toString().toUpperCase()}-de-vigged (CD #40) from the ${
-    basisPill.value.label.toLowerCase()
+    basisSummary.value.bases.length > 1 ? 'mixed price bases (see the Price pill)' : basisPill.value.label.toLowerCase()
   }. A difference is not an edge unless the cell passed holdout.`
 )
 
-const BASIS: Record<string, { label: string; cls: string; note: string }> = {
+const BASIS_PILL: Record<Basis, { cls: string; note: string }> = {
   close_avg: {
-    label: 'Closing price',
     cls: 'pill-good',
     note: 'The sharpest number available — the accuracy frontier, and not a price anyone could still have taken.',
   },
   open_avg: {
-    label: 'Opening price',
     cls: 'pill-blue',
     note: 'A price that was actually available. Beating the open while losing to the close is what CLV means.',
   },
   book: {
-    label: 'Our scraped price',
     cls: 'pill-amber',
     note: 'Stoiximan.gr via the FlashScore feed — the live price, and the only basis that exists before kick-off.',
   },
 }
-const basisPill = computed(() =>
-  BASIS[board.value?.basis as string] || { label: 'No price', cls: 'pill-dim', note: 'No priced market recorded for this fixture.' }
-)
+// The board's bases are summarised from its own rows, never from one of them.
+const basisSummary = computed(() => summariseBases(board.value?.rows || []))
+const basisPill = computed(() => {
+  const { bases } = basisSummary.value
+  if (!bases.length) return { label: 'No price', cls: 'pill-dim', note: 'No priced market recorded for this fixture.' }
+  if (bases.length === 1) return { label: basisLabel(bases), ...BASIS_PILL[bases[0]] }
+  return { label: basisLabel(bases), cls: 'pill-amber', note: mixedNote(basisSummary.value) }
+})
 
 const enabledCount = computed(() =>
   (board.value?.rows || []).filter((r: any) => r.enabled).length
@@ -201,7 +203,4 @@ const groups = computed(() => {
 
 .mb-margin { margin-right: 0.6rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
-.mb-err { padding: 0.8rem; border-color: var(--brand-red-edge); }
-.mb-err-t { font-size: 0.75rem; font-weight: 700; color: var(--brand-red-hi); }
-.mb-err-b { margin-top: 0.25rem; font-size: 0.7rem; color: var(--ink-faint); }
 </style>

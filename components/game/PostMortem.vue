@@ -2,10 +2,7 @@
   <div>
     <div v-if="pending"><UiSkeletonPanel :rows="6" /></div>
 
-    <div v-else-if="error" class="panel pm-err">
-      <p class="pm-err-t">The post-mortem failed to load.</p>
-      <p class="pm-err-b">{{ error }}</p>
-    </div>
+    <UiErrorState v-else-if="error" title="The post-mortem failed to load." :error="error" @retry="load" />
 
     <template v-else-if="pm && hasAnything">
       <section class="panel overflow-hidden">
@@ -380,7 +377,4 @@ const movedNote = computed(() => {
 .pm-verdict-win { color: var(--brand-blue-hi); }
 .pm-verdict-loss { color: var(--ink-faint); }
 
-.pm-err { padding: 0.9rem; }
-.pm-err-t { font-size: 0.8rem; color: var(--ink); }
-.pm-err-b { font-size: 0.7rem; color: var(--ink-mute); margin-top: 0.25rem; }
 </style>

@@ -8,11 +8,26 @@
       </div>
     </div>
 
-    <DashboardDataProvider v-else :leagues="leagues" :wallet-id="selectedWalletId" :user-id="user?.id" v-slot="{ games, predictions, bets, parlays, walletStats, loading: dataLoading, refresh, hasLeagueGames }">
+    <template v-else>
+    <UiErrorState
+      v-if="bootError"
+      compact
+      class="mb-3"
+      title="Leagues or wallets failed to load — the calendar may be incomplete."
+      :error="bootError"
+      @retry="boot"
+    />
+    <DashboardDataProvider :leagues="leagues" :wallet-id="selectedWalletId" :user-id="user?.id" v-slot="{ games, predictions, bets, parlays, walletStats, loading: dataLoading, refresh, hasLeagueGames, errors }">
       <!-- Sync slot-prop games into reactive ref (needed for computed filteredGames/availableSports) -->
       {{ captureGames(games) }}
       <div class="space-y-4 sm:space-y-6">
-        <div v-if="filteredGames.length === 0 && !dataLoading">
+        <UiErrorState
+          v-if="errors.games && !dataLoading"
+          title="The matches failed to load."
+          :error="errors.games"
+          @retry="refresh"
+        />
+        <div v-else-if="filteredGames.length === 0 && !dataLoading">
           <EmptyStateCard 
             title="No matches found"
             description="Add leagues to your profile to see matches and predictions"
@@ -43,7 +58,21 @@
                 @wallet-change="selectedWalletId = $event"
                 @sport-change="selectedSport = $event"
               />
-              <DashboardWalletCard v-if="walletStats" :wallet-stats="walletStats" />
+              <UiErrorState
+                v-if="errors.walletStats"
+                compact
+                title="The wallet's performance failed to load — no ROI or verdict to show."
+                :error="errors.walletStats"
+                @retry="refresh"
+              />
+              <DashboardWalletCard v-else-if="walletStats" :wallet-stats="walletStats" />
+              <UiErrorState
+                v-if="errors.parlays"
+                compact
+                title="The wallet's slips failed to load."
+                :error="errors.parlays"
+                @retry="refresh"
+              />
 
               <DayMatchesPanel
                 v-if="selectedDay"
@@ -64,6 +93,7 @@
         </template>
       </div>
     </DashboardDataProvider>
+    </template>
   </div>
 </template>
 
@@ -74,6 +104,8 @@ import EmptyStateCard from '~/components/dashboard/EmptyStateCard.vue'
 import DayMatchesPanel from '~/components/dashboard/DayMatchesPanel.vue'
 import DashboardWalletCard from '~/components/dashboard/DashboardWalletCard.vue'
 import DashboardToolbar from '~/components/dashboard/DashboardToolbar.vue'
+
+import { errorText } from '~/utils/error-text'
 
 definePageMeta({
   layout: 'default',
@@ -155,14 +187,18 @@ const autoSelectToday = (games) => {
   }
 }
 
-onMounted(async () => {
+// A failed leagues / wallets / performance read is REPORTED, not turned into an empty
+// roster that reads as "no matches" or silently picks the wrong default wallet.
+const bootError = ref(null)
+
+async function boot() {
+  bootError.value = null
+  subsLoaded.value = false
   try {
     // Load leagues and wallet list in parallel
     const [leaguesData, walletsData] = await Promise.all([
-      api.fetchLeagues().catch(() => ({ leagues: [] })),
-      user.value?.id
-        ? api.fetchWallets().catch(() => ({ wallets: [] }))
-        : Promise.resolve({ wallets: [] })
+      api.fetchLeagues(),
+      user.value?.id ? api.fetchWallets() : Promise.resolve({ wallets: [] }),
     ])
 
     if (leaguesData?.leagues) {
@@ -176,7 +212,12 @@ onMounted(async () => {
       // admin is W2 (V18, inactive, zero bet rows) and would open the
       // dashboard on a dead wallet. Same logic as pages/wallet.vue.
       if (!selectedWalletId.value && wallets.value.length > 0) {
-        const perf = await api.fetchWalletPerformance().catch(() => [])
+        let perf = []
+        try {
+          perf = await api.fetchWalletPerformance()
+        } catch (e) {
+          bootError.value = errorText(e)
+        }
         const withOpen = perf
           .filter(p => Number(p.n_pending) > 0)
           .sort((a, b) => Number(b.n_pending) - Number(a.n_pending))[0]
@@ -185,13 +226,15 @@ onMounted(async () => {
           : (wallets.value.find(w => w.lifecycle === 'trader') || wallets.value[0]).id
       }
     }
-  } catch (error) {
-    console.error('Error loading leagues:', error)
+  } catch (e) {
+    bootError.value = errorText(e)
   } finally {
     // Signal that data is ready — provider can now mount and fetch
     subsLoaded.value = true
   }
-})
+}
+
+onMounted(boot)
 </script>
 
 <style scoped>

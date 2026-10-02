@@ -28,7 +28,7 @@
       </div>
       <div class="bg-surface-light/50 border border-edge rounded-lg p-3 text-center">
         <p class="text-xl sm:text-2xl font-bold" :class="summary.profit >= 0 ? 'text-green-400' : 'text-red-400'">
-          {{ summary.profit >= 0 ? '+' : '' }}{{ Number(summary.profit).toFixed(2) }}€
+          {{ formatMoney(summary.profit, { signed: true }) }}
         </p>
         <p class="text-[11px] text-zinc-500">P/L</p>
       </div>
@@ -110,9 +110,9 @@
         <div class="flex items-center justify-between pt-2 border-t border-edge text-xs">
           <span class="text-zinc-500">{{ formatDate(bet.placed_at) }}</span>
           <div class="flex items-center gap-3">
-            <span class="text-zinc-400">Stake €{{ Number(bet.stake).toFixed(2) }}</span>
+            <span class="text-zinc-400">Stake {{ formatMoney(bet.stake) }}</span>
             <span :class="bet.profit >= 0 ? 'text-green-400' : 'text-red-400'" class="font-medium">
-              {{ bet.profit > 0 ? '+' : '' }}€{{ Number(bet.profit).toFixed(2) }}
+              {{ formatMoney(bet.profit, { signed: true }) }}
             </span>
           </div>
         </div>
@@ -128,6 +128,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/formatters'
 const apiFetch = useApiFetch()
 definePageMeta({ middleware: 'auth' })
 

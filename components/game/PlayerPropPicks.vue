@@ -1,5 +1,8 @@
 <template>
-  <div v-if="!loading && picks.length > 0" class="mt-4 border-t border-edge/50 pt-4 space-y-3">
+  <div v-if="!loading && error" class="mt-4 border-t border-edge/50 pt-4">
+    <UiErrorState title="Player prop picks failed to load." :error="error" @retry="load" />
+  </div>
+  <div v-else-if="!loading && picks.length > 0" class="mt-4 border-t border-edge/50 pt-4 space-y-3">
 
     <!-- Section Header -->
     <div class="flex items-center justify-between">
@@ -123,6 +126,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { errorText } from '~/utils/error-text'
 
 const props = defineProps<{
   gameId: number
@@ -131,9 +135,13 @@ const props = defineProps<{
 const api = useApi()
 const picks = ref<any[]>([])
 const loading = ref(true)
+const error = ref<string | null>(null)
 const activeWallet = ref('trad')
 
-onMounted(async () => {
+// "No picks" (zero rows) renders nothing; a FAILED read renders the error.
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     picks.value = await api.fetchPlayerPropPicks(props.gameId)
     // Default to fe if no trad picks, sniper if only sniper
@@ -143,11 +151,13 @@ onMounted(async () => {
       activeWallet.value = 'sniper'
     }
   } catch (e) {
-    // silently fail — props aren't available for all games
+    picks.value = []
+    error.value = errorText(e)
   } finally {
     loading.value = false
   }
-})
+}
+onMounted(load)
 
 // ─── Grouped picks ────────────────────────────────────────
 const tradPicks = computed(() =>

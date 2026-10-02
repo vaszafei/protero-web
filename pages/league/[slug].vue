@@ -67,7 +67,14 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading || !data" class="flex justify-center items-center py-16">
+    <UiErrorState
+      v-if="leagueError"
+      class="max-w-xl mx-auto my-10"
+      title="The league failed to load."
+      :error="errorText(leagueError)"
+      @retry="refreshLeague"
+    />
+    <div v-else-if="loading || !data" class="flex justify-center items-center py-16">
       <div class="flex items-center gap-3 text-zinc-500">
         <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
         <span class="text-sm">Loading league data...</span>
@@ -76,6 +83,24 @@
 
     <!-- Main Content -->
     <div v-else>
+      <!-- Twin context and the season picker are optional, but a FAILED read is
+           reported: an empty result means "not fitted / one season", a rejected one means we do not know. -->
+      <UiErrorState
+        v-if="twinError"
+        compact
+        class="mb-3"
+        title="Twin ratings failed to load — the panels below may be incomplete."
+        :error="twinError"
+        @retry="refreshTwin"
+      />
+      <UiErrorState
+        v-if="seasonsError"
+        compact
+        class="mb-3"
+        title="The season list failed to load."
+        :error="seasonsError"
+        @retry="refreshSeasons"
+      />
       <TabNavigation
         v-model:activeTab="activeTab"
         :fixture-count="roundGames.length"
@@ -159,6 +184,7 @@ import AnalysisView from '~/components/league/AnalysisView.vue'
 import PredictionsView from '~/components/league/PredictionsView.vue'
 import { useLeagueStats } from '~/composables/useLeagueStats'
 import { getLeagueLogoUrl } from '~/utils/teamLogo'
+import { errorText } from '~/utils/error-text'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -183,7 +209,7 @@ const selectedSeason = computed({
 })
 
 // Fetch league data for the selected season
-const { data: leagueData, refresh: refreshLeague } = await useAsyncData(
+const { data: leagueData, error: leagueError, refresh: refreshLeague } = await useAsyncData(
   `league-${leagueName}-${selectedSeason.value}`,
   () => api.fetchLeague(leagueName, selectedSeason.value)
 )
@@ -212,25 +238,34 @@ const loading = ref(false)
  */
 const twins = useTwins()
 
-const { data: twinData, pending: twinPending } = await useAsyncData(
+const { data: twinData, pending: twinPending, refresh: refreshTwin } = await useAsyncData(
   `twin-${leagueName}`,
   async () => {
-    const [t, clubs, trans, peers, lgs, mgrs] = await Promise.all([
-      twins.fetchTwinLeague(leagueName).catch(() => null),
-      twins.fetchTwinTeams({ league: leagueName, limit: 100 }).catch(() => []),
-      twins.fetchLeagueTransitions(leagueName).catch(() => []),
-      twins.fetchTwinLeagues().catch(() => []),
-      api.fetchLeagues().then(d => d.leagues || []).catch(() => []),
+    // allSettled, not `.catch(() => [])`: each read keeps what it got, and a
+    // rejection is surfaced as `error` instead of reading as "no twin data".
+    const results = await Promise.allSettled([
+      twins.fetchTwinLeague(leagueName),
+      twins.fetchTwinTeams({ league: leagueName, limit: 100 }),
+      twins.fetchLeagueTransitions(leagueName),
+      twins.fetchTwinLeagues(),
+      api.fetchLeagues().then(d => d.leagues || []),
       // Managers — context only, like every twin surface. Absent for
       // basketball / LATAM / national teams, which have no coach capture.
-      twins.fetchTwinManagers(leagueName).catch(() => []),
+      twins.fetchTwinManagers(leagueName),
     ])
+    const ok = (i, empty) => (results[i].status === 'fulfilled' ? results[i].value : empty)
+    const failed = results.find(r => r.status === 'rejected')
     // Strongest attack first — the ordering an operator reads a league in.
-    const twinClubs = [...clubs].sort((a, b) => (b.attack ?? -99) - (a.attack ?? -99))
-    return { twin: t, twinClubs, twinTransitions: trans, twinPeers: peers, allLeagues: lgs, twinManagers: mgrs }
+    const twinClubs = [...ok(1, [])].sort((a, b) => (b.attack ?? -99) - (a.attack ?? -99))
+    return {
+      twin: ok(0, null), twinClubs, twinTransitions: ok(2, []), twinPeers: ok(3, []),
+      allLeagues: ok(4, []), twinManagers: ok(5, []),
+      error: failed ? errorText(failed.reason) : null,
+    }
   }
 )
 
+const twinError = computed(() => twinData.value?.error ?? null)
 const twin = computed(() => twinData.value?.twin ?? null)
 const twinManagers = computed(() => twinData.value?.twinManagers ?? [])
 const twinClubs = computed(() => twinData.value?.twinClubs ?? [])
@@ -239,11 +274,12 @@ const twinPeers = computed(() => twinData.value?.twinPeers ?? [])
 const allLeagues = computed(() => twinData.value?.allLeagues ?? [])
 
 // Every season this league has fixtures for — the "visit an older season" picker.
-const { data: seasonsData } = await useAsyncData(
+const { data: seasonsData, error: seasonsErr, refresh: refreshSeasons } = await useAsyncData(
   `seasons-${leagueName}`,
-  () => apiFetch(`/api/seasons/${leagueName}`).catch(() => ({ seasons: [] }))
+  () => apiFetch(`/api/seasons/${leagueName}`)
 )
 const availableSeasons = computed(() => seasonsData.value?.seasons || [])
+const seasonsError = computed(() => (seasonsErr.value ? errorText(seasonsErr.value) : null))
 
 // Is this a basketball league?
 const isBball = computed(() => data.value?.sport === 'basketball')

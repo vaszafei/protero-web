@@ -2,6 +2,7 @@ import { getSupabase } from '~/server/utils/supabase'
 import { requireUserId } from '~/server/utils/auth'
 import { isEnabled, probSourceFor, disabledReason } from '~/server/utils/football-masks'
 import { fitImpliedGoals, bookMargin } from '~/server/utils/market-implied'
+import { summariseBases } from '~/utils/market-basis'
 
 /**
  * The market board for one fixture: what the book thinks, what we think, and
@@ -276,9 +277,10 @@ export default defineEventHandler(async (event) => {
         }
       : null,
     wagers,
-    // Which of the three price bases actually backed this board, so the page
-    // can say so rather than implying it compared against the close.
-    basis: rows.find((r) => r.marketSource)?.marketSource ?? null,
+    // Every price basis that backs a row on this board (distinct, most accurate
+    // first). A board can mix them — each market takes its own best source — so
+    // there is no single "the basis"; `rows[].marketSource` says which is which.
+    bases: summariseBases(rows).bases,
     has_model: !!prediction,
     model_version: prediction?.model_version ?? null,
     enabled_markets: Object.keys(marketProb).length

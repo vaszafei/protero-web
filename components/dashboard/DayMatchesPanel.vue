@@ -159,7 +159,7 @@
                   <span class="text-zinc-500">@</span>
                   <span>{{ Number(bet.odds).toFixed(2) }}</span>
                   <span class="text-zinc-500">•</span>
-                  <span>€{{ Number(bet.stake).toFixed(1) }}</span>
+                  <span>{{ formatMoney(bet.stake) }}</span>
                   <span v-if="bet.status === 'won'" class="text-emerald-400">W</span>
                   <span v-else-if="bet.status === 'lost'" class="text-red-400">L</span>
                 </div>
@@ -259,12 +259,12 @@
               class="font-bold"
               :class="parlay.status === 'won' ? 'text-green-400' : 'text-red-400'"
             >
-              {{ parlay.status === 'won' ? '+' : '-' }}€{{ parlay.status === 'won' ? ((parlay.actual_payout || 0) - (parlay.total_stake || 0)).toFixed(2) : (parlay.total_stake || 0).toFixed(2) }}
+              {{ formatMoney(parlay.status === 'won' ? (parlay.actual_payout || 0) - (parlay.total_stake || 0) : -(parlay.total_stake || 0), { signed: true }) }}
             </span>
           </div>
           <div v-else class="flex justify-between items-center">
             <span class="text-zinc-400">Potential Win</span>
-            <span class="font-bold text-zinc-100">€{{ ((parlay.total_stake || 0) * (parlay.parlay_odds || 0)).toFixed(2) }}</span>
+            <span class="font-bold text-zinc-100">{{ formatMoney((parlay.total_stake || 0) * (parlay.parlay_odds || 0)) }}</span>
           </div>
         </div>
       </div>
@@ -273,6 +273,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/formatters'
 import { computed, ref, watch } from 'vue'
 import { betLabelShort } from '~/utils/bet-label'
 

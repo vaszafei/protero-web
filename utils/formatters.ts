@@ -8,14 +8,25 @@ export function toNum(val: any): number {
   return isNaN(n) ? 0 : n
 }
 
-/** Format currency (USD, no decimals) */
-export function formatCurrency(val: number | string): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(toNum(val))
+const EUR = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' })
+const EUR_WHOLE = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
+/**
+ * The one money formatter. Every amount in the app is euros (owner, 2026-10-01);
+ * the DB has no currency column, so this is a display convention and lives here.
+ * The sign goes before the symbol and a minus is U+2212, so a ledger column reads
+ * `−€4.25` next to `+€7.28`. `signed` adds `+` to positives; `whole` drops the
+ * cents (chart axes, chips). Null / non-numeric renders as an em dash, never €0.00.
+ */
+export function formatMoney(val: number | string | null | undefined, opts: { signed?: boolean; whole?: boolean } = {}): string {
+  if (val == null || val === '') return '—'
+  const n = Number(val)
+  if (!Number.isFinite(n)) return '—'
+  const fmt = opts.whole ? EUR_WHOLE : EUR
+  const body = fmt.format(Math.abs(n))
+  const rounded = Number(fmt.format(n).replace(/[^\d.-]/g, ''))
+  if (rounded < 0) return `\u2212${body}`
+  return opts.signed && rounded > 0 ? `+${body}` : body
 }
 
 /** Format number with 2 decimal places and locale separators */
@@ -58,23 +69,6 @@ export function statusBadgeClass(status: string): string {
     case 'push': return 'bg-zinc-500/15 text-zinc-400'
     default: return 'bg-zinc-700 text-zinc-400'
   }
-}
-
-/** Compute ROI from initial and current balance */
-export function computeROI(initial: number | string, current: number | string): number {
-  const init = toNum(initial) || 1
-  return ((toNum(current) - init) / init) * 100
-}
-
-/** Compute P/L from initial and current balance */
-export function computePL(initial: number | string, current: number | string): number {
-  return toNum(current) - toNum(initial)
-}
-
-/** Detect sport from league_key */
-export function sportFromLeague(leagueKey: string): 'basketball' | 'football' {
-  const basketballLeagues = ['nba', 'euroleague', 'eurocup', 'basketball_cl', 'greek_basket_league', 'spanish_acb']
-  return basketballLeagues.includes(leagueKey) ? 'basketball' : 'football'
 }
 
 /** Format bet type for display — uses notes if short, else maps bet_type */

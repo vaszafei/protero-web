@@ -10,10 +10,13 @@
       <div class="mb-2.5">
         <p class="text-[10px] text-zinc-500 uppercase tracking-wider mb-0.5">Balance</p>
         <div class="flex items-baseline gap-2">
-          <span class="text-2xl sm:text-3xl font-extrabold text-white tabular-nums">${{ formatNum(wallet.balance) }}</span>
-          <span class="text-sm font-bold tabular-nums" :class="pl >= 0 ? 'text-emerald-400' : 'text-red-400'">
-            {{ pl >= 0 ? '+' : '' }}{{ formatNum(pl) }}
-          </span>
+          <span class="text-2xl sm:text-3xl font-extrabold text-white tabular-nums">{{ formatMoney(wallet.balance) }}</span>
+          <span
+            v-if="pnl != null"
+            class="text-sm font-bold tabular-nums"
+            :class="pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-red-400' : 'text-zinc-500'"
+            title="Profit over settled wagers, from get_wallet_performance — the same figure as the roster"
+          >{{ formatMoney(pnl, { signed: true }) }}</span>
         </div>
       </div>
 
@@ -27,7 +30,9 @@
             :class="unpriced ? 'text-neutral-500 italic font-normal' : roiInk(roi, verdict).class"
             :title="unpriced ? UNPRICED_TITLE : mixedPrice ? MIXED_PRICE_TITLE : roiInk(roi, verdict).title"
           >
-            <template v-if="unpriced">{{ UNPRICED_LABEL }}</template>
+            <template v-if="performanceError">—</template>
+            <span v-else-if="coverageError" class="text-[11px] font-semibold text-red-300" :title="coverageError">coverage unavailable</span>
+            <template v-else-if="unpriced">{{ UNPRICED_LABEL }}</template>
             <template v-else>{{ roi == null ? '—' : (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%'
               }}<span v-if="mixedPrice" class="text-amber-500/80 font-normal">*</span></template>
           </p>
@@ -35,23 +40,31 @@
         <div>
           <p class="text-[10px] text-zinc-500 uppercase">Win</p>
           <p class="text-sm font-bold text-zinc-100 tabular-nums">
-            {{ winRate == null ? '—' : winRate.toFixed(1) + '%' }}
+            {{ winRate == null || performanceError ? '—' : winRate.toFixed(1) + '%' }}
           </p>
         </div>
         <div>
           <p class="text-[10px] text-zinc-500 uppercase" title="Settled wagers — a parlay counts once, never its legs">Wagers</p>
-          <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ nWagers }}</p>
+          <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ performanceError ? '—' : nWagers }}</p>
         </div>
         <div>
           <p class="text-[10px] text-zinc-500 uppercase">Seed</p>
-          <p class="text-sm font-bold text-zinc-100 tabular-nums">${{ formatNum(wallet.initial_balance) }}</p>
+          <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ formatMoney(wallet.initial_balance) }}</p>
         </div>
       </div>
 
       <!-- ROI never travels alone (performance-claim rule 2). The verdict is
            the COHORT-corrected one: this wallet was read off a roster scored
            all at once, so its own p is not the bar it has to clear. -->
-      <div v-if="performance" class="mt-2.5 pt-2 border-t border-white/5 flex items-center gap-x-2 gap-y-1 flex-wrap">
+      <UiErrorState
+        v-if="performanceError"
+        compact
+        class="mt-2.5"
+        title="Performance failed to load — no verdict or ROI to show."
+        :error="performanceError"
+        @retry="$emit('retry')"
+      />
+      <div v-else-if="performance" class="mt-2.5 pt-2 border-t border-white/5 flex items-center gap-x-2 gap-y-1 flex-wrap">
         <span
           class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
           :class="VERDICT_CLASS[verdict]"
@@ -61,7 +74,7 @@
           <template v-if="performance.p_luck != null">
             p(luck) = {{ Number(performance.p_luck).toFixed(3) }}<template v-if="family && family.k > 1">
               · needs p&lt;{{ family.bonferroni.toFixed(4) }} at k={{ family.k }}</template>
-            · turnover ${{ formatNum(performance.turnover) }}
+            · turnover {{ formatMoney(performance.turnover) }}
           </template>
           <template v-else>
             below n=10 — a simulation says nothing useful here
@@ -76,7 +89,15 @@
            source we could bind, not about the tipster. Never render one
            without the other. Compacted 2026-09-10 — one line of prose plus a
            figure strip, not two paragraphs. -->
-      <div v-if="coverage" class="mt-2 pt-2 border-t border-white/5">
+      <UiErrorState
+        v-if="coverageError"
+        compact
+        class="mt-2"
+        title="Coverage unavailable — the ROI is withheld without it."
+        :error="coverageError"
+        @retry="$emit('retry')"
+      />
+      <div v-else-if="coverage" class="mt-2 pt-2 border-t border-white/5">
         <p class="text-[10px] text-zinc-400 leading-snug">
           <span class="font-semibold text-zinc-300">Mirror.</span>
           {{ coverage.slips_in_ledger.toLocaleString() }}/{{ coverage.slips.toLocaleString() }} slips
@@ -97,6 +118,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { formatMoney } from '~/utils/formatters'
 import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
          priceBasisOf, UNPRICED_LABEL, UNPRICED_TITLE, MIXED_PRICE_TITLE } from '~/utils/wallet-stats'
 
@@ -110,15 +132,21 @@ const props = defineProps({
   family:           { type: Object, default: null },
   /** One v_tipster_wallet_coverage row — mirrored wallets only. */
   coverage:         { type: Object, default: null },
+  /** Why the performance RPC failed. Set → no ROI, win rate or verdict is shown. */
+  performanceError: { type: String, default: null },
+  /** Why the coverage call failed. A mirror's ROI describes only the slips that bound, so
+   *  without coverage the ROI is replaced, not shown beside a missing qualifier. */
+  coverageError:    { type: String, default: null },
 })
+defineEmits(['retry'])
 
 /**
- * Balance movement — this one IS a bankroll figure and is labelled as such
- * beside the balance. It is not ROI, and must not be relabelled as ROI: for W7
- * this reads +69.71 where the ROI is +11.5%.
+ * P&L is the RPC's `pnl` — the one sanctioned figure, identical to the roster's.
+ * It is NOT `balance - initial_balance`: that drifts a few cents from rounding each
+ * `bets.profit` to 2 dp, and it is a bankroll movement, not a result.
  */
-const pl = computed(() =>
-  parseFloat(props.wallet?.balance || 0) - parseFloat(props.wallet?.initial_balance || 0))
+const pnl = computed(() =>
+  props.performance?.pnl == null ? null : Number(props.performance.pnl))
 
 const roi = computed(() =>
   props.performance?.roi_pct == null ? null : Number(props.performance.roi_pct))
@@ -145,9 +173,6 @@ const coverageClass = computed(() => {
   return 'text-red-400'
 })
 
-function formatNum(n) {
-  return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 </script>
 
 <style scoped>

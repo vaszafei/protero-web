@@ -92,6 +92,7 @@
      cannot drift apart. viz.ts stays the source for anything computed in JS. */
   --viz-home: var(--brand-blue);
   --viz-away: var(--brand-red);
+  --viz-draw: #6b7280;
   --viz-third: #199e70;
   --viz-grid: #343a47;
   --viz-surface: var(--surface);

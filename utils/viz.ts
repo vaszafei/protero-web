@@ -68,6 +68,23 @@ export const VIZ_BRAND_AWAY = '#f8514f'
 export const VIZ_HOME = VIZ_BRAND_HOME
 export const VIZ_AWAY = VIZ_BRAND_AWAY
 
+/**
+ * Draw — the outcome with no side. A neutral grey on purpose: it carries no hue
+ * so it can never be read as "the third team". Validated beside the home/away pair:
+ *   node scripts/validate_palette.js "#4d8fff,#f8514f,#6b7280" --mode dark \
+ *        --surface "#1c1f27" --pairs all
+ *   → L-band, contrast (3.41:1) and every pairwise ΔE (normal/protan/deutan ≥ 0.1)
+ *     pass; the ONLY failing check is the chroma floor (C 0.023 < 0.05), which
+ *     exists to keep categorical hues from going grey and is unmet here by design.
+ */
+export const VIZ_DRAW = '#6b7280'
+
+/** `#rrggbb` → `rgba(r, g, b, alpha)` — so a tint is derived from its token, not re-typed. */
+export function vizRgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha.toFixed(3)})`
+}
+
 /** The raw wordmark inks. Legible on WHITE only — never a mark on a dark surface. */
 export const VIZ_BRAND_HOME_PURE = '#0040a0'
 export const VIZ_BRAND_AWAY_PURE = '#f02020'

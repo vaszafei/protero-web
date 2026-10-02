@@ -19,6 +19,9 @@
     <div v-if="loading" class="flex-1 min-h-28 flex items-center justify-center">
       <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin text-zinc-600" />
     </div>
+    <div v-else-if="error" class="flex-1 min-h-28 flex items-center">
+      <UiErrorState class="w-full" title="The equity curve failed to load." :error="error" @retry="$emit('retry')" />
+    </div>
     <div v-else-if="!points || points.length < 2" class="flex-1 min-h-28 flex items-center justify-center">
       <p class="text-[11px] text-zinc-600">Not enough settled bets to plot</p>
     </div>
@@ -60,8 +63,8 @@
         </svg>
 
         <!-- Y-axis labels (overlay) -->
-        <div class="absolute left-1 top-0 text-[10px] text-zinc-600 tabular-nums">${{ formatNum(maxV) }}</div>
-        <div class="absolute left-1 bottom-0 text-[10px] text-zinc-600 tabular-nums">${{ formatNum(minV) }}</div>
+        <div class="absolute left-1 top-0 text-[10px] text-zinc-600 tabular-nums">{{ formatMoney(maxV, { whole: true }) }}</div>
+        <div class="absolute left-1 bottom-0 text-[10px] text-zinc-600 tabular-nums">{{ formatMoney(minV, { whole: true }) }}</div>
       </div>
 
       <!-- Footer: start and end balance (with the date) on one line, the
@@ -72,11 +75,11 @@
            graded: a backfilled wallet settles 20 months in one run and the old
            settled_at axis drew all of them today. -->
       <div class="flex items-center justify-between gap-2 mt-1.5 text-[10px] text-zinc-500 tabular-nums whitespace-nowrap">
-        <span>${{ formatNum(points[0].balance) }} <span class="text-zinc-700">· {{ dateLabel(points[0].ts) }}</span></span>
-        <span>${{ formatNum(points[points.length - 1].balance) }} <span class="text-zinc-700">· {{ dateLabel(points[points.length - 1].ts) }}</span></span>
+        <span>{{ formatMoney(startBalance ?? seed) }} <span class="text-zinc-700">· start</span></span>
+        <span>{{ formatMoney(points[points.length - 1].balance) }} <span class="text-zinc-700">· {{ dateLabel(points[points.length - 1].ts) }}</span></span>
       </div>
       <p class="text-center text-[10px] tabular-nums whitespace-nowrap" :class="rangePnl >= 0 ? 'text-emerald-400' : 'text-red-400'">
-        {{ rangePnl >= 0 ? '+' : '−' }}${{ formatNum(Math.abs(rangePnl)) }}
+        {{ formatMoney(rangePnl, { signed: true }) }}
         <span class="text-zinc-500">({{ rangePnlPct >= 0 ? '+' : '' }}{{ rangePnlPct.toFixed(1) }}% bankroll · {{ points.length }} wagers)</span>
       </p>
     </div>
@@ -85,14 +88,20 @@
 
 <script setup>
 import { computed } from 'vue'
+import { formatMoney } from '~/utils/formatters'
+import { rangePnl as windowPnl, rangePnlPct as windowPnlPct } from '~/utils/wallet-pnl'
 
 const props = defineProps({
   points:    { type: Array, default: () => [] },     // [{ts, balance}, ...] sorted asc
   modelValue:{ type: Number, default: 30 },          // selected days
   loading:   { type: Boolean, default: false },
   seed:      { type: Number, default: 0 },
+  /** Balance just before the window opens; null = measure from the seed ("All"). */
+  startBalance: { type: Number, default: null },
+  /** Why the history call failed — rendered instead of "Not enough settled bets". */
+  error:     { type: String, default: null },
 })
-defineEmits(['update:days'])
+defineEmits(['update:days', 'retry'])
 
 const ranges = [
   { label: '7d',  days: 7 },
@@ -141,21 +150,11 @@ const lastPoint = computed(() => {
   return { x: xFor(n - 1), y: yFor(props.points[n - 1].balance) }
 })
 
-const rangePnl = computed(() => {
-  if (props.points.length < 2) return 0
-  return props.points[props.points.length - 1].balance - props.points[0].balance
-})
-const rangePnlPct = computed(() => {
-  if (props.points.length < 2) return 0
-  const start = props.points[0].balance || 1
-  return (rangePnl.value / start) * 100
-})
+const rangePnl = computed(() => windowPnl(props.points, props.seed, props.startBalance))
+const rangePnlPct = computed(() => windowPnlPct(props.points, props.seed, props.startBalance))
 
 const strokeColor = computed(() => rangePnl.value >= 0 ? '#34d399' : '#f87171')
 
-function formatNum(n) {
-  return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-}
 
 function dateLabel(ts) {
   if (!ts) return ''

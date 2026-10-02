@@ -24,7 +24,7 @@
               <span class="font-medium truncate" :class="selectedWalletId === w.id ? 'text-zinc-100' : 'text-zinc-300'">{{ w.name }}</span>
             </div>
             <span class="ml-3 tabular-nums text-xs flex-shrink-0" :class="selectedWalletId === w.id ? 'text-emerald-400' : 'text-zinc-500'">
-              {{ formatCurrency(toNum(w.balance)) }}
+              {{ formatMoney(w.balance, { whole: true }) }}
             </span>
           </button>
         </div>
@@ -60,6 +60,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/formatters'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps<{
@@ -92,14 +93,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 
 const activeWallet = computed(() => props.wallets.find(w => w.id === props.selectedWalletId) || props.wallets[0] || null)
 
-function toNum(val: any): number {
-  const n = Number(val)
-  return isNaN(n) ? 0 : n
-}
 
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val)
-}
 
 function selectWallet(id: number) {
   emit('wallet-change', id)

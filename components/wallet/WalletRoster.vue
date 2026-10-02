@@ -70,14 +70,15 @@
                 <span v-else class="text-zinc-600">—</span>
               </td>
               <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ money(r.perf.turnover) }}</td>
-              <td class="px-2 py-2 text-right tabular-nums" :class="signClass(r.perf.pnl)">{{ signed(r.perf.pnl) }}</td>
+              <td class="px-2 py-2 text-right tabular-nums" :class="signClass(r.perf.pnl)">{{ formatMoney(r.perf.pnl, { signed: true }) }}</td>
               <td
                 class="px-2 py-2 text-right tabular-nums font-semibold"
                 :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic font-normal' : roiInk(r.perf.roi_pct, r.verdict).class"
                 :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE
                       : priceBasisOf(r.id) === 'mixed' ? MIXED_PRICE_TITLE : roiInk(r.perf.roi_pct, r.verdict).title"
               >
-                <template v-if="priceBasisOf(r.id) === 'synthetic'">{{ UNPRICED_LABEL }}</template>
+                <template v-if="coverageError && group.showCoverage"><span class="text-[10px] text-red-300 font-normal" :title="coverageError">coverage unavailable</span></template>
+                <template v-else-if="priceBasisOf(r.id) === 'synthetic'">{{ UNPRICED_LABEL }}</template>
                 <template v-else>
                   {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}<span
                     v-if="priceBasisOf(r.id) === 'mixed'" class="text-amber-500/80 font-normal">*</span>
@@ -130,7 +131,8 @@
               :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic' : roiInk(r.perf.roi_pct, r.verdict).class"
               :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE : roiInk(r.perf.roi_pct, r.verdict).title"
             >
-              <template v-if="priceBasisOf(r.id) === 'synthetic'">ROI {{ UNPRICED_LABEL }}</template>
+              <template v-if="coverageError && group.showCoverage">ROI coverage unavailable</template>
+              <template v-else-if="priceBasisOf(r.id) === 'synthetic'">ROI {{ UNPRICED_LABEL }}</template>
               <template v-else>ROI {{ r.perf.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}<span
                 v-if="priceBasisOf(r.id) === 'mixed'" class="text-amber-500/80">*</span></template>
             </span>
@@ -160,6 +162,7 @@
 </template>
 
 <script setup>
+import { formatMoney } from '~/utils/formatters'
 import { computed } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
 import { cohortOf, scoreRoster, roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
@@ -173,6 +176,8 @@ const props = defineProps({
   /** Source registry (key + display name), via /api/wallet/tipsters. */
   sources:     { type: Array, default: () => [] },
   selectedId:  { type: Number, default: null },
+  /** Why the coverage call failed. A mirror's ROI describes only the slips that bound, so it is replaced, not shown bare. */
+  coverageError: { type: String, default: null },
 })
 
 /** Which external source a mirrored wallet replays. Keyed by tipster_sources.key. */
@@ -269,7 +274,7 @@ const groups = computed(() => {
 
 function money(v) {
   const n = Number(v || 0)
-  return n === 0 ? '—' : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return n === 0 ? '—' : formatMoney(n)
 }
 
 function signed(v) {

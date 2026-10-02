@@ -4,6 +4,14 @@
       <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
     </div>
 
+    <UiErrorState
+      v-else-if="error"
+      class="max-w-xl mx-auto my-16"
+      title="The club failed to load."
+      :error="error"
+      @retry="load"
+    />
+
     <div v-else-if="!twin" class="py-20 text-center">
       <p class="text-sm text-zinc-400">No twin for team #{{ teamId }}.</p>
       <p class="text-[11px] text-zinc-600 mt-1">
@@ -14,6 +22,14 @@
     </div>
 
     <template v-else>
+      <UiErrorState
+        v-if="contextError"
+        compact
+        class="mb-4"
+        title="Some of this club's panels failed to load — they may be incomplete."
+        :error="contextError"
+        @retry="load"
+      />
       <!-- Identity -->
       <div class="mb-5">
         <NuxtLink
@@ -163,6 +179,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import TeamTrajectory from '~/components/team/TeamTrajectory.vue'
+import { errorText } from '~/utils/error-text'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -173,6 +190,8 @@ const api = useApi()
 const teamId = computed(() => Number(route.params.id))
 
 const loading = ref(true)
+const error = ref(null)         // the twin itself failed — the page cannot render
+const contextError = ref(null)  // history / players / leagues / transitions failed
 const twin = ref(null)
 const history = ref([])
 const players = ref([])
@@ -207,22 +226,33 @@ function ppgClass(ppg) {
   return 'text-red-400/80'
 }
 
-onMounted(async () => {
-  const [t, h, p, lg, tr] = await Promise.all([
-    twins.fetchTwinTeam(teamId.value).catch(() => null),
-    twins.fetchTwinTeamHistory(teamId.value).catch(() => []),
-    twins.fetchTwinPlayers(teamId.value, 40).catch(() => []),
-    api.fetchLeagues().then(d => d.leagues || []).catch(() => []),
-    twins.fetchTeamTransitions(teamId.value).catch(() => []),
+async function load() {
+  loading.value = true
+  error.value = null
+  contextError.value = null
+  const id = teamId.value
+  const results = await Promise.allSettled([
+    twins.fetchTwinTeam(id),
+    twins.fetchTwinTeamHistory(id),
+    twins.fetchTwinPlayers(id, 40),
+    api.fetchLeagues().then(d => d.leagues || []),
+    twins.fetchTeamTransitions(id),
   ])
-  twin.value = t
-  history.value = h
-  players.value = p
-  leagues.value = lg
-  transitions.value = tr
+  if (id !== teamId.value) return
+  const ok = (i, empty) => (results[i].status === 'fulfilled' ? results[i].value : empty)
+  if (results[0].status === 'rejected') error.value = errorText(results[0].reason)
+  const failed = results.slice(1).find(r => r.status === 'rejected')
+  if (failed) contextError.value = errorText(failed.reason)
+  twin.value = ok(0, null)
+  history.value = ok(1, [])
+  players.value = ok(2, [])
+  leagues.value = ok(3, [])
+  transitions.value = ok(4, [])
   loading.value = false
-  if (t) useHead({ title: `${t.name} · Protero` })
-})
+  if (twin.value) useHead({ title: `${twin.value.name} · Protero` })
+}
+
+onMounted(load)
 
 useHead({ title: 'Club · Protero' })
 </script>

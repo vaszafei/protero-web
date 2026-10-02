@@ -6,6 +6,7 @@
  */
 
 import { scoreRoster } from '~/utils/wallet-stats'
+import { errorText } from '~/utils/error-text'
 
 // Identity + bankroll columns for a wallet row. `persona_name`/`bio`/
 // `archetype`/`lifecycle` are what utils/wallet-meta.ts resolves a wallet's
@@ -241,6 +242,10 @@ export const useApi = () => {
         away_team:teams!away_team_id(name, team_key),
         predictions(*)
       `)
+      // Newest prediction only — the market endpoint takes the newest by
+      // created_at, and an unordered embed made the two tabs disagree.
+      .order('created_at', { ascending: false, referencedTable: 'predictions' })
+      .limit(1, { referencedTable: 'predictions' })
       .eq('id', gameId)
       .single()
 
@@ -301,20 +306,22 @@ export const useApi = () => {
     //    both live on scheduled-only tabs — so skip the two round trips
     //    rather than fetching and discarding them.
     if (game?.status === 'completed') {
-      return { ...baseRes, h2h: null, fantasy: [] }
+      return { ...baseRes, fantasy: [] as any[], fantasyError: null as string | null }
     }
 
-    // 3) Still scheduled: fan out h2h + fantasy in parallel.
-    const [h2hRes, fantasyRes] = await Promise.all([
-      fetchH2H(game.home_name, game.away_name, 10).catch(() => ({ matches: [], summary: null })),
-      fetchFantasyProjections(gameId).catch(() => [])
-    ])
-
-    return {
-      ...baseRes,
-      h2h: h2hRes,
-      fantasy: fantasyRes,
+    // 3) Still scheduled: fantasy projections. A failure is REPORTED, not turned
+    //    into "no projections" — the page shows the Fantasy tab with the error.
+    //    (The bundled h2h fetch was dropped: nothing read it, the Analysis tab
+    //    takes h2h from /api/game/:id/analysis.)
+    let fantasy: any[] | null = null
+    let fantasyError: string | null = null
+    try {
+      fantasy = await fetchFantasyProjections(gameId)
+    } catch (e) {
+      fantasyError = errorText(e)
     }
+
+    return { ...baseRes, fantasy, fantasyError }
   }
 
   /**
@@ -473,10 +480,11 @@ export const useApi = () => {
    */
   const fetchH2H = async (homeTeamName: string, awayTeamName: string, limit = 20) => {
     // Find team IDs by name
-    const { data: teams } = await supabase
+    const { data: teams, error: tErr } = await supabase
       .from('teams')
       .select('id, name')
       .or(`name.eq.${homeTeamName},name.eq.${awayTeamName}`)
+    if (tErr) throw tErr
 
     if (!teams || teams.length < 2) return { matches: [], summary: null }
 
@@ -484,7 +492,7 @@ export const useApi = () => {
     const awayTeam = teams.find(t => t.name === awayTeamName)
     if (!homeTeam || !awayTeam) return { matches: [], summary: null }
 
-    const { data: matches } = await supabase
+    const { data: matches, error: mErr } = await supabase
       .from('games')
       .select(`
         id, date, season, league_key, home_goals, away_goals, status,
@@ -495,6 +503,7 @@ export const useApi = () => {
       .not('home_goals', 'is', null)
       .order('date', { ascending: false })
       .limit(limit)
+    if (mErr) throw mErr
 
     const m = matches || []
     const homeWins = m.filter((g: any) => {
@@ -879,8 +888,11 @@ export const useApi = () => {
    *
    * @param walletId - target wallet
    * @param days     - lookback window. Use 0 for "all time".
-   * @returns        - array of { ts, balance } sorted ascending. balance is
-   *                   wallet.initial_balance + cumulative pnl up to that ts.
+   * @returns        - `points`: array of { ts, balance } sorted ascending, balance
+   *                   being wallet.initial_balance + cumulative pnl up to that ts.
+   *                   `start_balance`: the balance just BEFORE the window opens (the seed
+   *                   for "all time"), which is what `rangePnl` measures from — measuring
+   *                   from points[0] drops the window's first wager.
    */
   const fetchWalletBalanceHistory = async (walletId: number, days = 30) => {
     // Pull seed first; we need it to anchor the cumulative series.
@@ -890,7 +902,7 @@ export const useApi = () => {
       .eq('id', walletId)
       .maybeSingle()
     if (wErr) throw wErr
-    if (!wallet) return { points: [], initial_balance: 0, current_balance: 0 }
+    if (!wallet) return { points: [], initial_balance: 0, current_balance: 0, start_balance: 0 }
 
     let q = supabase
       .from('v_wallet_balance_history')
@@ -898,15 +910,27 @@ export const useApi = () => {
       .eq('wallet_id', walletId)
       .order('ts', { ascending: true })
 
+    const seed = Number(wallet.initial_balance || 0)
+    let startBalance = seed
+
     if (days > 0) {
       const since = new Date(Date.now() - days * 86400_000).toISOString()
       q = q.gte('ts', since)
+
+      const { data: before, error: bErr } = await supabase
+        .from('v_wallet_balance_history')
+        .select('pnl_cum')
+        .eq('wallet_id', walletId)
+        .lt('ts', since)
+        .order('ts', { ascending: false })
+        .limit(1)
+      if (bErr) throw bErr
+      if (before?.length) startBalance = seed + Number(before[0].pnl_cum || 0)
     }
 
     const { data, error } = await q
     if (error) throw error
 
-    const seed = Number(wallet.initial_balance || 0)
     const points = (data || []).map((row: any) => ({
       ts: row.ts as string,
       balance: seed + Number(row.pnl_cum || 0),
@@ -915,6 +939,7 @@ export const useApi = () => {
       points,
       initial_balance: seed,
       current_balance: Number(wallet.balance || 0),
+      start_balance: startBalance,
     }
   }
 

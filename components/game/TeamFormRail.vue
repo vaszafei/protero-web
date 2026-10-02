@@ -311,7 +311,7 @@ const evidenceNote = computed(() => {
   font-size: 0.64rem; font-weight: 700; padding: 0.05rem 0.4rem; border-radius: var(--r-pill);
   cursor: help; white-space: nowrap;
 }
-.rail-move-up { background: var(--positive-tint); color: var(--positive); }
+.rail-move-up { background: var(--brand-blue-tint); color: var(--brand-blue-hi); }  /* green is money-positive only */
 .rail-move-down { background: var(--brand-red-tint); color: var(--brand-red-hi); }
 .rail-v { font-size: 0.85rem; font-weight: 700; }
 .rail-sd { font-size: 0.6rem; opacity: 0.6; margin-left: 0.15rem; font-weight: 500; }

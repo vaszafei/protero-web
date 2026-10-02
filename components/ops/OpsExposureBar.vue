@@ -4,7 +4,7 @@
     <div class="stat-tile">
       <p class="stat-label">Open exposure</p>
       <p class="stat-value" :class="exposure.stake > 0 ? 'text-amber-400' : 'text-zinc-600'">
-        ${{ fmt(exposure.stake) }}
+        {{ formatMoney(exposure.stake) }}
       </p>
       <p class="stat-foot">
         {{ exposure.n_wagers }} wager<span v-if="exposure.n_wagers !== 1">s</span>
@@ -22,7 +22,7 @@
       </p>
       <p class="stat-foot">
         {{ week.n_wagers }} wagers · {{ week.n_won }}W {{ week.n_wagers - week.n_won }}L
-        <span v-if="week.turnover > 0" class="text-zinc-700">· ${{ fmt(week.turnover) }} turnover</span>
+        <span v-if="week.turnover > 0" class="text-zinc-700">· {{ formatMoney(week.turnover) }} turnover</span>
       </p>
     </div>
 
@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+import { formatMoney } from '~/utils/formatters'
 /**
  * The four numbers that open the console.
  *
@@ -86,9 +87,6 @@ const lifetime = computed(() => {
   }
 })
 
-function fmt(n) {
-  return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 function signed(v) {
   const n = Number(v || 0)

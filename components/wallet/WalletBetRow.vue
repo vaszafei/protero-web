@@ -39,18 +39,19 @@
     <!-- Odds + stake/profit -->
     <div class="text-right flex-shrink-0">
       <p class="text-[12px] font-semibold text-zinc-200 tabular-nums">
-        ${{ stake }} <span class="text-zinc-500">@</span> {{ odds }}
+        {{ formatMoney(bet.stake) }} <span class="text-zinc-500">@</span> {{ odds }}
       </p>
       <p v-if="bet.status === 'pending'" class="text-[10px] text-amber-400/80">Pending</p>
       <p v-else-if="bet.profit != null" class="text-[10px] font-bold tabular-nums"
          :class="Number(bet.profit) >= 0 ? 'text-emerald-400' : 'text-red-400'">
-        {{ Number(bet.profit) >= 0 ? '+' : '' }}${{ Number(bet.profit).toFixed(2) }}
+        {{ formatMoney(bet.profit, { signed: true }) }}
       </p>
     </div>
   </div>
 </template>
 
 <script setup>
+import { formatMoney } from '~/utils/formatters'
 import { computed } from 'vue'
 import { betLabelShort } from '~/utils/bet-label'
 
@@ -61,7 +62,6 @@ const props = defineProps({
 const router = useRouter()
 
 const shortLabel = computed(() => betLabelShort(props.bet))
-const stake = computed(() => Number(props.bet.stake || 0).toFixed(2))
 const odds  = computed(() => Number(props.bet.odds || 0).toFixed(2))
 
 const score = computed(() => {

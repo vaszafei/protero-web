@@ -14,12 +14,13 @@
     <span class="text-[11px] tabular-nums text-amber-300 w-16 flex-shrink-0">{{ oddsLabel }}x</span>
     <span class="text-[11px] text-zinc-400 truncate flex-1 min-w-0" :title="summary">{{ summary }}</span>
     <span class="text-[10px] text-zinc-500 flex-shrink-0">{{ dateLabel }}</span>
-    <span class="text-[11px] tabular-nums text-zinc-300 w-12 text-right flex-shrink-0">${{ stake }}</span>
+    <span class="text-[11px] tabular-nums text-zinc-300 w-12 text-right flex-shrink-0">{{ formatMoney(parlay.total_stake || 0) }}</span>
     <span class="text-[11px] font-bold tabular-nums w-16 text-right flex-shrink-0" :class="resultCls">{{ resultLabel }}</span>
   </button>
 </template>
 
 <script setup>
+import { formatMoney } from '~/utils/formatters'
 import { computed } from 'vue'
 import { legParts } from '~/utils/bet-label'
 
@@ -30,7 +31,6 @@ const props = defineProps({
 defineEmits(['select'])
 
 const legs = computed(() => Array.isArray(props.parlay.legs) ? props.parlay.legs : [])
-const stake = computed(() => Number(props.parlay.total_stake || 0).toFixed(2))
 const oddsLabel = computed(() => Number(props.parlay.parlay_odds || 0).toFixed(2))
 
 /** A props slip lists its players' surnames; any other slip its competitions. */
@@ -51,11 +51,11 @@ const dateLabel = computed(() => {
 
 const resultLabel = computed(() => {
   if (props.parlay.status === 'pending') {
-    return '→ $' + (Number(props.parlay.total_stake || 0) * Number(props.parlay.parlay_odds || 0)).toFixed(0)
+    return '→ ' + formatMoney(Number(props.parlay.total_stake || 0) * Number(props.parlay.parlay_odds || 0), { whole: true })
   }
   if (props.parlay.profit == null) return '—'
   const p = Number(props.parlay.profit)
-  return (p >= 0 ? '+' : '') + p.toFixed(2)
+  return formatMoney(p, { signed: true })
 })
 
 const resultCls = computed(() => {

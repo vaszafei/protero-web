@@ -240,7 +240,7 @@
                 <div class="flex items-center justify-between text-sm font-semibold text-zinc-100">
                   <span>{{ formatBetLabel(activeBetForSheet) }}</span>
                   <span v-if="activeBetForSheet.stake || activeBetForSheet.amount" class="text-emerald-300 tabular-nums">
-                    ${{ Math.round(Number(activeBetForSheet.stake || activeBetForSheet.amount)) }}
+                    {{ formatMoney(activeBetForSheet.stake || activeBetForSheet.amount, { whole: true }) }}
                   </span>
                 </div>
               </div>
@@ -258,6 +258,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/formatters'
 import { ref, watch, computed } from 'vue'
 import { betLabelShort, betLabelLong } from '~/utils/bet-label'
 import CountUp from '~/components/ui/CountUp.vue'
@@ -387,7 +388,7 @@ function _fmtStake(bet: any) {
   const s = bet?.stake || bet?.amount
   if (!s) return null
   const n = Number(s)
-  return isNaN(n) ? null : `$${Math.round(n)}`
+  return isNaN(n) ? null : formatMoney(n, { whole: true })
 }
 const activeOverStake = computed(() => _fmtStake(activeOverBet.value))
 const activeUnderStake = computed(() => _fmtStake(activeUnderBet.value))

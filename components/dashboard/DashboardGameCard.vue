@@ -100,13 +100,14 @@
       >
         <span class="font-bold">{{ formatBetLabel(b) }}</span>
         <span class="text-zinc-500">@{{ Number(b.odds).toFixed(2) }}</span>
-        <span v-if="b.stake || b.amount" class="text-zinc-600 ml-0.5">· ${{ Number(b.stake || b.amount).toFixed(0) }}</span>
+        <span v-if="b.stake || b.amount" class="text-zinc-600 ml-0.5">· {{ formatMoney(b.stake || b.amount, { whole: true }) }}</span>
       </div>
     </div>
   </NuxtLink>
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/formatters'
 const props = defineProps({
   game: {
     type: Object,
@@ -249,7 +250,7 @@ function _formatBetStake(bet) {
   const s = bet.stake || bet.amount
   if (!s) return null
   const n = Number(s)
-  return isNaN(n) ? null : `$${Math.round(n)}`
+  return isNaN(n) ? null : formatMoney(n, { whole: true })
 }
 
 const activeOverStake = computed(() => _formatBetStake(activeOverBet.value))

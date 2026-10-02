@@ -32,7 +32,7 @@
           :class="signClass(s.roi)"
         >{{ s.roi == null ? '—' : signedPct(s.roi) }}</span>
         <span class="w-14 text-right text-[12px] tabular-nums text-zinc-300">
-          €{{ Number(s.end_balance).toFixed(0) }}
+          {{ formatMoney(s.end_balance, { whole: true }) }}
         </span>
       </div>
 
@@ -56,6 +56,7 @@
 </template>
 
 <script setup>
+import { formatMoney } from '~/utils/formatters'
 import { computed } from 'vue'
 
 const props = defineProps({
