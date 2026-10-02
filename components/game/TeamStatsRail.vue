@@ -130,7 +130,7 @@ const rows = computed<Row[]>(() => {
     const sot = g('shots_on_target')
     out.push({
       label: 'Shots',
-      display: sot != null ? `${shots} (${sot} OT)` : `${shots}`,
+      display: sot != null ? `${shots} / ${sot} on target` : `${shots}`,
       share: shareOf(shots, other('shots')),
     })
   }

@@ -82,57 +82,9 @@
             :away-name="data.game.away_name"
           />
 
-          <!-- The court sits in the middle column, directly under the scorecard -->
-          <section v-if="showPitch" class="panel overflow-hidden">
-            <header class="panel-head">
-              <span class="panel-title">Lineups</span>
-              <span class="pill pill-blue">{{ data.game.home_formation || '—' }}</span>
-              <span class="pill pill-dim ml-auto">{{ data.game.away_formation || '—' }}</span>
-            </header>
-            <div class="p-2.5 sm:p-4">
-              <FormationPitch
-                :home-lineup="data.lineups.home"
-                :away-lineup="data.lineups.away"
-                :home-name="data.game.home_name"
-                :away-name="data.game.away_name"
-                :home-formation="data.game.home_formation"
-                :away-formation="data.game.away_formation"
-              />
-              <div v-if="homeBench.length || awayBench.length" class="bench mt-3">
-                <div class="bench-side">
-                  <span class="bench-label">Bench · {{ data.game.home_name }}</span>
-                  <div class="bench-chips">
-                    <span v-for="pl in homeBench" :key="pl.id || pl.player_name" class="bench-chip" :style="{ borderColor: `${VIZ_HOME}55` }">
-                      <span class="bench-chip-num">{{ pl.jersey_number || '-' }}</span>{{ benchName(pl.player_name) }}
-                    </span>
-                  </div>
-                </div>
-                <div class="bench-side">
-                  <span class="bench-label">Bench · {{ data.game.away_name }}</span>
-                  <div class="bench-chips">
-                    <span v-for="pl in awayBench" :key="pl.id || pl.player_name" class="bench-chip" :style="{ borderColor: `${VIZ_AWAY}55` }">
-                      <span class="bench-chip-num">{{ pl.jersey_number || '-' }}</span>{{ benchName(pl.player_name) }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
+          <!-- Completed football: the pitch is always the anchor, with or without a lineup. -->
+          <FootballPitchPanel v-if="showPitch" class="flex-shrink-0" :game="data.game" :lineups="data.lineups" />
 
-          <p v-if="showNoLineup" class="text-[11px] text-zinc-500 px-1 flex-shrink-0">No lineup recorded for this fixture.</p>
-
-          <!-- What we called and whether it was any good; where there is nothing of ours to
-               judge, the closing-price market read stands in (same provenance rules). -->
-          <div v-if="showPostMortem" class="flex-1 min-h-0 overflow-y-auto space-y-3">
-            <GamePostMortem :game-id="data.game.id" @resolved="pmHasContent = $event" />
-            <GamePrediction
-              v-if="pmHasContent === false"
-              :game="data.game"
-              :prediction="data.prediction"
-              :sport="gameSport"
-              :analysis="analysisData"
-            />
-          </div>
         </Reveal>
         <Reveal :delay="80" class="min-w-0 space-y-3" :class="isCompleted ? 'flex flex-col min-h-0 !space-y-0 gap-3' : ''">
           <GameBasketballTeamRail
@@ -177,51 +129,56 @@
         <TwinBlindSpotBanner :risk="blindSpot" :moves="moves" class="mt-3" />
       </Reveal>
 
-      <!-- ── TIMELINE: a horizontal minute axis, one compact band ──
-           Deliberately NOT a vertical rail: a rail costs ~55px per event and
-           leaves the middle of a 1400px page empty, which is what this page
-           did before. The axis reads the match left to right in ~140px. -->
-      <Reveal v-if="showTimeline" :delay="90">
-        <section class="panel overflow-hidden mt-3 flex-shrink-0">
-          <header class="panel-head">
-            <span class="panel-title">Timeline</span>
-            <span class="pill pill-dim tabular-nums">{{ data.game.match_events.length }} events</span>
-            <div class="ml-auto flex items-center gap-2">
-              <span class="tl-key" :style="{ borderColor: `${VIZ_HOME}55`, color: VIZ_HOME }">
-                <i :style="{ background: VIZ_HOME }" />{{ data.game.home_name }}
-              </span>
-              <span class="tl-key" :style="{ borderColor: `${VIZ_AWAY}55`, color: VIZ_AWAY }">
-                <i :style="{ background: VIZ_AWAY }" />{{ data.game.away_name }}
-              </span>
-            </div>
-          </header>
-          <div class="px-3 pt-2 pb-1 sm:px-4 max-h-[190px] overflow-y-auto">
-            <MatchEvents
-              :events="data.game.match_events"
-              :home-name="data.game.home_name"
-              :away-name="data.game.away_name"
-              :home-lineup="data.lineups?.home || []"
-              :away-lineup="data.lineups?.away || []"
-            />
-          </div>
-        </section>
-      </Reveal>
-
-
       <!-- ── DETAIL: one panel, one minimal tab rail ──
            Everything below the fold lives behind a tab so the page is a
            screen of cards, not a 3,000px column. -->
-      <Reveal v-if="tabs.length > 0" :delay="120" :class="isCompleted ? 'flex-1 min-h-[240px] flex flex-col' : ''">
+      <Reveal v-if="tabs.length > 0" :delay="120" :class="detailClass">
         <section class="panel overflow-hidden mt-3" :class="isCompleted ? 'flex-1 min-h-0 flex flex-col' : ''">
           <header class="panel-head tabs-head">
             <UiTabs :tabs="tabs" v-model="activeTab" size="sm" />
           </header>
 
           <div class="p-3" :class="isCompleted ? 'flex-1 min-h-0 overflow-y-auto' : ''">
+            <!-- Completed football. Post-mortem stays mounted (v-show) so it can resolve whether
+                 it has anything of ours to say, which decides if the market read stands in. -->
+            <div v-if="showPostMortem" v-show="activeTab === 'postmortem'" class="space-y-3">
+              <GamePostMortem :game-id="data.game.id" @resolved="pmHasContent = $event" />
+              <GamePrediction
+                v-if="pmHasContent === false"
+                :game="data.game"
+                :prediction="data.prediction"
+                :sport="gameSport"
+                :analysis="analysisData"
+              />
+            </div>
             <Transition name="tab" mode="out-in">
-              <div :key="activeTab">
+              <div v-if="activeTab !== 'postmortem'" :key="activeTab">
+                <!-- Match timeline (completed football): a minute axis, or a plain statement that there are no events. -->
+                <div v-if="activeTab === 'timeline'" data-testid="timeline-band">
+                  <template v-if="hasMatchEvents">
+                    <div class="flex items-center justify-end gap-2 mb-1">
+                      <span class="tl-key" :style="{ borderColor: `${VIZ_HOME}55`, color: VIZ_HOME }">
+                        <i :style="{ background: VIZ_HOME }" />{{ data.game.home_name }}
+                      </span>
+                      <span class="tl-key" :style="{ borderColor: `${VIZ_AWAY}55`, color: VIZ_AWAY }">
+                        <i :style="{ background: VIZ_AWAY }" />{{ data.game.away_name }}
+                      </span>
+                    </div>
+                    <MatchEvents
+                      :events="data.game.match_events"
+                      :home-name="data.game.home_name"
+                      :away-name="data.game.away_name"
+                      :home-lineup="data.lineups?.home || []"
+                      :away-lineup="data.lineups?.away || []"
+                    />
+                  </template>
+                  <p v-else class="py-6 text-center text-sm text-zinc-500">
+                    Match events are not recorded for this fixture, so there are no goals, cards or substitutions to plot.
+                  </p>
+                </div>
+
                 <!-- Shot chart (completed basketball with located shots) -->
-                <div v-if="activeTab === 'shots'">
+                <div v-else-if="activeTab === 'shots'">
                   <UiErrorState v-if="shotsError" title="The shot chart failed to load." :error="shotsError" @retry="retryShots" />
                   <GameShotChart
                     v-else-if="shotData?.available"
@@ -334,7 +291,7 @@ import MatchEvents from '~/components/game/MatchEvents.vue'
 import GameAnalysis from '~/components/game/GameAnalysis.vue'
 import GamePrediction from '~/components/game/GamePrediction.vue'
 import OddsLadder from '~/components/game/OddsLadder.vue'
-import FormationPitch from '~/components/game/FormationPitch.vue'
+import FootballPitchPanel from '~/components/game/FootballPitchPanel.vue'
 import FantasyProjections from '~/components/game/FantasyProjections.vue'
 import PlayerPropsUpload from '~/components/PlayerPropsUpload.vue'
 import GameBasketballTeamRail from '~/components/game/BasketballTeamRail.vue'
@@ -398,7 +355,7 @@ const activeTab = ref('shots')
 // Set the correct default tab based on game status
 watch(() => data.value?.game?.status, (status) => {
   if (status === 'completed') {
-    activeTab.value = gameSport.value === 'football' ? 'players' : 'shots'
+    activeTab.value = gameSport.value === 'football' ? (hasMatchEvents.value ? 'timeline' : 'postmortem') : 'shots'
   } else {
     // Football's scheduled page leads with the full Market ladder.
     activeTab.value = gameSport.value === 'football' ? 'market' : 'analysis'
@@ -414,7 +371,10 @@ watch(() => data.value?.game?.status, (status) => {
 const tabs = computed(() => {
   if (isCompleted.value) {
     if (gameSport.value === 'football') {
-      return []
+      return [
+        { key: 'timeline', label: 'Timeline', badge: hasMatchEvents.value ? data.value?.game?.match_events?.length ?? null : null, hint: hasMatchEvents.value ? undefined : 'not recorded' },
+        { key: 'postmortem', label: 'Post-mortem', badge: null },
+      ]
     }
     // The box score lives in the two team columns; this panel only exists when located shots do.
     const bt: { key: string; label: string; badge: number | null }[] = []
@@ -437,11 +397,9 @@ const tabs = computed(() => {
   return t
 })
 
-// The pitch (formation diagram + bench) renders under the scorecard for a
-// completed football game that holds a lineup.
-const showPitch = computed(() => {
-  return isCompleted.value && gameSport.value === 'football' && hasLineups.value
-})
+// The pitch (formation diagram + bench, or its empty frame) renders under the scorecard for every
+// completed football game.
+const showPitch = computed(() => isCompleted.value && gameSport.value === 'football')
 
 // Per-team ratings cards render under each stat rail when a lineup exists.
 const showRatings = computed(() => {
@@ -466,9 +424,16 @@ const showBballRails = computed(() =>
 // Completed basketball: the hero is as tall as its content until that would push the Game Stats
 // panel off the screen; then it shrinks and the centre column scrolls its own body.
 const heroClass = computed(() => {
-  if (isCompleted.value && gameSport.value === 'football') return ['flex-1 min-h-0 hero-fit', showNoLineup.value ? 'hero-wide' : '']
+  if (isCompleted.value && gameSport.value === 'football') return 'flex-1 min-h-0 hero-fit'
   if (isCompleted.value && gameSport.value === 'basketball') return 'min-h-0 grid-rows-[minmax(0,1fr)]'
   return 'items-start'
+})
+
+// Completed football's bottom panel is a fixed height, so the pitch above it never has to give way;
+// completed basketball's takes whatever the hero leaves.
+const detailClass = computed(() => {
+  if (!isCompleted.value) return ''
+  return gameSport.value === 'football' ? 'flex-none h-[232px] flex flex-col' : 'flex-1 min-h-[240px] flex flex-col'
 })
 
 const showCourt = computed(() =>
@@ -482,15 +447,13 @@ const showQuarterFlow = computed(() => {
     && Array.isArray(q?.home) && q.home.length > 0)
 })
 
-// The timeline is its own always-visible band above the tabs — it is the one
-// thing you want without a click, and it now costs ~140px to show.
-const showTimeline = computed(() => {
-  const g = data.value?.game
-  return !!(isCompleted.value
-    && gameSport.value === 'football'
-    && Array.isArray(g?.match_events)
-    && g.match_events.length > 0)
+// The timeline is its own always-visible band above the tabs.
+const hasMatchEvents = computed(() => {
+  const ev = data.value?.game?.match_events
+  return Array.isArray(ev) && ev.length > 0
 })
+
+// Every completed football game gets the band; with no events it says so instead of an empty strip.
 
 /**
  * Pre-match side rails.
@@ -518,9 +481,6 @@ const previewError = computed<string | null>(() => bundle.value?.preview?.error 
  */
 const pmHasContent = ref<boolean | null>(null)
 watch(() => data.value?.game?.id, () => { pmHasContent.value = null })
-const showNoLineup = computed(() =>
-  isCompleted.value && gameSport.value === 'football' && !hasLineups.value)
-
 const showPostMortem = computed(() =>
   isCompleted.value && gameSport.value === 'football')
 
@@ -537,22 +497,6 @@ watch(tabs, (list) => {
 const hasLineups = computed(() => {
   return data.value?.lineups?.home?.length > 0 || data.value?.lineups?.away?.length > 0
 })
-
-// Bench strip under the pitch — the same non-starters PlayerStatsSection
-// lists further down, shown compactly here so the Lineups panel isn't just
-// the pitch diagram floating above empty space next to a taller Match Stats panel.
-function isLineupStarter(p: Record<string, any>): boolean {
-  if (typeof p.is_starting_xi === 'boolean') return p.is_starting_xi
-  if (p.starter === 1 || p.starter === true) return true
-  return false
-}
-function benchName(name: string): string {
-  if (!name) return ''
-  const last = name.split(' ').pop() || name
-  return last.length > 14 ? last.slice(0, 14) + '…' : last
-}
-const homeBench = computed(() => (data.value?.lineups?.home || []).filter(p => !isLineupStarter(p)))
-const awayBench = computed(() => (data.value?.lineups?.away || []).filter(p => !isLineupStarter(p)))
 
 // Fantasy projections check — only for scheduled basketball games
 const hasFantasy = ref(false)
@@ -671,10 +615,6 @@ useHead({
 
 <style scoped>
 .hero-fit { grid-template-rows: minmax(0, 1fr); }
-/* No lineup: the middle column carries the post-mortem or the market read, so it widens. */
-@media (min-width: 1024px) {
-  .hero-wide { grid-template-columns: minmax(0, 1fr) minmax(0, 780px) minmax(0, 1fr); }
-}
 /* The raw ladder is reference material now that the board is the lead — it
    opens on demand rather than being the first thing on the page. */
 .ladder-details { margin-top: 0.6rem; }
@@ -726,77 +666,5 @@ useHead({
   padding-top: 0.4rem;
   padding-bottom: 0.4rem;
   gap: 0.75rem;
-}
-
-.bench {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-.bench-side {
-  min-width: 0;
-}
-.bench-label {
-  display: block;
-  font-size: 0.625rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: rgb(113, 113, 122);
-  margin-bottom: 0.4rem;
-}
-.bench-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-.bench-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.5rem 0.2rem 0.3rem;
-  border-radius: 999px;
-  border: 1px solid;
-  background: rgba(255, 255, 255, 0.03);
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: rgb(212, 212, 216);
-  white-space: nowrap;
-}
-.bench-chip-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.1rem;
-  height: 1.1rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  font-size: 0.55rem;
-  font-variant-numeric: tabular-nums;
-  color: rgb(161, 161, 170);
-}
-
-.tab-enter-active,
-.tab-leave-active {
-  transition: opacity 120ms ease, transform 120ms ease;
-}
-.tab-enter-from {
-  opacity: 0;
-  transform: translateX(8px);
-}
-.tab-leave-to {
-  opacity: 0;
-  transform: translateX(-8px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tab-enter-active,
-  .tab-leave-active {
-    transition: none;
-  }
-  .tab-enter-from,
-  .tab-leave-to {
-    transform: none;
-  }
 }
 </style>
