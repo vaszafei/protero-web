@@ -1,10 +1,11 @@
 <template>
   <div>
+    <Transition name="swap" mode="out-in">
     <div v-if="pending && !board" class="mb-3"><UiSkeletonPanel :rows="8" /></div>
 
     <UiErrorState v-else-if="error" class="mb-3" title="The market board failed to load." :error="error" @retry="refresh" />
 
-    <template v-else-if="board">
+    <div v-else-if="board">
       <!-- Provenance, one line. Every number below is only as good as the
            price it came from, so the basis is stated first; the explanations
            sit behind each pill. -->
@@ -67,7 +68,8 @@
         </section>
       </div>
 
-    </template>
+    </div>
+    </Transition>
   </div>
 </template>
 

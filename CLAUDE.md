@@ -178,7 +178,9 @@ wallet pages without being copied from them.
 2. **Cards are `.panel` / `.panel-head` / `.panel-title`** (`assets/css/panels.css`). No ad-hoc
    `rounded-xl bg-surface border`.
 3. **A panel whose data can take over 300 ms renders `UiSkeletonPanel`, not a bare spinner;** a
-   failure renders `UiErrorState`. Empty state only after a successful zero-row read.
+   failure renders `UiErrorState`. Empty state only after a successful zero-row read. Wrap the
+   loading / error / content chain in `<Transition name="swap" mode="out-in">` (`panels.css`) so
+   the skeleton crossfades to the content; each branch must be ONE element, not a `<template>`.
 4. **Tokens only.** No stock `blue-*`/`emerald-*`/`green-*` for a meaning that is not money (green
    = money-positive only). Colours come from `tokens.css`, `panels.css` and `utils/viz.ts`.
 5. **`lang="ts"` on every SFC you touch** (the honesty gate ratchets the count down).

@@ -1,10 +1,11 @@
 <template>
   <div>
+    <Transition name="swap" mode="out-in">
     <div v-if="pending"><UiSkeletonPanel :rows="6" /></div>
 
     <UiErrorState v-else-if="error" title="The post-mortem failed to load." :error="error" @retry="load" />
 
-    <template v-else-if="pm && hasAnything">
+    <div v-else-if="pm && hasAnything">
       <section class="panel overflow-hidden">
         <header class="panel-head">
           <span class="panel-title">Post-mortem</span>
@@ -174,7 +175,8 @@
           </div>
         </div>
       </section>
-    </template>
+    </div>
+    </Transition>
   </div>
 </template>
 
