@@ -84,17 +84,17 @@
             <td class="py-2 pr-2">
               <span class="text-zinc-200 font-medium truncate max-w-[140px] block">{{ formatName(player.name) }}</span>
             </td>
-            <td class="text-center py-2 px-1 text-zinc-400 tabular-nums text-xs">{{ formatMin(player.min, player.minutes) }}</td>
-            <td class="text-center py-2 px-1 font-semibold tabular-nums" :class="player.pts >= 20 ? 'text-emerald-400' : player.pts >= 10 ? 'text-zinc-200' : 'text-zinc-400'">{{ player.pts }}</td>
-            <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ player.reb }}</td>
-            <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ player.ast }}</td>
-            <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ player.stl }}</td>
-            <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ player.blk }}</td>
+            <td class="text-center py-2 px-1 text-zinc-400 tabular-nums text-xs">{{ formatMin(player) }}</td>
+            <td class="text-center py-2 px-1 font-semibold tabular-nums" :class="(player.pts ?? 0) >= 20 ? 'text-emerald-400' : (player.pts ?? 0) >= 10 ? 'text-zinc-200' : 'text-zinc-400'">{{ dash(player.pts) }}</td>
+            <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ dash(player.reb) }}</td>
+            <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ dash(player.ast) }}</td>
+            <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ dash(player.stl) }}</td>
+            <td class="text-center py-2 px-1 text-zinc-300 tabular-nums">{{ dash(player.blk) }}</td>
             <td class="text-center py-2 px-1 tabular-nums text-xs" :class="pctClass(playerFgPct(player))">{{ playerFgPct(player) != null ? playerFgPct(player) + '%' : '—' }}</td>
             <td class="text-center py-2 px-1 tabular-nums text-xs" :class="pctClass(playerThreePct(player))">{{ playerThreePct(player) != null ? playerThreePct(player) + '%' : '—' }}</td>
             <td class="text-center py-2 px-1 tabular-nums text-xs" :class="pctClass(playerFtPct(player))">{{ playerFtPct(player) != null ? playerFtPct(player) + '%' : '—' }}</td>
-            <td class="text-center py-2 px-1 tabular-nums" :class="(player.tov || 0) > 3 ? 'text-red-400' : 'text-zinc-400'">{{ player.tov ?? 0 }}</td>
-            <td class="text-center py-2 px-1 tabular-nums font-medium" :class="player.pm > 0 ? 'text-emerald-400' : player.pm < 0 ? 'text-red-400' : 'text-zinc-500'">{{ player.pm > 0 ? '+' : '' }}{{ player.pm }}</td>
+            <td class="text-center py-2 px-1 tabular-nums" :class="(player.tov || 0) > 3 ? 'text-red-400' : 'text-zinc-400'">{{ dash(player.tov) }}</td>
+            <td class="text-center py-2 px-1 tabular-nums font-medium" :class="(player.pm ?? 0) > 0 ? 'text-emerald-400' : (player.pm ?? 0) < 0 ? 'text-red-400' : 'text-zinc-500'">{{ player.pm == null ? '—' : (player.pm > 0 ? '+' : '') + player.pm }}</td>
             <td class="text-center py-2 px-1 tabular-nums font-semibold text-amber-300">{{ playerFpts(player).toFixed(1) }}</td>
           </tr>
         </tbody>
@@ -117,17 +117,19 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { boxPlayer, didNotPlay, type BoxPlayer } from '~/utils/basketball-box'
+
 const props = defineProps({
-  sportStats: { type: Object, required: true },
+  sportStats: { type: Object as () => Record<string, any>, required: true },
   homeName: { type: String, default: 'Home' },
   awayName: { type: String, default: 'Away' },
   leagueKey: { type: String, default: 'nba' },
 })
 
-const activeTeam = ref('home')
+const activeTeam = ref<'home' | 'away'>('home')
 const modalOpen = ref(false)
-const modalPlayer = ref(null)
+const modalPlayer = ref<any>(null)
 
 // ── Sort + filter state ────────────────────────────────
 const showDNP = ref(false)
@@ -150,7 +152,7 @@ const columns = [
   { key: 'fpts', label: 'FPTS',   width: 'w-12', align: 'center' },
 ]
 
-function toggleSort(key) {
+function toggleSort(key: string) {
   if (key === sortKey.value) {
     sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc'
   } else {
@@ -159,32 +161,15 @@ function toggleSort(key) {
   }
 }
 
-// Normalize NBA API long field names → short names used throughout this component.
-function normalizePlayer(p) {
-  return {
-    ...p,
-    id:   p.id   ?? p.player_id,
-    pts:  p.pts  ?? p.points     ?? 0,
-    reb:  p.reb  ?? p.rebounds   ?? 0,
-    ast:  p.ast  ?? p.assists    ?? 0,
-    stl:  p.stl  ?? p.steals     ?? 0,
-    blk:  p.blk  ?? p.blocks     ?? 0,
-    fgm:  p.fgm  ?? p.field_goals_made        ?? 0,
-    fga:  p.fga  ?? p.field_goals_attempted   ?? 0,
-    fg3m: p.fg3m ?? p.three_pointers_made     ?? 0,
-    fg3a: p.fg3a ?? p.three_pointers_attempted ?? 0,
-    ftm:  p.ftm  ?? p.free_throws_made        ?? 0,
-    fta:  p.fta  ?? p.free_throws_attempted   ?? 0,
-    tov:  p.tov  ?? p.turnovers  ?? 0,
-    pm:   p.pm   ?? p.plus_minus ?? 0,
-  }
-}
+/** `boxPlayer` carries nulls for what the feed lacks; the original row rides along for the season modal. */
+type Row = BoxPlayer & { raw: any }
+const normalizePlayer = (p: any): Row => ({ ...boxPlayer(p), raw: p })
 
 const activePlayers = computed(() => {
   const team = props.sportStats?.[activeTeam.value]
   if (!team?.players) return []
-  let list = team.players.map(normalizePlayer)
-  if (!showDNP.value) list = list.filter(p => !isDNP(p))
+  let list: Row[] = team.players.map(normalizePlayer)
+  if (!showDNP.value) list = list.filter(p => !didNotPlay(p))
   const dir = sortDir.value === 'desc' ? -1 : 1
   const key = sortKey.value
   list.sort((a, b) => {
@@ -196,41 +181,19 @@ const activePlayers = computed(() => {
   return list
 })
 
-function parseMin(p) {
-  const raw = p.min ?? p.minutes ?? 0
-  if (typeof raw === 'number') return raw
-  const s = String(raw)
-  if (!s) return 0
-  if (s.includes(':')) {
-    const [m, sec] = s.split(':').map(Number)
-    return (m || 0) + ((sec || 0) / 60)
-  }
-  const n = parseFloat(s)
-  return isNaN(n) ? 0 : n
-}
+const isDNP = didNotPlay
 
-function isDNP(p) {
-  return parseMin(p) <= 0 && (p.pts ?? 0) === 0 && (p.reb ?? 0) === 0 && (p.ast ?? 0) === 0
-}
+/** A stat the feed does not carry reads as a dash, never a 0. */
+const dash = (v: number | null) => (v == null ? '—' : v)
 
-function playerFgPct(p) {
-  const a = p.fga ?? 0
-  if (!a) return null
-  return Math.round(((p.fgm ?? 0) / a) * 100)
-}
-function playerThreePct(p) {
-  const a = p.fg3a ?? 0
-  if (!a) return null
-  return Math.round(((p.fg3m ?? 0) / a) * 100)
-}
-function playerFtPct(p) {
-  const a = p.fta ?? 0
-  if (!a) return null
-  return Math.round(((p.ftm ?? 0) / a) * 100)
-}
+const rate = (made: number | null, att: number | null) =>
+  att ? Math.round(((made ?? 0) / att) * 100) : null
+const playerFgPct = (p: BoxPlayer) => rate(p.fgm, p.fga)
+const playerThreePct = (p: BoxPlayer) => rate(p.fg3m, p.fg3a)
+const playerFtPct = (p: BoxPlayer) => rate(p.ftm, p.fta)
 
 // DraftKings-style fantasy points (no double-double bonus, kept simple).
-function playerFpts(p) {
+function playerFpts(p: BoxPlayer) {
   return (p.pts ?? 0) * 1
        + (p.fg3m ?? 0) * 0.5
        + (p.reb ?? 0) * 1.25
@@ -240,7 +203,7 @@ function playerFpts(p) {
        - (p.tov ?? 0) * 0.5
 }
 
-function pctClass(pct) {
+function pctClass(pct: number | null) {
   if (pct == null) return 'text-zinc-600'
   if (pct >= 50) return 'text-emerald-400'
   if (pct >= 40) return 'text-zinc-300'
@@ -248,24 +211,22 @@ function pctClass(pct) {
   return 'text-red-400'
 }
 
-function sortValue(p, key) {
+function sortValue(p: Row, key: string) {
   switch (key) {
     case 'name': return (p.name || '').toLowerCase()
-    case 'min':  return parseMin(p)
+    case 'min':  return p.minutes ?? -1
     case 'fg%':  return playerFgPct(p) ?? -1
     case '3p%':  return playerThreePct(p) ?? -1
     case 'ft%':  return playerFtPct(p) ?? -1
     case 'fpts': return playerFpts(p)
-    default:     return p[key] ?? 0
+    default:     return (p as any)[key] ?? -1
   }
 }
 
-const activeCoach = computed(() => {
-  return props.sportStats?.[activeTeam.value]?.coach || null
-})
+const activeCoach = computed(() => props.sportStats?.[activeTeam.value]?.coach || null)
 
-function openPlayerModal(player) {
-  modalPlayer.value = player
+function openPlayerModal(player: Row) {
+  modalPlayer.value = { ...player.raw, ...player }
   modalOpen.value = true
 }
 
@@ -274,15 +235,13 @@ function closeModal() {
   modalPlayer.value = null
 }
 
-const formatMin = (min, minutes) => {
-  const val = min ?? minutes
-  if (val == null) return '-'
-  if (typeof val === 'string' && val.includes(':')) return val
-  if (typeof val === 'number') return `${Math.round(val)}:00`
-  return String(val)
+const formatMin = (p: BoxPlayer) => {
+  if (p.clock) return p.clock
+  if (p.minutes == null) return '—'
+  return `${Math.round(p.minutes)}:00`
 }
 
-const formatName = (name) => {
+const formatName = (name: string) => {
   if (!name) return ''
   const parts = name.split(', ')
   if (parts.length === 2) {

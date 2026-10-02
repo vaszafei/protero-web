@@ -50,3 +50,17 @@ export function roundWithFixtures(leagueKey: string): { season: string, round: n
   const [season, round] = row.split('|')
   return { season, round: Number(round) }
 }
+
+/**
+ * The newest completed game of each basketball league whose box score has player rows that score
+ * (a game whose rows are all empty has nothing to compare).
+ */
+export function completedBasketballPerLeague(): { league: string, id: string }[] {
+  const rows = q(`
+    select distinct on (league_key) league_key||'|'||id from games g
+    where sport='basketball' and status='completed'
+      and exists (select 1 from jsonb_array_elements(case when jsonb_typeof(sport_stats->'home'->'players')='array' then sport_stats->'home'->'players' else '[]'::jsonb end) p
+                  where coalesce((p->>'points')::numeric, (p->>'pts')::numeric, 0) > 0)
+    order by league_key, date desc`)
+  return rows.split('\n').filter(Boolean).map(r => { const [league, id] = r.split('|'); return { league, id } })
+}

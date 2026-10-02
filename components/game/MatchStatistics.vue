@@ -142,35 +142,36 @@
       />
       </div>
 
-      <!-- Basketball Stats from sport_stats -->
+      <!-- Basketball: every number comes from utils/basketball-box, which returns null — rendered
+           as a dash with its reason — for anything the feed does not carry. -->
       <div v-if="!isFootball && hasBballStats">
         <!-- Quarter scores are NOT repeated here: `QuarterFlow` in the centre
              column plots the running margin and carries the same table under
              it. This panel starts at the shooting splits. -->
+        <p v-if="boxNotes.length" class="mb-1 text-center text-[10px] text-zinc-500" data-testid="box-notes">{{ boxNotes.join(' · ') }}</p>
 
-        <!-- Shooting (made/attempted with inline percentage) -->
-        <div class="space-y-0">
-        <div v-for="shot in shootingStats" :key="shot.label" class="py-1.5">
+        <div class="space-y-0" data-testid="bball-shooting">
+        <div v-for="shot in shootingStats" :key="shot.key" class="py-1.5" :data-testid="`bball-shot-${shot.key}`">
           <div class="text-center text-[10px] uppercase tracking-wider text-zinc-500 font-medium mb-1">
             {{ shot.label }}
           </div>
           <div class="grid grid-cols-[64px_1fr_64px] items-center gap-2">
-            <div class="text-right">
-              <span class="text-[13px] font-semibold text-brand-blue tabular-nums">{{ shot.homeMade }}/{{ shot.homeAtt }}</span>
-              <span class="block text-[10px] text-zinc-500 tabular-nums">{{ shot.homePct }}%</span>
+            <div class="text-right" :title="shot.homeText === '—' ? bx.reason('home', shot.key) : undefined">
+              <span class="text-[13px] font-semibold text-brand-blue tabular-nums" data-testid="shot-home">{{ shot.homeText }}</span>
+              <span class="block text-[10px] text-zinc-500 tabular-nums">{{ shot.homePct == null ? '—' : shot.homePct + '%' }}</span>
             </div>
             <div class="flex items-center gap-0">
               <div class="flex-1 h-[5px] bg-surface-light/60 rounded-l-full overflow-hidden flex justify-end">
-                <div class="h-full rounded-l-full bg-gradient-to-l from-brand-blue/60 to-brand-blue/25" :style="{ width: shot.homePct + '%' }" />
+                <div class="h-full rounded-l-full bg-gradient-to-l from-brand-blue/60 to-brand-blue/25" :style="{ width: (shot.homePct ?? 0) + '%' }" />
               </div>
               <div class="w-px h-3 bg-zinc-600/60 flex-shrink-0" />
               <div class="flex-1 h-[5px] bg-surface-light/60 rounded-r-full overflow-hidden">
-                <div class="h-full rounded-r-full bg-gradient-to-r from-brand-red/25 to-brand-red/60" :style="{ width: shot.awayPct + '%' }" />
+                <div class="h-full rounded-r-full bg-gradient-to-r from-brand-red/25 to-brand-red/60" :style="{ width: (shot.awayPct ?? 0) + '%' }" />
               </div>
             </div>
-            <div class="text-left">
-              <span class="text-[13px] font-semibold text-brand-red tabular-nums">{{ shot.awayMade }}/{{ shot.awayAtt }}</span>
-              <span class="block text-[10px] text-zinc-500 tabular-nums">{{ shot.awayPct }}%</span>
+            <div class="text-left" :title="shot.awayText === '—' ? bx.reason('away', shot.key) : undefined">
+              <span class="text-[13px] font-semibold text-brand-red tabular-nums" data-testid="shot-away">{{ shot.awayText }}</span>
+              <span class="block text-[10px] text-zinc-500 tabular-nums">{{ shot.awayPct == null ? '—' : shot.awayPct + '%' }}</span>
             </div>
           </div>
         </div>
@@ -178,22 +179,20 @@
 
         <div class="border-t border-edge my-3" />
 
-        <!-- Rebounds -->
-        <div class="space-y-0">
-        <StatBar label="Total Rebounds" :home-value="bball.home.total_reb" :away-value="bball.away.total_reb" />
-        <StatBar label="Offensive Reb" :home-value="bball.home.off_reb" :away-value="bball.away.off_reb" />
-        <StatBar label="Defensive Reb" :home-value="bball.home.def_reb" :away-value="bball.away.def_reb" />
+        <div class="space-y-0" data-testid="bball-rebounds">
+        <StatBar label="Total Rebounds" :home-value="bx.home.reb" :away-value="bx.away.reb" :reason="why('reb')" />
+        <StatBar label="Offensive Reb" :home-value="bx.home.oreb" :away-value="bx.away.oreb" :reason="why('oreb')" />
+        <StatBar label="Defensive Reb" :home-value="bx.home.dreb" :away-value="bx.away.dreb" :reason="why('dreb')" />
         </div>
 
         <div class="border-t border-edge my-3" />
 
-        <!-- Playmaking & Turnovers -->
         <div class="space-y-0">
-        <StatBar label="Assists" :home-value="bball.home.assists" :away-value="bball.away.assists" />
-        <StatBar label="Steals" :home-value="bball.home.steals" :away-value="bball.away.steals" />
-        <StatBar label="Turnovers" :home-value="bball.home.turnovers" :away-value="bball.away.turnovers" color="red" />
-        <StatBar label="Blocks" :home-value="bball.home.blocks_for || 0" :away-value="bball.away.blocks_for || 0" />
-        <StatBar label="Fouls" :home-value="bball.home.fouls" :away-value="bball.away.fouls" color="yellow" />
+        <StatBar label="Assists" :home-value="bx.home.ast" :away-value="bx.away.ast" :reason="why('ast')" />
+        <StatBar label="Steals" :home-value="bx.home.stl" :away-value="bx.away.stl" :reason="why('stl')" />
+        <StatBar label="Turnovers" :home-value="bx.home.tov" :away-value="bx.away.tov" :reason="why('tov')" color="red" />
+        <StatBar label="Blocks" :home-value="bx.home.blk" :away-value="bx.away.blk" :reason="why('blk')" />
+        <StatBar label="Fouls" :home-value="bx.home.pf" :away-value="bx.away.pf" :reason="why('pf')" color="yellow" />
         </div>
 
         <!-- Attendance & Referees -->
@@ -211,21 +210,22 @@
 
       <!-- No stats fallback -->
       <div v-if="!isFootball && !hasBballStats" class="text-center py-8 text-zinc-500">
-        <p class="text-sm">Game statistics will be available after the game is completed.</p>
+        <p class="text-sm">No box score is stored for this game.</p>
       </div>
 
     </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
+import { boxScore, fmtMadeAtt, hasBox, pctOf, type StatKey } from '~/utils/basketball-box'
 import StatBar from './StatBar.vue'
 import PossessionDonut from './PossessionDonut.vue'
 
 const props = defineProps({
   game: {
-    type: Object,
+    type: Object as () => Record<string, any>,
     required: true
   },
   sport: {
@@ -245,7 +245,7 @@ const hasFootballHero = computed(() => {
 })
 
 /** width of the home half of a two-sided ratio bar, in percent */
-const split = (home, away) => {
+const split = (home: unknown, away: unknown) => {
   const h = Number(home) || 0
   const a = Number(away) || 0
   return h + a === 0 ? 50 : Math.round((h / (h + a)) * 100)
@@ -257,169 +257,46 @@ import { VIZ_HOME, VIZ_AWAY } from '~/utils/viz'
 const homeLogo = computed(() => getTeamLogoUrl(props.game.home_key))
 const awayLogo = computed(() => getTeamLogoUrl(props.game.away_key))
 
-// Aggregate team totals from per-player boxscore data (NBA API format)
-function aggregateFromPlayers(players) {
-  if (!players?.length) return null
-  const t = { fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
-               reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, tov: 0, blk: 0, pf: 0 }
-  for (const p of players) {
-    t.fgm  += p.field_goals_made ?? 0
-    t.fga  += p.field_goals_attempted ?? 0
-    t.fg3m += p.three_pointers_made ?? 0
-    t.fg3a += p.three_pointers_attempted ?? 0
-    t.ftm  += p.free_throws_made ?? 0
-    t.fta  += p.free_throws_attempted ?? 0
-    t.reb  += p.rebounds ?? 0
-    t.oreb += p.offensive_rebounds ?? 0
-    t.dreb += p.defensive_rebounds ?? 0
-    t.ast  += p.assists ?? 0
-    t.stl  += p.steals ?? 0
-    t.tov  += p.turnovers ?? 0
-    t.blk  += p.blocks ?? 0
-    t.pf   += p.personal_fouls ?? 0
-  }
-  return t
-}
+const bx = computed(() => boxScore(props.game.sport_stats, { home: props.game.home_goals, away: props.game.away_goals }))
 
-// Normalize basketball stats — Euroleague uses long names, NBA uses short names
-function normalizeBballSide(raw) {
-  if (!raw) return {}
-  // If already has long names (Euroleague format), return as-is
-  if ('fg2_made' in raw) return raw
-  // NBA FlashScore format: short aggregate names
-  if ('fgm' in raw) {
-    return {
-      fg2_made: (raw.fgm ?? 0) - (raw.fg3m ?? 0),
-      fg2_att:  (raw.fga ?? 0) - (raw.fg3a ?? 0),
-      fg3_made: raw.fg3m ?? 0,
-      fg3_att:  raw.fg3a ?? 0,
-      ft_made:  raw.ftm ?? 0,
-      ft_att:   raw.fta ?? 0,
-      total_reb: raw.reb ?? 0,
-      off_reb:  raw.oreb ?? 0,
-      def_reb:  raw.dreb ?? 0,
-      assists:  raw.ast ?? 0,
-      steals:   raw.stl ?? 0,
-      turnovers: raw.tov ?? 0,
-      blocks_for: raw.blk ?? 0,
-      fouls:    raw.pf ?? 0,
-      players:  raw.players,
-      team:     raw.team,
-    }
-  }
-  // NBA API boxscore format: only players array, aggregate team totals
-  const agg = aggregateFromPlayers(raw.players)
-  if (agg) {
-    return {
-      fg2_made: agg.fgm - agg.fg3m,
-      fg2_att:  agg.fga - agg.fg3a,
-      fg3_made: agg.fg3m,
-      fg3_att:  agg.fg3a,
-      ft_made:  agg.ftm,
-      ft_att:   agg.fta,
-      total_reb: agg.reb,
-      off_reb:  agg.oreb,
-      def_reb:  agg.dreb,
-      assists:  agg.ast,
-      steals:   agg.stl,
-      turnovers: agg.tov,
-      blocks_for: agg.blk,
-      fouls:    agg.pf,
-      players:  raw.players,
-    }
-  }
-  return {}
-}
-
-const bball = computed(() => ({
-  home: normalizeBballSide(props.game.sport_stats?.home),
-  away: normalizeBballSide(props.game.sport_stats?.away),
-}))
-
-const hasBballStats = computed(() => {
-  const ss = props.game.sport_stats
-  if (!ss) return false
-  // Has FlashScore team stats
-  const h = ss.home
-  if (h && (('fg2_made' in h) || ('fgm' in h))) return true
-  // Has NBA API boxscore players (can aggregate)
-  if (h?.players?.length > 0) return true
-  // Has at least quarter scores from NBA API
-  if (ss.quarters?.home?.length > 0) return true
-  return false
-})
-
-const quarters = computed(() => {
-  const q = props.game.sport_stats?.quarters
-  if (!q) return null
-
-  // NBA API format: { home: [30,27,28,41], away: [34,28,20,40] }
-  if (Array.isArray(q.home) && Array.isArray(q.away)) {
-    return q.home.map((h, i) => [h, q.away[i] ?? 0])
-  }
-
-  // FlashScore format: { q1: [h,a], q2: [h,a], ... }
-  const arr = []
-  for (let i = 1; i <= 4; i++) {
-    if (q['q' + i]) arr.push(q['q' + i])
-  }
-  for (let i = 1; i <= 5; i++) {
-    if (q['ot' + i]) arr.push(q['ot' + i])
-  }
-  return arr.length ? arr : null
-})
+const hasBballStats = computed(() => hasBox(bx.value))
 
 const bballMeta = computed(() => ({
   attendance: props.game.sport_stats?.attendance,
   referees: props.game.sport_stats?.referees,
 }))
 
-const pct = (made, att) => att > 0 ? Math.round((made / att) * 100) : 0
+/** The reason for a dash: the first side that is missing the stat. */
+const why = (stat: StatKey) => {
+  const side = bx.value.home[stat as 'reb'] == null ? 'home' : 'away'
+  return bx.value.reason(side, stat)
+}
 
-const bballFg2Pct = computed(() => ({
-  home: pct(bball.value.home.fg2_made, bball.value.home.fg2_att),
-  away: pct(bball.value.away.fg2_made, bball.value.away.fg2_att),
-}))
+/** What the reader needs to know about how complete the numbers are. */
+const boxNotes = computed(() => {
+  const notes: string[] = []
+  for (const p of bx.value.partial) {
+    notes.push(`${p.side === 'home' ? props.game.home_name : props.game.away_name}: player rows cover ${p.have} of ${p.of} points`)
+  }
+  const fixed = bx.value.home.repairedRows + bx.value.away.repairedRows
+  if (fixed) notes.push(`${fixed} player ${fixed === 1 ? 'row has' : 'rows have'} made and attempted swapped in the feed, corrected from points`)
+  return notes
+})
 
-const bballFg3Pct = computed(() => ({
-  home: pct(bball.value.home.fg3_made, bball.value.home.fg3_att),
-  away: pct(bball.value.away.fg3_made, bball.value.away.fg3_att),
-}))
+const SHOTS: { key: 'fg2' | 'fg3' | 'ft'; label: string }[] = [
+  { key: 'fg2', label: '2PT Field Goals' },
+  { key: 'fg3', label: '3PT Field Goals' },
+  { key: 'ft', label: 'Free Throws' },
+]
 
-const bballFtPct = computed(() => ({
-  home: pct(bball.value.home.ft_made, bball.value.home.ft_att),
-  away: pct(bball.value.away.ft_made, bball.value.away.ft_att),
-}))
-
-const shootingStats = computed(() => [
-  {
-    label: '2PT Field Goals',
-    homeMade: bball.value.home.fg2_made ?? 0,
-    homeAtt: bball.value.home.fg2_att ?? 0,
-    awayMade: bball.value.away.fg2_made ?? 0,
-    awayAtt: bball.value.away.fg2_att ?? 0,
-    homePct: bballFg2Pct.value.home,
-    awayPct: bballFg2Pct.value.away,
-  },
-  {
-    label: '3PT Field Goals',
-    homeMade: bball.value.home.fg3_made ?? 0,
-    homeAtt: bball.value.home.fg3_att ?? 0,
-    awayMade: bball.value.away.fg3_made ?? 0,
-    awayAtt: bball.value.away.fg3_att ?? 0,
-    homePct: bballFg3Pct.value.home,
-    awayPct: bballFg3Pct.value.away,
-  },
-  {
-    label: 'Free Throws',
-    homeMade: bball.value.home.ft_made ?? 0,
-    homeAtt: bball.value.home.ft_att ?? 0,
-    awayMade: bball.value.away.ft_made ?? 0,
-    awayAtt: bball.value.away.ft_att ?? 0,
-    homePct: bballFtPct.value.home,
-    awayPct: bballFtPct.value.away,
-  },
-])
+const shootingStats = computed(() => SHOTS.map(({ key, label }) => ({
+  key,
+  label,
+  homeText: fmtMadeAtt(bx.value.home[key]),
+  awayText: fmtMadeAtt(bx.value.away[key]),
+  homePct: pctOf(bx.value.home[key]),
+  awayPct: pctOf(bx.value.away[key]),
+})))
 
 const hasShootingStats = computed(() => {
   return props.game.home_shots != null && 

@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-3">
     <!-- Shooting -->
-    <section v-if="totals && totals.fga > 0" class="panel overflow-hidden">
+    <section v-if="hasZones" class="panel overflow-hidden" data-testid="bball-rail-shooting">
       <header class="panel-head">
         <span class="panel-title">Shooting</span>
         <span class="pill" :class="side === 'home' ? 'pill-blue' : 'pill-red'">{{ teamName }}</span>
@@ -60,13 +60,13 @@
  * them deliberately — so both rails rendered "No stats recorded" and ate half
  * the width of the page.
  *
- * Basketball team totals are not stored as columns at all; they are derived
- * from `sport_stats.<side>.players[]`, which 20,141 of 23,703 completed
- * basketball fixtures carry. That is the same source `MatchStatistics` already
- * sums, which is why the centre of the page had numbers while the sides did not.
+ * Basketball team totals are not stored as columns at all. They come from
+ * `utils/basketball-box`, the one reader of `sport_stats` that `MatchStatistics`
+ * and `BasketballPlayerStats` also use, so the three cannot disagree (#58).
  */
 import { computed } from 'vue'
 import { VIZ_STATUS, VIZ_BRAND_HOME } from '~/utils/viz'
+import { boxScore, type BoxSide } from '~/utils/basketball-box'
 import PlayerShootingZones from '~/components/player/ShootingZones.vue'
 import UiTooltip from '~/components/ui/Tooltip.vue'
 
@@ -76,66 +76,33 @@ const props = defineProps<{
   teamName: string
 }>()
 
-const num = (v: any) => {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
+const box = computed(() => boxScore(props.sportStats))
+const mine = computed(() => box.value[props.side])
+const theirs = computed(() => box.value[props.side === 'home' ? 'away' : 'home'])
 
-/** Sum a side's box score. Keys vary by source, so every read is a coalesce. */
-function sumSide(side: 'home' | 'away') {
-  const players = props.sportStats?.[side]?.players
-  if (!Array.isArray(players) || !players.length) return null
-  const t = {
-    pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, tov: 0,
-    fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
-  }
-  for (const p of players) {
-    t.pts += num(p.pts ?? p.points)
-    t.reb += num(p.reb ?? p.rebounds)
-    t.oreb += num(p.oreb ?? p.offensive_rebounds)
-    t.dreb += num(p.dreb ?? p.defensive_rebounds)
-    t.ast += num(p.ast ?? p.assists)
-    t.tov += num(p.tov ?? p.to ?? p.turnovers)
-    t.fg3m += num(p.fg3m ?? p.three_pointers_made)
-    t.fg3a += num(p.fg3a ?? p.three_pointers_attempted)
-    t.ftm += num(p.ftm ?? p.free_throws_made)
-    t.fta += num(p.fta ?? p.free_throws_attempted)
-    // Some sources give FGM including threes, others only twos — the sum of
-    // 2PT and 3PT is the reliable reconstruction when `fgm` is absent.
-    t.fgm += num(p.fgm ?? p.field_goals_made ?? (num(p.fg2m) + num(p.fg3m)))
-    t.fga += num(p.fga ?? p.field_goals_attempted ?? (num(p.fg2a) + num(p.fg3a)))
-  }
-  return t
-}
-
-const totals = computed(() => sumSide(props.side))
-const oppTotals = computed(() => sumSide(props.side === 'home' ? 'away' : 'home'))
+/** The zone panel needs all three splits; any the feed lacks hides it rather than drawing a 0. */
+const hasZones = computed(() => !!(mine.value.fg2 && mine.value.fg3 && mine.value.ft))
 
 const pct = (made: number, att: number) => (att > 0 ? (100 * made) / att : null)
 
-function zonesOf(t: any) {
-  if (!t) return null
-  return {
-    '2PT': { made: t.fgm - t.fg3m, att: t.fga - t.fg3a },
-    '3PT': { made: t.fg3m, att: t.fg3a },
-    FT: { made: t.ftm, att: t.fta },
-  } as Record<string, { made: number; att: number }>
-}
-
 const zones = computed(() => {
-  const mine = zonesOf(totals.value)
-  const theirs = zonesOf(oppTotals.value)
-  if (!mine) return []
-  return (['2PT', '3PT', 'FT'] as const).map((z) => ({
-    zone: z,
-    made: mine[z].made,
-    att: mine[z].att,
-    pct: pct(mine[z].made, mine[z].att),
-    // The reference is the OTHER team in this game — the only comparison a
-    // single fixture honestly supports.
-    cohortMedian: theirs ? pct(theirs[z].made, theirs[z].att) : null,
-    percentile: null,
-  }))
+  const m = mine.value
+  const o = theirs.value
+  if (!m.fg2 || !m.fg3 || !m.ft) return []
+  const cells = { '2PT': [m.fg2, o.fg2], '3PT': [m.fg3, o.fg3], FT: [m.ft, o.ft] } as const
+  return (['2PT', '3PT', 'FT'] as const).map((z) => {
+    const [own, opp] = cells[z]
+    return {
+      zone: z,
+      made: own.made,
+      att: own.att,
+      pct: pct(own.made, own.att),
+      // The reference is the OTHER team in this game — the only comparison a
+      // single fixture honestly supports.
+      cohortMedian: opp ? pct(opp.made, opp.att) : null,
+      percentile: null,
+    }
+  })
 })
 
 // These are the BOXSCORE's zone totals, which every basketball fixture has.
@@ -151,22 +118,33 @@ interface Factor {
   suffix: string; note: string; higherIsBetter: boolean
 }
 
+/** The terms the four factors are built from. All of them must be in the feed, or there is no factor. */
+interface Terms { fgm: number; fga: number; fg3m: number; ftm: number; fta: number; tov: number; oreb: number; dreb: number }
+
+function termsOf(x: BoxSide): Terms | null {
+  const fg3m = x.fg3?.made
+  const fta = x.ft?.att
+  const ftm = x.ft?.made
+  if (x.fgm == null || x.fga == null || fg3m == null || fta == null || ftm == null || x.tov == null || x.oreb == null || x.dreb == null) return null
+  return { fgm: x.fgm, fga: x.fga, fg3m, ftm, fta, tov: x.tov, oreb: x.oreb, dreb: x.dreb }
+}
+
 const factors = computed(() => {
-  const t = totals.value
-  const o = oppTotals.value
+  const t = termsOf(mine.value)
+  const o = termsOf(theirs.value)
   if (!t || !o) return []
 
-  const efg = (x: any) => (x.fga > 0 ? (100 * (x.fgm + 0.5 * x.fg3m)) / x.fga : null)
-  const tovPct = (x: any) => {
+  const efg = (x: Terms) => (x.fga > 0 ? (100 * (x.fgm + 0.5 * x.fg3m)) / x.fga : null)
+  const tovPct = (x: Terms) => {
     const poss = x.fga + 0.44 * x.fta + x.tov
     return poss > 0 ? (100 * x.tov) / poss : null
   }
   // ORB% needs the opponent's defensive rebounds — a rebound is contested.
-  const orbPct = (x: any, y: any) => {
+  const orbPct = (x: Terms, y: Terms) => {
     const d = x.oreb + y.dreb
     return d > 0 ? (100 * x.oreb) / d : null
   }
-  const ftRate = (x: any) => (x.fga > 0 ? (100 * x.fta) / x.fga : null)
+  const ftRate = (x: Terms) => (x.fga > 0 ? (100 * x.fta) / x.fga : null)
 
   const specs: Factor[] = [
     { key: 'efg', label: 'eFG%', value: efg(t), opp: efg(o), suffix: '%', higherIsBetter: true,

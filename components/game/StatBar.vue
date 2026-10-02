@@ -7,7 +7,7 @@
 
     <!-- One-line: [home_val] [bar] [away_val] -->
     <div class="grid grid-cols-[40px_1fr_40px] items-center gap-2">
-      <span class="text-right text-[12px] font-semibold text-brand-blue tabular-nums">{{ homeValue }}{{ suffix }}</span>
+      <span class="text-right text-[12px] font-semibold text-brand-blue tabular-nums" :title="homeValue == null ? reason : undefined">{{ homeValue == null ? '—' : `${homeValue}${suffix}` }}</span>
 
       <div class="flex items-center gap-0">
         <!-- Home bar: grows RIGHT-TO-LEFT from center -->
@@ -29,12 +29,12 @@
         </div>
       </div>
 
-      <span class="text-left text-[12px] font-semibold text-brand-red tabular-nums">{{ awayValue }}{{ suffix }}</span>
+      <span class="text-left text-[12px] font-semibold text-brand-red tabular-nums" :title="awayValue == null ? reason : undefined">{{ awayValue == null ? '—' : `${awayValue}${suffix}` }}</span>
     </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -42,15 +42,20 @@ const props = defineProps({
     type: String,
     required: true
   },
+  // null = the feed has no such stat: it renders a dash and an empty bar, never a 0.
   homeValue: {
     type: Number,
     required: false,
-    default: 0
+    default: null
   },
   awayValue: {
     type: Number,
     required: false,
-    default: 0
+    default: null
+  },
+  reason: {
+    type: String,
+    default: 'Not available for this game'
   },
   suffix: {
     type: String,
@@ -59,18 +64,21 @@ const props = defineProps({
   color: {
     type: String,
     default: 'default',
-    validator: (value) => ['default', 'blue', 'yellow', 'red'].includes(value)
+    validator: (value: string) => ['default', 'blue', 'yellow', 'red'].includes(value)
   }
 })
 
-const total = computed(() => props.homeValue + props.awayValue)
+const known = computed(() => props.homeValue != null && props.awayValue != null)
+const total = computed(() => (props.homeValue ?? 0) + (props.awayValue ?? 0))
 const homePercentage = computed(() => {
+  if (!known.value) return 0
   if (total.value === 0) return 50
-  return (props.homeValue / total.value) * 100
+  return ((props.homeValue as number) / total.value) * 100
 })
 const awayPercentage = computed(() => {
+  if (!known.value) return 0
   if (total.value === 0) return 50
-  return (props.awayValue / total.value) * 100
+  return ((props.awayValue as number) / total.value) * 100
 })
 
 const homeBarClass = computed(() => {
