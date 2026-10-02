@@ -1,5 +1,5 @@
 <template>
-  <div class="ratings-card panel-glass rounded-lg overflow-hidden">
+  <div class="ratings-card panel-glass rounded-lg overflow-hidden flex flex-col min-h-0">
     <!-- Header -->
     <div class="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5">
       <span class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Player Ratings</span>
@@ -16,9 +16,9 @@
     <div class="h-px mx-3" :style="{ background: divider }" />
 
     <!-- Data table — same columns as the old player stats table -->
-    <div class="scroll-fade-x">
+    <div class="scroll-fade-x flex-1 min-h-0 overflow-y-auto">
       <table class="w-full text-xs min-w-[560px]">
-        <thead>
+        <thead class="sticky top-0 z-[2] bg-surface">
           <tr class="text-zinc-500">
             <th class="sticky-col-1 py-2 px-2 font-semibold text-zinc-300 text-left">#</th>
             <th class="sticky-col-2 py-2 px-2 font-semibold text-zinc-300 text-left">Player</th>

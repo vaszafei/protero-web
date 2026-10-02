@@ -5379,6 +5379,7 @@ export type Database = {
           league_key: string
           n: number
           pending: number
+          n_mirror: number
         }[]
       }
       league_data_completeness: {

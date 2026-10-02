@@ -83,6 +83,26 @@ export function disabledReason(leagueKey: string, market: string): string {
   return 'not bet — no holdout evidence for this cell'
 }
 
+/**
+ * Mirror of `protero-ml/ml-basketball/v5/masks.py` — basketball is one action per league.
+ * V5 (Thompson) leaves ML_HOME enabled in NBA and EuroLeague and nothing else
+ * (`LEAGUE_DISABLED_ACTIONS`); V6 enables nothing in any league (CD #19). Every other
+ * basketball competition is unmodelled, so its count is 0 — a missing key is a decision.
+ */
+export const BASKETBALL_ENABLED_ACTIONS: Record<string, number> = {
+  nba: 1,
+  euroleague: 1,
+}
+
+/**
+ * How many (market) cells the picker may bet in a competition: the football mask's cell
+ * count, or 1 for a V5 basketball league. Cups and coverage leagues are 0 (CD #3, #39).
+ */
+export function enabledCellCount(leagueKey: string, sport: string): number {
+  if (sport === 'basketball') return BASKETBALL_ENABLED_ACTIONS[leagueKey] ?? 0
+  return Object.keys(LEAGUE_ENABLED_MARKETS[leagueKey] ?? {}).length
+}
+
 /** Every enabled cell, flattened — `[{ league_key, market, source }, …]`. */
 export function enabledCells(): { league_key: string; market: string; source: ProbSource }[] {
   const out: { league_key: string; market: string; source: ProbSource }[] = []

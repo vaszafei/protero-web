@@ -11,12 +11,8 @@ export const DEFAULT_REQUEST_BUDGET = 25
 
 /** Measured 2026-10-02 at 1918x989; ceilings are rounded up so data drift does not flap them. */
 export const allowlist: Record<string, Allowed> = {
-  '/leagues': { overflow: 1700, ticket: '#48' },
-  '/league/football': { overflow: 1300, requests: 65, ticket: '#48 (overflow), #49 (requests)' },
-  '/league/basketball': { overflow: 300, requests: 50, ticket: '#48 (overflow), #49 (requests)' },
-  '/team': { overflow: 1800, ticket: '#48' },
-  '/game/completed-lineup': { overflow: 1400, ticket: '#48' },
-  '/game/completed-basketball': { overflow: 350, ticket: '#48' },
+  '/league/football': { requests: 65, ticket: '#49' },
+  '/league/basketball': { requests: 50, ticket: '#49' },
   '/fantasy': { overflow: 1500, ticket: '#50' },
   '/fantasy/:slate': { overflow: 2000, ticket: '#50' },
 }

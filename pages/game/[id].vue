@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-surface-base">
+  <div class="bg-surface-base" :class="isCompleted ? 'h-full' : 'min-h-screen'">
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center items-center min-h-screen">
       <LoadingSpinner size="lg" text="Loading game details..." />
@@ -9,11 +9,11 @@
     <!-- Desktop operator page: sized to read without scrolling at 1920×1080.
          Wide container, back control inside the scorecard strip, one-line
          division notice, and tab panes laid out in columns. -->
-    <div v-else-if="data" class="max-w-[1680px] mx-auto px-4 pt-3 pb-4">
+    <div v-else-if="data" class="max-w-[1680px] mx-auto px-4 pt-3 pb-4" :class="isCompleted ? 'h-full flex flex-col min-h-0' : ''">
 
       <!-- ── HERO: home stats rail · centered scorecard + court · away stats rail ── -->
-      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)_minmax(0,1fr)] gap-3 items-start">
-        <Reveal :delay="0" class="min-w-0 space-y-3">
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)_minmax(0,1fr)] gap-3" :class="isCompleted && gameSport === 'football' ? ['flex-1 min-h-0 hero-fit', showNoLineup ? 'hero-wide' : ''] : 'items-start'">
+        <Reveal :delay="0" class="min-w-0 space-y-3" :class="isCompleted ? 'flex flex-col min-h-0 !space-y-0 gap-3' : ''">
           <!-- Basketball has no scalar stat columns — they are NULL by design —
                so its rail derives team totals from the box score instead. -->
           <GameBasketballTeamRail
@@ -38,10 +38,10 @@
             :move="moves.home"
             :season="data.game.season"
           />
-          <TeamStatsRail v-else side="home" :game="data.game" :sport="gameSport" />
-          <TeamRatingsCard v-if="showRatings" side="home" :lineup="data.lineups.home" :league-key="data.game.league_key" />
+          <TeamStatsRail v-else side="home" :game="data.game" :sport="gameSport" :class="isCompleted ? '!h-auto flex-shrink-0' : ''" />
+          <TeamRatingsCard v-if="showRatings" class="flex-1 min-h-0" side="home" :lineup="data.lineups.home" :league-key="data.game.league_key" />
         </Reveal>
-        <Reveal :delay="40" class="min-w-0 space-y-3">
+        <Reveal :delay="40" class="min-w-0 space-y-3" :class="isCompleted ? 'flex flex-col min-h-0 !space-y-0 gap-3 overflow-y-auto' : ''">
           <GameHeader :game="data.game" :sport="gameSport">
             <template #lead>
               <button
@@ -105,8 +105,23 @@
               </div>
             </div>
           </section>
+
+          <p v-if="showNoLineup" class="text-[11px] text-zinc-500 px-1 flex-shrink-0">No lineup recorded for this fixture.</p>
+
+          <!-- What we called and whether it was any good; where there is nothing of ours to
+               judge, the closing-price market read stands in (same provenance rules). -->
+          <div v-if="showPostMortem" class="flex-1 min-h-0 overflow-y-auto space-y-3">
+            <GamePostMortem :game-id="data.game.id" @resolved="pmHasContent = $event" />
+            <GamePrediction
+              v-if="pmHasContent === false"
+              :game="data.game"
+              :prediction="data.prediction"
+              :sport="gameSport"
+              :analysis="analysisData"
+            />
+          </div>
         </Reveal>
-        <Reveal :delay="80" class="min-w-0 space-y-3">
+        <Reveal :delay="80" class="min-w-0 space-y-3" :class="isCompleted ? 'flex flex-col min-h-0 !space-y-0 gap-3' : ''">
           <GameBasketballTeamRail
             v-if="showBballRails"
             side="away"
@@ -130,8 +145,8 @@
             :season="data.game.season"
             mirror
           />
-          <TeamStatsRail v-else side="away" :game="data.game" :sport="gameSport" mirror />
-          <TeamRatingsCard v-if="showRatings" side="away" :lineup="data.lineups.away" :league-key="data.game.league_key" mirror />
+          <TeamStatsRail v-else side="away" :game="data.game" :sport="gameSport" mirror :class="isCompleted ? '!h-auto flex-shrink-0' : ''" />
+          <TeamRatingsCard v-if="showRatings" class="flex-1 min-h-0" side="away" :lineup="data.lineups.away" :league-key="data.game.league_key" mirror />
         </Reveal>
       </div>
 
@@ -152,7 +167,7 @@
            leaves the middle of a 1400px page empty, which is what this page
            did before. The axis reads the match left to right in ~140px. -->
       <Reveal v-if="showTimeline" :delay="90">
-        <section class="panel overflow-hidden mt-3">
+        <section class="panel overflow-hidden mt-3 flex-shrink-0">
           <header class="panel-head">
             <span class="panel-title">Timeline</span>
             <span class="pill pill-dim tabular-nums">{{ data.game.match_events.length }} events</span>
@@ -165,7 +180,7 @@
               </span>
             </div>
           </header>
-          <div class="px-3 pt-3 pb-2 sm:px-4">
+          <div class="px-3 pt-2 pb-1 sm:px-4 max-h-[190px] overflow-y-auto">
             <MatchEvents
               :events="data.game.match_events"
               :home-name="data.game.home_name"
@@ -177,25 +192,17 @@
         </section>
       </Reveal>
 
-      <!-- ── POST-MORTEM: what we called, and whether our number was any good ──
-           A completed football fixture has no tabs, so this sits inline. It
-           renders nothing when there is no wager and no scored market. -->
-      <Reveal v-if="showPostMortem" :delay="105">
-        <div class="mt-3">
-          <GamePostMortem :game-id="data.game.id" />
-        </div>
-      </Reveal>
 
       <!-- ── DETAIL: one panel, one minimal tab rail ──
            Everything below the fold lives behind a tab so the page is a
            screen of cards, not a 3,000px column. -->
-      <Reveal v-if="tabs.length > 0" :delay="120">
-        <section class="panel overflow-hidden mt-3">
+      <Reveal v-if="tabs.length > 0" :delay="120" :class="isCompleted ? 'flex-1 min-h-0 flex flex-col' : ''">
+        <section class="panel overflow-hidden mt-3" :class="isCompleted ? 'flex-1 min-h-0 flex flex-col' : ''">
           <header class="panel-head tabs-head">
             <UiTabs :tabs="tabs" v-model="activeTab" size="sm" />
           </header>
 
-          <div class="p-3" @touchstart="onTouchStart" @touchend="onTouchEnd">
+          <div class="p-3" :class="isCompleted ? 'flex-1 min-h-0 overflow-y-auto' : ''" @touchstart="onTouchStart" @touchend="onTouchEnd">
             <Transition name="tab" mode="out-in">
               <div :key="activeTab">
                 <!-- Match / Game Stats (basketball) -->
@@ -571,6 +578,11 @@ watch(() => [data.value?.game?.id, showFormRails.value], loadPreview, { immediat
  * and no model rows in the spine renders nothing rather than three empty
  * states.
  */
+const pmHasContent = ref<boolean | null>(null)
+watch(() => data.value?.game?.id, () => { pmHasContent.value = null })
+const showNoLineup = computed(() =>
+  isCompleted.value && gameSport.value === 'football' && !hasLineups.value)
+
 const showPostMortem = computed(() =>
   isCompleted.value && gameSport.value === 'football')
 
@@ -759,6 +771,11 @@ useHead({
 </script>
 
 <style scoped>
+.hero-fit { grid-template-rows: minmax(0, 1fr); }
+/* No lineup: the middle column carries the post-mortem or the market read, so it widens. */
+@media (min-width: 1024px) {
+  .hero-wide { grid-template-columns: minmax(0, 1fr) minmax(0, 780px) minmax(0, 1fr); }
+}
 /* The raw ladder is reference material now that the board is the lead — it
    opens on demand rather than being the first thing on the page. */
 .ladder-details { margin-top: 0.6rem; }

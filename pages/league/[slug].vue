@@ -1,21 +1,20 @@
 <template>
-  <div class="min-h-screen bg-surface-base">
-   <div class="max-w-[1600px] mx-auto p-3 sm:p-6">
+  <div class="h-full bg-surface-base">
+   <div class="max-w-[1760px] mx-auto px-3 sm:px-6 py-3 h-full flex flex-col gap-3 min-h-0">
     <!-- ═══ Header ════════════════════════════════════════════════════════ -->
-    <div class="mb-4">
-      <NuxtLink to="/leagues" class="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors mb-2">
-        <ChevronLeft :size="14" />
-        <span class="text-[11px] font-medium">Competitions</span>
-      </NuxtLink>
+    <div class="flex-shrink-0">
 
       <!-- One row: the hero card (identity + season status) on the left, three
            loose metric cards on the right — no wrapping card around them
            (removed 2026-08-25, owner call), Clubs/Fitted on dropped the same
            day since they describe the twin's bookkeeping, not the competition. -->
       <div class="grid lg:grid-cols-[1.3fr_1fr] gap-3 items-stretch">
-        <div class="hero rounded-xl px-4 py-3.5">
+        <div class="hero rounded-xl px-4 py-2.5">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="inline-flex items-center gap-2.5 min-w-0">
+              <NuxtLink to="/leagues" class="flex items-center text-zinc-500 hover:text-zinc-200 flex-shrink-0" title="All competitions">
+                <ChevronLeft :size="16" />
+              </NuxtLink>
               <img
                 v-if="leagueLogo"
                 :src="leagueLogo"
@@ -74,15 +73,10 @@
       :error="errorText(leagueError)"
       @retry="refreshLeague"
     />
-    <div v-else-if="loading || !data" class="flex justify-center items-center py-16">
-      <div class="flex items-center gap-3 text-zinc-500">
-        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
-        <span class="text-sm">Loading league data...</span>
-      </div>
-    </div>
+    <UiSkeletonPanel v-else-if="loading || !data" :rows="10" height="100%" class="flex-1" />
 
     <!-- Main Content -->
-    <div v-else>
+    <div v-else class="flex-1 min-h-0 flex flex-col">
       <!-- Twin context and the season picker are optional, but a FAILED read is
            reported: an empty result means "not fitted / one season", a rejected one means we do not know. -->
       <UiErrorState
@@ -101,12 +95,12 @@
         :error="seasonsError"
         @retry="refreshSeasons"
       />
-      <div class="flex justify-center mb-4">
+      <div class="flex justify-center mb-3 flex-shrink-0">
         <UiTabs v-model="activeTab" :tabs="leagueTabs" />
       </div>
 
       <!-- Overview — the twin and the fixtures it is fitted on, one pane -->
-      <div v-show="activeTab === 'overview'" class="tab-anim">
+      <div v-show="activeTab === 'overview'" class="tab-anim flex-1 min-h-0">
         <LeagueOverview
           :league-key="data.key"
           :twin="twin"
@@ -142,7 +136,7 @@
       </div>
 
       <!-- Analysis -->
-      <div v-show="activeTab === 'analysis'" class="tab-anim">
+      <div v-show="activeTab === 'analysis'" class="tab-anim flex-1 min-h-0 overflow-y-auto">
         <AnalysisView
           :leagueKey="data.key"
           :season="selectedSeason"
@@ -150,7 +144,7 @@
       </div>
 
       <!-- Predictions — current season only; the tab is disabled otherwise -->
-      <div v-show="activeTab === 'predictions'" class="tab-anim">
+      <div v-show="activeTab === 'predictions'" class="tab-anim flex-1 min-h-0 overflow-y-auto">
         <PredictionsView
           ref="predictionsViewRef"
           :nextRound="nextUnplayedRound"
@@ -170,6 +164,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import { ChevronLeft } from 'lucide-vue-next'
 import LeagueSeasonBar from '~/components/league/LeagueSeasonBar.vue'
 import LeagueOverview from '~/components/league/LeagueOverview.vue'

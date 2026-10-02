@@ -2,6 +2,7 @@ import { getSupabase } from '~/server/utils/supabase'
 import { requireUserId } from '~/server/utils/auth'
 import { getCached, setCache } from '~/server/utils/cache'
 import { currentSeason } from '~/utils/season'
+import { enabledCellCount } from '~/server/utils/football-masks'
 
 /**
  * GET /api/leagues/overview — every competition, with its twin and its role.
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const season = (query.season as string) || currentSeason()
 
-  const cacheKey = `leagues:overview:${season}`
+  const cacheKey = `leagues:overview:v2:${season}`
   const cached = getCached<any>(cacheKey)
   if (cached) return cached
 
@@ -79,13 +80,14 @@ export default defineEventHandler(async (event) => {
 
   const twinByKey = new Map((twinRes.data || []).map((t: any) => [t.league_key, t]))
 
-  const betCounts: Record<string, { n: number; pending: number }> = {}
+  const betCounts: Record<string, { n: number; pending: number; mirror: number }> = {}
   for (const row of (betsRes.data || [])) {
     const key = (row as any).league_key
     if (!key) continue
     betCounts[key] = {
       n: Number((row as any).n ?? 0),
       pending: Number((row as any).pending ?? 0),
+      mirror: Number((row as any).n_mirror ?? 0),
     }
   }
 
@@ -112,7 +114,7 @@ export default defineEventHandler(async (event) => {
     }
     const twin = twinByKey.get(l.key) || null
     const c = corpus.get(l.key) || null
-    const b = betCounts[l.key] || { n: 0, pending: 0 }
+    const b = betCounts[l.key] || { n: 0, pending: 0, mirror: 0 }
     return {
       key: l.key,
       name: l.name,
@@ -145,7 +147,11 @@ export default defineEventHandler(async (event) => {
       next_fixture: c?.next_fixture ?? null,
       bets: b.n,
       bets_pending: b.pending,
-      role: b.n > 0 ? 'bet' : (Number(c?.n_games ?? 0) > 0 ? 'data' : 'idle'),
+      // What the PICKER may bet here (the mask), against what the ledger carries — two
+      // different questions; the ledger includes mirrored tipsters and a real bettor.
+      enabled: enabledCellCount(l.key, l.sport),
+      ledger_ours: b.n - b.mirror,
+      ledger_mirrors: b.mirror,
     }
   })
 

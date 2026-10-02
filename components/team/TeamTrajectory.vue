@@ -3,7 +3,22 @@
     <header class="panel-head">
       <span class="panel-title">Scoring trajectory</span>
       <span class="pill pill-dim">{{ seasons.length }} league seasons</span>
-      <div class="ml-auto flex items-center gap-2.5">
+      <UiTooltip class="ml-auto" :width="380" placement="bottom">
+        <span class="panel-link !ml-0">how to read</span>
+        <template #content>
+          <p>
+            These are raw per-season rates, <b>not</b> the twin's fitted attack and defence. That is the point of
+            the chart: the same club scoring 2.00 a game in one division and 0.95 in the one above has not changed,
+            the opposition has. Separating those two is the whole reason the twin layer exists. Cup rounds are
+            excluded — a two-game run moves a per-game rate more than a season does.
+            <template v-if="hasGap">
+              The line breaks where seasons are missing: this club spent them in a division the corpus does not
+              hold, so there is nothing to plot rather than nothing to report.
+            </template>
+          </p>
+        </template>
+      </UiTooltip>
+      <div class="flex items-center gap-2.5">
         <span class="tj-key" :style="{ color: GF }"><i :style="{ background: GF }" />scored</span>
         <span class="tj-key" :style="{ color: GA }"><i :style="{ background: GA }" />conceded</span>
       </div>
@@ -102,17 +117,6 @@
       </div>
     </div>
 
-    <p class="tj-foot">
-      These are raw per-season rates, <strong>not</strong> the twin's fitted attack and defence.
-      That is the point of the chart: the same club scoring 2.00 a game in one division and 0.95 in
-      the one above has not changed, the opposition has. Separating those two is the whole reason
-      the twin layer exists, and its ratings are league-invariant where these numbers are not.
-      Cup rounds are excluded — a two-game run moves a per-game rate more than a season does.
-      <template v-if="hasGap">
-        The line breaks where seasons are missing: this club spent them in a division the
-        corpus does not hold, so there is nothing to plot rather than nothing to report.
-      </template>
-    </p>
   </section>
 </template>
 

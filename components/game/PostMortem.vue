@@ -202,6 +202,9 @@ const apiFetch = useApiFetch()
 
 const props = defineProps<{ gameId: number | string }>()
 
+/** Tells the page whether this panel had anything to show, so it can fall back to the market read. */
+const emit = defineEmits<{ (e: 'resolved', hasContent: boolean): void }>()
+
 const pm = ref<any>(null)
 const pending = ref(true)
 const error = ref<string | null>(null)
@@ -216,6 +219,8 @@ async function load() {
     pm.value = null
   } finally {
     pending.value = false
+    // A failed read renders its own error; only a successful empty one asks for the fallback.
+    emit('resolved', !!error.value || hasAnything.value)
   }
 }
 watch(() => props.gameId, load, { immediate: true })
