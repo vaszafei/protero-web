@@ -9,8 +9,8 @@ export interface Allowed { overflow?: number, requests?: number, ticket: string 
 
 export const DEFAULT_REQUEST_BUDGET = 25
 
-/** Measured 2026-10-02 at 1918x989; ceilings are rounded up so data drift does not flap them. */
-export const allowlist: Record<string, Allowed> = {
-  '/fantasy': { overflow: 1500, ticket: '#50' },
-  '/fantasy/:slate': { overflow: 2000, ticket: '#50' },
-}
+/**
+ * Empty since 2026-10-02: every route measures overflow 0 and is inside its request budget.
+ * A route that regresses is either fixed or listed here with the ticket that will fix it.
+ */
+export const allowlist: Record<string, Allowed> = {}

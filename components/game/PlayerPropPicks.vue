@@ -41,7 +41,7 @@
         :class="i % 2 === 0 ? 'bg-surface-light/40' : 'bg-surface/30'"
       >
         <!-- Tier star -->
-        <span v-if="pick.trad_tier === 1" class="text-amber-400 text-[11px] leading-none flex-shrink-0">★</span>
+        <span v-if="pick.trad_tier === 1" class="pill pill-amber flex-shrink-0" title="Tier 1">T1</span>
         <span v-else class="w-[11px] flex-shrink-0"></span>
 
         <!-- Player + Team -->

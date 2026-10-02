@@ -211,7 +211,7 @@ const formatTime = (dateStr: string) => {
 
 const getLeagueFlag = (leagueKey: string) => {
   const league = props.leagues.find(l => l.key === leagueKey)
-  return league?.flag || '⚽'
+  return league?.flag || ''
 }
 
 const getLeagueName = (leagueKey: string) => {

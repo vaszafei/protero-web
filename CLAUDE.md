@@ -186,6 +186,17 @@ wallet pages without being copied from them.
 5. **`lang="ts"` on every SFC you touch** (the honesty gate ratchets the count down).
 6. **One tab rail: `UiTabs`** (`size="md"` for a section switch, `size="sm"` for a panel head or a
    filter row). Keys are strings; a disabled tab carries a `hint`. Do not write another.
+7. **Fit idiom: `.panel panel-fill` + `.panel-scroll`** (`panels.css`). A page is a flex column the
+   height of `<main>`; a panel fills the cell its grid gives it and scrolls its own body, the page
+   never scrolls. Explanations live in a `UiTooltip` on the panel head ("how to read"), not in a
+   paragraph under the table. Tests: `npm run test:e2e` (Playwright, Bearer sign-in, 1918x989 —
+   `tests/e2e/`; overflow 0, no 4xx/NaN, request budget, parity specs) — run it before and after a
+   page change; `PROTERO_E2E=1 bash scripts/gates.sh` runs it as a gate. A route that cannot meet
+   the bar is listed in `tests/e2e/allowlist.ts` with the ticket that will fix it; the list is empty.
+8. **One market board.** `server/utils/market-board.ts` builds every market number, the status
+   line (`fixtureStatus`) and the single-fixture/round payloads; `GET /api/game/[id]/market` and
+   `GET /api/league/[key]/round-board` are shells on it. Never recompute a probability, margin or
+   status in a component or a second endpoint — the parity spec compares the two.
 
 **Motion** uses the `--dur*` / `--ease-*` tokens and ships a `prefers-reduced-motion` kill switch,
 without exception:

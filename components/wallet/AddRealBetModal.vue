@@ -127,7 +127,7 @@
                    is never bound on a name alone. `game_id` rides on the leg JSON and
                    is what project_stoiximan resolves a hand-entered leg through. -->
               <div v-if="leg.game_id" class="flex items-center gap-2 text-[11px]">
-                <span class="text-green-400">✓ fixture #{{ leg.game_id }}</span>
+                <span class="text-[var(--brand-blue)]">fixture #{{ leg.game_id }}</span>
                 <span class="text-zinc-400 truncate">{{ leg._bound_label }}</span>
                 <UButton size="2xs" variant="ghost" color="gray" icon="i-heroicons-x-mark" @click="unbind(leg)" />
               </div>
@@ -410,7 +410,7 @@ async function onFileSelected(e: Event) {
       : form.value.legs
     if (!feedback.value?.error) {
       feedback.value = {
-        message: `✓ Parsed ${draft.legs.length} leg(s) — review fields below before saving`,
+        message: `Parsed ${draft.legs.length} leg(s) — review fields below before saving`,
         error: false,
       }
     }

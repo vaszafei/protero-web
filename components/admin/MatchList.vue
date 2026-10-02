@@ -41,7 +41,7 @@
               <!-- Completed Badge -->
               <span 
                 v-if="currentRoundStats.completed > 0"
-                class="px-2.5 py-1 bg-green-500/20 text-green-400 rounded-lg text-sm font-medium"
+                class="px-2.5 py-1 bg-[var(--brand-blue-tint)] text-[var(--brand-blue)] rounded-lg text-sm font-medium"
               >
                 {{ currentRoundStats.completed }} completed
               </span>

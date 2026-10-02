@@ -68,7 +68,7 @@
           <div class="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
         </div>
         <div v-else-if="ss.done" class="absolute bottom-1 right-1">
-          <span class="bg-emerald-600/90 rounded text-[10px] px-1 text-white">✓</span>
+          <span class="pill pill-blue">read</span>
         </div>
       </div>
     </div>
