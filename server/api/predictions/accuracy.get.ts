@@ -1,15 +1,8 @@
 import { getSupabase } from '~/server/utils/supabase'
 import { requireUserId } from '~/server/utils/auth'
-import { getCached, setCache } from '~/server/utils/cache'
 
-export default defineEventHandler(async (event) => {
-  await requireUserId(event)
-  const { league } = getQuery(event)
-  
-  const cacheKey = `accuracy:${league || 'all'}`
-  const cached = getCached<any>(cacheKey)
-  if (cached) return cached
-
+/** Cached data function; the handler stays uncached so `requireUserId` runs on every request. */
+const loadAccuracy = defineCachedFunction(async (league: string) => {
   const supabase = getSupabase()
   
   try {
@@ -137,8 +130,6 @@ export default defineEventHandler(async (event) => {
       timestamp: new Date().toISOString()
     }
 
-    // Cache for 5 minutes — accuracy stats change infrequently
-    setCache(cacheKey, result, 300)
     return result
     
   } catch (error: any) {
@@ -148,4 +139,10 @@ export default defineEventHandler(async (event) => {
       message: 'Failed to get accuracy stats: ' + error.message
     })
   }
+}, { name: 'predictions-accuracy', getKey: (league: string) => league || 'all', maxAge: 300, swr: true })
+
+export default defineEventHandler(async (event) => {
+  await requireUserId(event)
+  const { league } = getQuery(event)
+  return loadAccuracy(String(league || ''))
 })

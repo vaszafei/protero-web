@@ -1,11 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { allowlist, DEFAULT_REQUEST_BUDGET } from './allowlist'
-import { signIn } from './auth'
+import { allowlist, requestBudget } from './allowlist'
+import { isDataRequest, signIn } from './auth'
 import { routes } from './routes'
 
 const BANNED_TEXT = [/\bNaN\b/, /\bundefined\b/, /\bInfinity\b/, /\bnull%/, /\[object Object\]/, /Invalid Date/]
-
-const isDataRequest = (url: string) => /\/api\/|\/rest\/v1\//.test(url)
 
 for (const route of routes()) {
   test(`${route.key} (${route.path})`, async ({ page }) => {
@@ -32,6 +30,6 @@ for (const route of routes()) {
     for (const re of BANNED_TEXT) expect(text, `body text matches ${re}`).not.toMatch(re)
     expect(overflow, `main overflows by ${overflow}px${allowed ? ` (allowlisted to ${allowed.overflow ?? 0}, ${allowed.ticket})` : ''}`)
       .toBeLessThanOrEqual(allowed?.overflow ?? 0)
-    expect(dataRequests, 'data requests').toBeLessThanOrEqual(allowed?.requests ?? DEFAULT_REQUEST_BUDGET)
+    expect(dataRequests, 'data requests').toBeLessThanOrEqual(allowed?.requests ?? requestBudget(route.key))
   })
 }

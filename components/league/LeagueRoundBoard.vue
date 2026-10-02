@@ -96,8 +96,8 @@
 <script setup lang="ts">
 /**
  * A league's Predictions tab, rebuilt on the market-board approach: one row per fixture of a
- * round, every number from `GET /api/league/[key]/round-board`, which builds it with the same
- * functions as the fixture's own Market tab.
+ * round, every number from the `league-round-board` Edge Function, which builds it with the same
+ * functions as the fixture's own Market tab (`#logic/market-board`).
  *
  * It replaces a card per fixture that issued a head-to-head request matched by team NAME (50
  * requests to open a Premier League round) and displayed "Expected goals" — a sum of two
@@ -109,7 +109,7 @@ import UiProbBar from '~/components/ui/ProbBar.vue'
 import UiErrorState from '~/components/ui/ErrorState.vue'
 import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import { getTeamLogoUrl } from '~/utils/teamLogo'
-import { basisLabel } from '~/utils/market-basis'
+import { basisLabel } from '#logic/market-basis'
 import { errorText } from '~/utils/error-text'
 import { rowDelay } from '~/utils/motion'
 
@@ -125,7 +125,7 @@ const props = defineProps<{
   maxRound?: number
 }>()
 
-const apiFetch = useApiFetch()
+const edge = useEdge()
 const isBball = computed(() => props.sport === 'basketball')
 
 const round = ref<number>(props.initialRound || 1)
@@ -149,7 +149,7 @@ async function load() {
   error.value = null
   try {
     const q = props.byDate ? { date: date.value } : { round: round.value }
-    const res = await apiFetch<any>(`/api/league/${props.leagueKey}/round-board`, { query: { season: props.season, ...q } })
+    const res = await edge<any>('league-round-board', { leagueKey: props.leagueKey, season: props.season, ...q })
     if (mine === seq) board.value = res
   } catch (e) {
     if (mine === seq) error.value = errorText(e)

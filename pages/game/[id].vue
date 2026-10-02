@@ -26,7 +26,7 @@
             v-else-if="showFormRails && previewError"
             title="The form rail failed to load."
             :error="previewError"
-            @retry="loadPreview"
+            @retry="refreshGame"
           />
           <GameTeamFormRail
             v-else-if="showFormRails"
@@ -132,7 +132,7 @@
             v-else-if="showFormRails && previewError"
             title="The form rail failed to load."
             :error="previewError"
-            @retry="loadPreview"
+            @retry="refreshGame"
           />
           <GameTeamFormRail
             v-else-if="showFormRails"
@@ -156,7 +156,7 @@
         class="mt-3"
         title="Division context failed to load."
         :error="contextError"
-        @retry="loadContext"
+        @retry="refreshGame"
       />
       <Reveal v-if="blindSpot" :delay="60">
         <TwinBlindSpotBanner :risk="blindSpot" :moves="moves" class="mt-3" />
@@ -266,7 +266,7 @@
 
                 <!-- Analysis -->
                 <div v-else-if="activeTab === 'analysis'">
-                  <UiErrorState v-if="analysisError" title="The analysis failed to load." :error="analysisError" @retry="loadAnalysis" />
+                  <UiErrorState v-if="analysisError" title="The analysis failed to load." :error="analysisError" @retry="refreshGame" />
                   <GameAnalysis
                     v-else
                     :game="data.game"
@@ -285,7 +285,7 @@
                     class="mb-3"
                     title="The betting-status read failed to load — the status line below may be incomplete."
                     :error="analysisError"
-                    @retry="loadAnalysis"
+                    @retry="refreshGame"
                   />
                   <GamePrediction
                     :game="data.game"
@@ -385,66 +385,25 @@ function goBack() {
   }
 }
 
-// Fetch game data (bundled — game + lineups, plus h2h + fantasy when the
-// fixture is still scheduled).
-//
-// `useSwr`, not `useAsyncData`: the app is SPA-only (`ssr: false`), so
-// useAsyncData's hydration path costs without paying, and useSwr is the
-// documented fetcher for new code. Its key is a computed, so routing straight
-// from one game to another refetches instead of showing the previous match.
-const swrKey = computed(() => `game:${gameId.value}`)
-const { data, pending: loading, error, refresh: refreshGame } = useSwr(
-  swrKey,
-  () => api.fetchGameDetail(Number(gameId.value)),
-  { memoryTtl: 5 * 60_000 },
-)
+// One request for the whole page (`game-page` Edge Function): fixture, lineups, rails, market
+// board, analysis, post-mortem, twin context. Components read their part through `useGamePage`
+// with the same id, so the key is shared and the request is made once.
+const { data: bundle, pending: loading, error, refresh: refreshGame } = useGamePage(gameId)
+const data = computed(() => bundle.value?.detail ?? null)
 
 // Sport detection — sportOf() knows every basketball league_key, not just
 // nba/euroleague, so ACB/BCL/EuroCup/GBL games are no longer read as football.
 const gameSport = computed(() =>
   data.value?.game ? sportOf(data.value.game) : 'football')
 
-// Twin blind-spot context: does either club lack history in this division?
-// `twin_fixture_risk` only returns fixtures that carry the risk, so a miss is
-// the common case and simply renders nothing.
-const twins = useTwins()
-const blindSpot = ref(null)
-
-// Each club's most recent promotion/relegation — the rails show it as a chip
-// and the division line names it. Football only: basketball has no divisions.
-const moves = ref<{ home: any; away: any }>({ home: null, away: null })
-
-// Both reads are optional context, but a FAILED one is reported — an empty
-// result means "no risk / no move", a rejected one means we do not know.
-const contextError = ref<string | null>(null)
-
-async function loadContext() {
-  const g = data.value?.game
-  const id = g?.id
-  blindSpot.value = null
-  moves.value = { home: null, away: null }
-  contextError.value = null
-  if (!id) return
-  const latest = async (teamId: number | null) => {
-    if (!teamId) return null
-    const rows = await twins.fetchTeamTransitions(Number(teamId))
-    return rows.length ? rows[rows.length - 1] : null
-  }
-  const [risk, home, away] = await Promise.allSettled([
-    twins.fetchFixtureRiskFor([Number(id)]),
-    gameSport.value === 'football' ? latest(g.home_team_id) : Promise.resolve(null),
-    gameSport.value === 'football' ? latest(g.away_team_id) : Promise.resolve(null),
-  ])
-  if (data.value?.game?.id !== id) return
-  const failed = [risk, home, away].find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined
-  if (failed) contextError.value = errorText(failed.reason)
-  if (risk.status === 'fulfilled') blindSpot.value = risk.value.get(Number(id)) || null
-  moves.value = {
-    home: home.status === 'fulfilled' ? home.value : null,
-    away: away.status === 'fulfilled' ? away.value : null,
-  }
-}
-watch(() => data.value?.game?.id, loadContext, { immediate: true })
+// Twin blind-spot context: does either club lack history in this division? `twin_fixture_risk`
+// only returns fixtures that carry the risk, so a miss is the common case and renders nothing.
+// Each club's most recent promotion/relegation (football only) feeds the rails' chip and the
+// division line. A FAILED read is reported — an empty result means "no risk / no move", a rejected
+// one means we do not know.
+const blindSpot = computed(() => bundle.value?.context?.data?.blindSpot ?? null)
+const moves = computed<{ home: any; away: any }>(() => bundle.value?.context?.data?.moves ?? { home: null, away: null })
+const contextError = computed<string | null>(() => bundle.value?.context?.error ?? null)
 
 // Is the game completed?
 const isCompleted = computed(() => data.value?.game?.status === 'completed')
@@ -556,21 +515,8 @@ const showTimeline = computed(() => {
  */
 const showFormRails = computed(() => !isCompleted.value)
 
-const preview = ref(null)
-const previewError = ref<string | null>(null)
-async function loadPreview() {
-  const id = data.value?.game?.id
-  preview.value = null
-  previewError.value = null
-  if (!id || !showFormRails.value) return
-  try {
-    const p = await apiFetch(`/api/game/${id}/preview`)
-    if (data.value?.game?.id === id) preview.value = p
-  } catch (e) {
-    if (data.value?.game?.id === id) previewError.value = errorText(e)
-  }
-}
-watch(() => [data.value?.game?.id, showFormRails.value], loadPreview, { immediate: true })
+const preview = computed(() => bundle.value?.preview?.data ?? null)
+const previewError = computed<string | null>(() => bundle.value?.preview?.error ?? null)
 
 /**
  * The post-mortem renders for a completed football fixture. The component
@@ -733,30 +679,34 @@ watch(() => data.value?.game, (game) => {
 // analysis-layer Track C) — h2h, predicted score and pace/trend for the
 // Analysis tab. Lazy-loaded the first time either tab that needs it opens,
 // then cached per game id (switching Analysis <-> Prediction doesn't refetch).
-const analysisData = ref<Record<string, any> | null>(null)
-const analysisLoading = ref(false)
-const analysisError = ref<string | null>(null)
-let analysisLoadedForGameId: number | null = null
+const analysisLoading = loading
+const analysisError = computed<string | null>(() => bundle.value?.analysis?.error ?? null)
 
-async function loadAnalysis() {
+// The Monte-Carlo same-game correlations spawn `ml.slips.slip_sim` on the host, which an Edge
+// Function cannot reach, so Nitro serves them — fetched once, the first time a tab that shows them
+// opens, and merged into the bundle's analysis record (`correlations.status` is `deferred` until then).
+const correlations = ref<Record<string, any> | null>(null)
+let correlationsFor: number | null = null
+async function loadCorrelations() {
   const g = data.value?.game
-  if (!g) return
-  if (analysisLoadedForGameId === g.id) return
-  analysisLoading.value = true
-  analysisError.value = null
+  if (!g || gameSport.value !== 'football' || correlationsFor === g.id) return
+  correlationsFor = g.id
+  correlations.value = null
   try {
-    analysisData.value = await apiFetch(`/api/game/${g.id}/analysis`)
-    analysisLoadedForGameId = g.id
+    correlations.value = await apiFetch(`/api/game/${g.id}/correlations`)
   } catch (e) {
-    analysisData.value = null
-    analysisError.value = errorText(e)
-  } finally {
-    analysisLoading.value = false
+    correlations.value = { status: 'insufficient_data', note: errorText(e) }
   }
 }
 
+const analysisData = computed<Record<string, any> | null>(() => {
+  const a = bundle.value?.analysis?.data
+  if (!a) return null
+  return correlations.value ? { ...a, correlations: correlations.value } : a
+})
+
 watch(() => [data.value?.game?.id, activeTab.value], ([, tab]) => {
-  if (tab === 'analysis' || tab === 'prediction') loadAnalysis()
+  if (tab === 'analysis' || tab === 'prediction') loadCorrelations()
 }, { immediate: true })
 
 // SEO

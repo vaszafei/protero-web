@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ALPHA, cohortOf, roiInk, scoreFamily, scoreRoster, type Scored } from '../utils/wallet-stats'
+import { ALPHA, cohortOf, roiInk, scoreFamily, scoreRoster, type Scored } from '#logic/wallet-stats'
 
 // wallets.archetype / wallets.lifecycle as they stand in the local DB, 2026-10-01.
 const T = 'trader'

@@ -80,7 +80,7 @@ import { errorText } from '~/utils/error-text'
 // bare tag never resolved and "Run pipeline" opened nothing.
 import PipelineRunModal from '~/components/dashboard/PipelineRunModal.vue'
 
-const apiFetch = useApiFetch()
+const edge = useEdge()
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
@@ -93,7 +93,7 @@ async function reload() {
   loading.value = true
   error.value = null
   try {
-    data.value = await apiFetch('/api/dashboard')
+    data.value = await edge('dashboard')
   } catch (e) {
     error.value = errorText(e)
   } finally {

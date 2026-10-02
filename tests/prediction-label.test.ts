@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parsePrediction, type PredictionSide } from '../utils/prediction-label'
+import { parsePrediction, type PredictionSide } from '#logic/prediction-label'
 import codes from './fixtures/prediction-codes.json'
 
 // Every DISTINCT predictions.prediction in the local DB (284 on 2026-10-01; 284

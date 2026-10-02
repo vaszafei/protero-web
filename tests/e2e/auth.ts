@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Page } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -37,4 +37,16 @@ export function mintToken(): string {
 export async function signIn(page: Page): Promise<void> {
   const token = mintToken()
   await page.addInitScript(t => localStorage.setItem('protero.access_token', t), token)
+}
+
+/** A request that is a data read: Nitro `/api`, PostgREST `/rest/v1`, or an Edge Function `/functions/v1`. */
+export const isDataRequest = (url: string) => /\/api\/|\/rest\/v1\/|\/functions\/v1\//.test(url)
+
+/** Calls an Edge Function the way the browser does: the app's own Bearer token plus the project's public key. */
+export async function edgeCall(request: APIRequestContext, name: string, body: Record<string, unknown> = {}, token = mintToken()) {
+  const env = readEnv()
+  return request.post(`${env.SUPABASE_URL}/functions/v1/${name}`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+    data: body,
+  })
 }

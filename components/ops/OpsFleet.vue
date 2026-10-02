@@ -108,7 +108,7 @@
  */
 import { computed } from 'vue'
 import { rowDelay } from '~/utils/motion'
-import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE } from '~/utils/wallet-stats'
+import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE } from '#logic/wallet-stats'
 
 const props = defineProps({
   fleet: { type: Array, default: () => [] },

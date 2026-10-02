@@ -264,15 +264,13 @@
 import { computed } from 'vue'
 import PlayerPropPicks from '~/components/game/PlayerPropPicks.vue'
 import { betLabelShort } from '~/utils/bet-label'
-import { parsePrediction } from '~/utils/prediction-label'
+import { parsePrediction } from '#logic/prediction-label'
 import { VIZ_HOME, VIZ_AWAY, VIZ_DRAW, VIZ_STATUS, vizRgba } from '~/utils/viz'
-import { basisLabel, summariseBases } from '~/utils/market-basis'
+import { basisLabel, summariseBases } from '#logic/market-basis'
 import { displayTeamName as shortName } from '~/utils/team-name'
 import UiTooltip from '~/components/ui/Tooltip.vue'
 import UiErrorState from '~/components/ui/ErrorState.vue'
 import { errorText } from '~/utils/error-text'
-
-const apiFetch = useApiFetch()
 
 const props = defineProps({
   game: { type: Object, required: true },
@@ -285,14 +283,10 @@ const { isAdmin } = useAuth()
 const isBball = computed(() => props.sport === 'basketball')
 const isFootball = computed(() => props.sport === 'football')
 
-// Same key as MarketBoard, so the two tabs share one request.
-const marketKey = computed(() => `market:${props.game.id}`)
-const { data: market, pending: marketPending, error: marketErr, refresh: refreshMarket } = useSwr<any>(
-  marketKey,
-  () => apiFetch(`/api/game/${props.game.id}/market`),
-  { memoryTtl: 2 * 60_000 },
-)
-const marketError = computed(() => (marketErr.value ? errorText(marketErr.value) : null))
+// The board is one part of the page's single `game-page` read, shared with MarketBoard.
+const { data: gameBundle, pending: marketPending, error: marketErr, refresh: refreshMarket } = useGamePage(() => props.game.id)
+const market = computed(() => gameBundle.value?.market?.data ?? null)
+const marketError = computed(() => gameBundle.value?.market?.error ?? (marketErr.value ? errorText(marketErr.value) : null))
 
 // ─── Status ─────────────────────────────────────────────────
 // The status line is computed once, server-side (`fixtureStatus` in server/utils/market-board.ts),

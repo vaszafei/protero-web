@@ -89,19 +89,14 @@ import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import UiTooltip from '~/components/ui/Tooltip.vue'
 import UiErrorState from '~/components/ui/ErrorState.vue'
 import { errorText } from '~/utils/error-text'
-import { basisLabel, mixedNote, summariseBases, type Basis } from '~/utils/market-basis'
-
-const apiFetch = useApiFetch()
+import { basisLabel, mixedNote, summariseBases, type Basis } from '#logic/market-basis'
 
 const props = defineProps<{ gameId: number | string }>()
 
-// Same key as GamePrediction, so switching tabs does not refetch.
-const { data: board, pending, error: fetchErr, refresh } = useSwr<any>(
-  computed(() => `market:${props.gameId}`),
-  () => apiFetch(`/api/game/${props.gameId}/market`),
-  { memoryTtl: 2 * 60_000 },
-)
-const error = computed(() => (fetchErr.value ? errorText(fetchErr.value) : null))
+// The board is one part of the page's single `game-page` read, shared with GamePrediction.
+const { data: bundle, pending, error: fetchErr, refresh } = useGamePage(() => props.gameId)
+const board = computed(() => bundle.value?.market?.data ?? null)
+const error = computed(() => bundle.value?.market?.error ?? (fetchErr.value ? errorText(fetchErr.value) : null))
 
 const devig = computed(() => board.value?.rows?.find((r: any) => r.devig)?.devig || null)
 

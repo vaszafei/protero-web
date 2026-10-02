@@ -100,7 +100,7 @@
           @retry="loadHistory"
           @update:days="setHistoryDays"
         />
-        <UiErrorState v-if="seasonLadderError" class="flex-shrink-0" title="The season ladder failed to load." :error="seasonLadderError" @retry="loadSeasonLadder" />
+        <UiErrorState v-if="seasonLadderError" class="flex-shrink-0" title="The season ladder failed to load." :error="seasonLadderError" @retry="loadPage" />
         <WalletSeasonLadder
           v-else-if="seasonLadder.length || seasonLadderLoading"
           class="flex-initial min-h-0"
@@ -108,7 +108,7 @@
           :loading="seasonLadderLoading"
         />
         <!-- Settled singles only — a slips-only wallet has nothing to show here. -->
-        <UiErrorState v-if="breakdownError" class="flex-shrink-0" title="The P&L breakdown failed to load." :error="breakdownError" @retry="loadBreakdown" />
+        <UiErrorState v-if="breakdownError" class="flex-shrink-0" title="The P&L breakdown failed to load." :error="breakdownError" @retry="loadPage" />
         <WalletBreakdown
           v-else-if="breakdownLoading || breakdownHasRows"
           class="flex-none max-h-[45%]"
@@ -135,7 +135,7 @@
             <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin text-zinc-600" />
           </div>
           <template v-else-if="ledgerTab === 'slips'">
-            <UiErrorState v-if="parlaysError" title="The slips failed to load." :error="parlaysError" @retry="loadParlays" />
+            <UiErrorState v-if="parlaysError" title="The slips failed to load." :error="parlaysError" @retry="loadLedger('parlays')" />
             <p v-else-if="!parlays.length" class="text-center text-[11px] text-zinc-500 py-8">No {{ betFilter }} slips.</p>
             <WalletParlayRow
               v-for="(p, i) in parlays" :key="`p${p.id}`"
@@ -147,7 +147,7 @@
             />
           </template>
           <template v-else>
-            <UiErrorState v-if="betsError" title="The singles failed to load." :error="betsError" @retry="loadBets" />
+            <UiErrorState v-if="betsError" title="The singles failed to load." :error="betsError" @retry="loadLedger('bets')" />
             <p v-else-if="!bets.length" class="text-center text-[11px] text-zinc-500 py-8">No {{ betFilter }} singles.</p>
             <WalletBetRow v-for="(bet, i) in bets" :key="`b${bet.id}`" class="row-in" :style="rowDelay(i)" :bet="bet" />
           </template>
@@ -173,8 +173,8 @@
       <!-- ── Selected slip + analytics ── -->
       <div v-if="hasRightColumn" class="flex flex-col gap-3 min-h-0">
         <WalletSlipDetail v-if="parlaysTotal > 0 || selectedParlay" class="flex-shrink max-h-[60%]" :parlay="selectedParlay" />
-        <UiErrorState v-if="marginOfLossError" class="flex-shrink-0" title="The margin-of-loss analytics failed to load." :error="marginOfLossError" @retry="loadMarginOfLoss" />
-        <UiErrorState v-if="vulnerabilityError" class="flex-shrink-0" title="The wallet analytics failed to load." :error="vulnerabilityError" @retry="loadVulnerability" />
+        <UiErrorState v-if="marginOfLossError" class="flex-shrink-0" title="The margin-of-loss analytics failed to load." :error="marginOfLossError" @retry="loadPage" />
+        <UiErrorState v-if="vulnerabilityError" class="flex-shrink-0" title="The wallet analytics failed to load." :error="vulnerabilityError" @retry="loadPage" />
         <WalletVulnerability
           v-else
           class="flex-1 min-h-0"
@@ -201,17 +201,14 @@
  */
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { resolveWalletMeta } from '~/utils/wallet-meta'
-import { cohortOf, scoreRoster } from '~/utils/wallet-stats'
+import { cohortOf, scoreRoster } from '#logic/wallet-stats'
 import { errorText } from '~/utils/error-text'
 import { rowDelay } from '~/utils/motion'
 import { usePropsSlate, athensToday } from '~/composables/usePropsSlate'
 
-const apiFetch = useApiFetch()
-
 definePageMeta({ middleware: 'auth' })
 
 const route = useRoute()
-const api = useApi()
 
 const ledgerTabs = computed(() => [
   { key: 'slips',   label: 'Slips',   badge: parlaysTotal.value },
@@ -357,73 +354,113 @@ const scored = computed(() => {
  */
 const isCurrent = (id) => id === walletId.value
 
-async function loadRoster() {
-  const [w, p, t] = await Promise.allSettled([
-    api.fetchWallets(),
-    api.fetchWalletPerformance(),
-    apiFetch('/api/wallet/tipsters'),
-  ])
-  rosterError.value = w.status === 'rejected' ? errorText(w.reason) : null
-  performanceError.value = p.status === 'rejected' ? errorText(p.reason) : null
-  coverageError.value = t.status === 'rejected' ? errorText(t.reason) : null
-  allWallets.value = w.status === 'fulfilled' ? (w.value.wallets || []) : []
-  performance.value = p.status === 'fulfilled' ? (p.value || []) : []
-  tipsters.value = t.status === 'fulfilled' ? t.value : null
-}
+/**
+ * One request builds the whole page (`wallet-page` Edge Function, section `page`): the roster the
+ * verdict is scored against, every panel, and the ledger's first page sized to this panel. A part
+ * that failed comes back as its own `error` — the panel it feeds renders UiErrorState, and a roster
+ * failure withholds the verdict instead of reading as `n<10`.
+ */
+const edge = useEdge()
 
-async function reloadRoster() {
-  loading.value = true
-  await loadRoster()
-  loading.value = false
-}
+/** The page size the ledger was last fetched at — the page re-pages only when its panel measures differently. */
+let fetchedLimit = 0
 
-async function loadBets() {
+async function loadPage() {
   const id = walletId.value
-  betsLoading.value = true
-  betsError.value = null
+  historyLoading.value = breakdownLoading.value = seasonLadderLoading.value = vulnerabilityLoading.value = true
+  marginOfLossLoading.value = cohort.value === 'mirror'
+  betsLoading.value = parlaysLoading.value = true
+  const limit = pageSize.value
+  let b
   try {
-    const data = await api.fetchWalletBets(id, {
-      limit: pageSize.value,
-      offset: ledgerTab.value === 'singles' ? ledgerPage.value * pageSize.value : 0,
-      status: betFilter.value || undefined,
+    b = await edge('wallet-page', {
+      section: 'page', walletId: id, historyDays: historyDays.value, limit, status: betFilter.value || undefined,
     })
-    if (!isCurrent(id)) return
-    bets.value = data.bets || []
-    betsTotal.value = data.total || 0
   } catch (e) {
     if (!isCurrent(id)) return
-    bets.value = []
-    betsTotal.value = 0
-    betsError.value = errorText(e)
-  } finally {
-    if (isCurrent(id)) betsLoading.value = false
+    rosterError.value = errorText(e)
+    historyLoading.value = breakdownLoading.value = seasonLadderLoading.value = vulnerabilityLoading.value = false
+    marginOfLossLoading.value = betsLoading.value = parlaysLoading.value = false
+    return
+  }
+  if (!isCurrent(id)) return
+
+  rosterError.value = b.wallets.error
+  performanceError.value = b.performance.error
+  coverageError.value = b.coverage.error
+  allWallets.value = b.wallets.data || []
+  performance.value = b.performance.data || []
+  tipsters.value = b.coverage.data
+
+  applyHistory(b.history)
+  breakdownError.value = b.breakdown.error
+  breakdown.value = b.breakdown.data
+  breakdownLoading.value = false
+  seasonLadderError.value = b.seasonLadder.error
+  seasonLadder.value = b.seasonLadder.data || []
+  seasonLadderLoading.value = false
+  vulnerabilityError.value = b.vulnerability.error
+  vulnerability.value = b.vulnerability.data
+  vulnerabilityLoading.value = false
+  // Scoped to mirrored tipster wallets only (the RPC is generic; the gate lives at the call site).
+  marginOfLossError.value = b.marginOfLoss?.error ?? null
+  marginOfLoss.value = b.marginOfLoss?.data ?? null
+  marginOfLossLoading.value = false
+
+  fetchedLimit = limit
+  ledgerTab.value = b.ledgerTab
+  applyLedger(b.ledger)
+}
+
+function applyHistory(h) {
+  historyError.value = h.error
+  historyPoints.value = h.data?.points || []
+  historyStart.value = h.data?.start_balance ?? null
+  historyTruncated.value = !!h.data?.truncated
+  historyLoading.value = false
+}
+
+function applyLedger(r) {
+  if (r.bets) {
+    betsError.value = r.bets.error
+    bets.value = r.bets.data?.bets || []
+    betsTotal.value = r.bets.data?.total || 0
+    betsLoading.value = false
+  }
+  if (r.parlays) {
+    parlaysError.value = r.parlays.error
+    parlays.value = r.parlays.data?.parlays || []
+    parlaysTotal.value = r.parlays.data?.total || 0
+    parlaysLoading.value = false
+    // Keep a slip the operator picked, even off this page; otherwise open the newest.
+    if (!selectedParlay.value || selectedParlay.value.wallet_id !== walletId.value) {
+      selectedParlay.value = parlays.value[0] || null
+    }
   }
 }
 
-async function loadParlays() {
+/**
+ * One page of the ledger. `only` skips the list a paging click does not touch; omitted, both lists
+ * are fetched (the tab badges need both totals).
+ */
+async function loadLedger(only) {
   const id = walletId.value
-  parlaysLoading.value = true
-  parlaysError.value = null
+  if (only !== 'parlays') betsLoading.value = true
+  if (only !== 'bets') parlaysLoading.value = true
+  const limit = pageSize.value
   try {
-    const data = await api.fetchWalletParlays(id, {
-      limit: pageSize.value,
-      offset: ledgerTab.value === 'slips' ? ledgerPage.value * pageSize.value : 0,
-      status: betFilter.value || undefined,
+    const r = await edge('wallet-page', {
+      section: 'ledger', walletId: id, tab: ledgerTab.value, limit, page: ledgerPage.value,
+      status: betFilter.value || undefined, only,
     })
     if (!isCurrent(id)) return
-    parlays.value = data.parlays || []
-    parlaysTotal.value = data.total || 0
-    // Keep a slip the operator picked, even off this page; otherwise open the newest.
-    if (!selectedParlay.value || selectedParlay.value.wallet_id !== id) {
-      selectedParlay.value = parlays.value[0] || null
-    }
+    fetchedLimit = limit
+    applyLedger(r)
   } catch (e) {
     if (!isCurrent(id)) return
-    parlays.value = []
-    parlaysTotal.value = 0
-    parlaysError.value = errorText(e)
-  } finally {
-    if (isCurrent(id)) parlaysLoading.value = false
+    const msg = errorText(e)
+    if (only !== 'parlays') { bets.value = []; betsTotal.value = 0; betsError.value = msg; betsLoading.value = false }
+    if (only !== 'bets') { parlays.value = []; parlaysTotal.value = 0; parlaysError.value = msg; parlaysLoading.value = false }
   }
 }
 
@@ -432,111 +469,41 @@ async function loadHistory() {
   historyLoading.value = true
   historyError.value = null
   try {
-    const data = await api.fetchWalletBalanceHistory(id, historyDays.value)
+    const data = await edge('wallet-page', { section: 'history', walletId: id, days: historyDays.value })
     if (!isCurrent(id)) return
-    historyPoints.value = data.points || []
-    historyStart.value = data.start_balance ?? null
-    historyTruncated.value = !!data.truncated
+    applyHistory({ data, error: null })
   } catch (e) {
     if (!isCurrent(id)) return
     historyPoints.value = []
     historyStart.value = null
     historyError.value = errorText(e)
-  } finally {
-    if (isCurrent(id)) historyLoading.value = false
+    historyLoading.value = false
   }
 }
 
-async function loadBreakdown() {
-  const id = walletId.value
-  breakdownLoading.value = true
-  breakdownError.value = null
-  try {
-    const data = await api.fetchWalletBreakdown(id)
-    if (isCurrent(id)) breakdown.value = data
-  } catch (e) {
-    if (!isCurrent(id)) return
-    breakdown.value = null
-    breakdownError.value = errorText(e)
-  } finally {
-    if (isCurrent(id)) breakdownLoading.value = false
-  }
-}
-
-async function loadSeasonLadder() {
-  const id = walletId.value
-  seasonLadderLoading.value = true
-  seasonLadderError.value = null
-  try {
-    const data = await api.fetchWalletSeasonLadder(id)
-    if (isCurrent(id)) seasonLadder.value = data
-  } catch (e) {
-    if (!isCurrent(id)) return
-    seasonLadder.value = []
-    seasonLadderError.value = errorText(e)
-  } finally {
-    if (isCurrent(id)) seasonLadderLoading.value = false
-  }
-}
-
-async function loadVulnerability() {
-  const id = walletId.value
-  vulnerabilityLoading.value = true
-  vulnerabilityError.value = null
-  try {
-    const data = await api.fetchWalletVulnerability(id)
-    if (isCurrent(id)) vulnerability.value = data
-  } catch (e) {
-    if (!isCurrent(id)) return
-    vulnerability.value = null
-    vulnerabilityError.value = errorText(e)
-  } finally {
-    if (isCurrent(id)) vulnerabilityLoading.value = false
-  }
-}
-
-/**
- * Scoped to mirrored tipster wallets (cohort 'mirror') only, even though the
- * RPC itself is generic over any wallet with goal-based singles — it also
- * returns real data for our own single-betting strategies (e.g. W26), which
- * is out of scope for this pass. Gate lives here, at the call site, not in
- * the RPC, so it stays a reusable primitive if a future session wants it
- * elsewhere.
- */
-async function loadMarginOfLoss() {
-  const id = walletId.value
-  marginOfLossError.value = null
-  if (cohort.value !== 'mirror') { marginOfLoss.value = null; return }
-  marginOfLossLoading.value = true
-  try {
-    const data = await api.fetchWalletMarginOfLoss(id)
-    if (isCurrent(id)) marginOfLoss.value = data
-  } catch (e) {
-    if (!isCurrent(id)) return
-    marginOfLoss.value = null
-    marginOfLossError.value = errorText(e)
-  } finally {
-    if (isCurrent(id)) marginOfLossLoading.value = false
-  }
+async function reloadRoster() {
+  loading.value = true
+  rosterError.value = null
+  await loadPage()
+  loading.value = false
 }
 
 function setBetFilter(val) {
   betFilter.value = val
   ledgerPage.value = 0
-  loadBets()
-  loadParlays()
+  loadLedger()
 }
 
 function setLedgerTab(tab) {
   if (ledgerTab.value === tab) return
   ledgerTab.value = tab
   ledgerPage.value = 0
-  tab === 'slips' ? loadParlays() : loadBets()
+  loadLedger(tab === 'slips' ? 'parlays' : 'bets')
 }
 
 function goPage(n) {
   ledgerPage.value = n
-  ledgerTab.value === 'slips' ? loadParlays() : loadBets()
+  loadLedger(ledgerTab.value === 'slips' ? 'parlays' : 'bets')
 }
 
 function setHistoryDays(d) {
@@ -551,10 +518,7 @@ function setHistoryDays(d) {
  * bet lists / breakdown but expect no change until that runs.
  */
 function onBetLogged() {
-  loadBets()
-  loadParlays()
-  loadBreakdown()
-  loadHistory()
+  loadPage()
 }
 
 /** Drop everything the previous wallet loaded, so its rows can never show under the next. */
@@ -578,16 +542,13 @@ watch(walletId, async (id) => {
   selectedParlay.value = null
   view.value = 'ledger'
   resetWalletState()
-  if (!allWallets.value.length) await loadRoster()
+  rosterError.value = null
+  await loadPage()
   if (!isCurrent(id)) return
   loading.value = false
-  if (rosterError.value) return
-  await Promise.all([loadBets(), loadParlays(), loadHistory(), loadBreakdown(), loadSeasonLadder(), loadVulnerability(), loadMarginOfLoss()])
-  if (!isCurrent(id)) return
-  // Open on the tab that holds this wallet's wagers; singles rows are taller,
-  // so their page is re-fetched at the size that fits.
-  ledgerTab.value = parlaysTotal.value > 0 ? 'slips' : 'singles'
-  if (ledgerTab.value === 'singles') loadBets()
+  // Slips and singles rows differ in height, so the page size that fits can differ from the one the
+  // first call used; re-page once if the panel measures differently.
+  if (!rosterError.value && fetchedLimit !== pageSize.value) loadLedger()
 }, { immediate: true })
 
 // Re-page when the panel's height changes the number of rows it holds.
@@ -603,7 +564,7 @@ watch(listEl, (el) => {
     listHeight.value = h
     if (pageSize.value === before) return
     clearTimeout(resizeTimer)
-    resizeTimer = setTimeout(() => { ledgerPage.value = 0; loadBets(); loadParlays() }, 150)
+    resizeTimer = setTimeout(() => { ledgerPage.value = 0; loadLedger() }, 150)
   })
   resizeObserver.observe(el)
 })

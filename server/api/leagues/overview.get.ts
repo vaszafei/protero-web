@@ -1,8 +1,7 @@
 import { getSupabase } from '~/server/utils/supabase'
 import { requireUserId } from '~/server/utils/auth'
-import { getCached, setCache } from '~/server/utils/cache'
 import { currentSeason } from '~/utils/season'
-import { enabledCellCount } from '~/server/utils/football-masks'
+import { enabledCellCount } from '#logic/football-masks'
 
 /**
  * GET /api/leagues/overview — every competition, with its twin and its role.
@@ -33,15 +32,9 @@ import { enabledCellCount } from '~/server/utils/football-masks'
 /** A league with no settled or pending bet in this window is not "bet". */
 const BET_WINDOW_DAYS = 400
 
-export default defineEventHandler(async (event) => {
-  await requireUserId(event)
+/** Cached data function; the handler stays uncached so `requireUserId` runs on every request. */
+const loadLeaguesOverview = defineCachedFunction(async (season: string) => {
   const supabase = getSupabase()
-  const query = getQuery(event)
-  const season = (query.season as string) || currentSeason()
-
-  const cacheKey = `leagues:overview:v2:${season}`
-  const cached = getCached<any>(cacheKey)
-  if (cached) return cached
 
   const since = new Date(Date.now() - BET_WINDOW_DAYS * 86400_000).toISOString()
 
@@ -155,9 +148,13 @@ export default defineEventHandler(async (event) => {
     }
   })
 
-  const result = { leagues, season, generated_at: new Date().toISOString() }
-  setCache(cacheKey, result, 180)
-  return result
+  return { leagues, season, generated_at: new Date().toISOString() }
+}, { name: 'leagues-overview', getKey: (season: string) => season, maxAge: 180, swr: true })
+
+export default defineEventHandler(async (event) => {
+  await requireUserId(event)
+  const season = (getQuery(event).season as string) || currentSeason()
+  return loadLeaguesOverview(season)
 })
 
 /** `copa_del_rey` → `Copa Del Rey`, for keys the registry never named. */

@@ -122,7 +122,7 @@
 import { computed } from 'vue'
 import { formatMoney } from '~/utils/formatters'
 import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE,
-         priceBasisOf, UNPRICED_LABEL, UNPRICED_TITLE, MIXED_PRICE_TITLE } from '~/utils/wallet-stats'
+         priceBasisOf, UNPRICED_LABEL, UNPRICED_TITLE, MIXED_PRICE_TITLE } from '#logic/wallet-stats'
 
 const props = defineProps({
   wallet:           { type: Object, required: true },

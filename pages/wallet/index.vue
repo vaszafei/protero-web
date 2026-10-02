@@ -81,15 +81,13 @@
 import { ref, computed, onMounted } from 'vue'
 import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import UiErrorState from '~/components/ui/ErrorState.vue'
-import { cohortOf } from '~/utils/wallet-stats'
+import { cohortOf } from '#logic/wallet-stats'
 import { errorText } from '~/utils/error-text'
 import { formatMoney } from '~/utils/formatters'
 
-const apiFetch = useApiFetch()
-
 definePageMeta({ middleware: 'auth' })
 
-const api = useApi()
+const edge = useEdge()
 const route = useRoute()
 
 const selectedId = computed(() => {
@@ -137,17 +135,22 @@ function open(id: number) {
 
 async function load() {
   loading.value = true
-  const [w, p, t] = await Promise.allSettled([
-    api.fetchWallets(),
-    api.fetchWalletPerformance(),
-    apiFetch('/api/wallet/tipsters'),
-  ])
-  walletsError.value = w.status === 'rejected' ? errorText(w.reason) : null
-  performanceError.value = p.status === 'rejected' ? errorText(p.reason) : null
-  coverageError.value = t.status === 'rejected' ? errorText(t.reason) : null
-  allWallets.value = w.status === 'fulfilled' ? (w.value.wallets || []) : []
-  performance.value = p.status === 'fulfilled' ? (p.value || []) : []
-  tipsters.value = t.status === 'fulfilled' ? t.value : null
+  try {
+    // One request: the roster, the RPC's performance and the mirror coverage (`wallet-page`, section
+    // `roster`). A part that failed carries its own error, so a roster failure withholds the verdict.
+    const b = await edge<any>('wallet-page', { section: 'roster' })
+    walletsError.value = b.wallets.error
+    performanceError.value = b.performance.error
+    coverageError.value = b.coverage.error
+    allWallets.value = b.wallets.data || []
+    performance.value = b.performance.data || []
+    tipsters.value = b.coverage.data
+  } catch (e) {
+    walletsError.value = performanceError.value = errorText(e)
+    allWallets.value = []
+    performance.value = []
+    tipsters.value = null
+  }
   loading.value = false
 }
 

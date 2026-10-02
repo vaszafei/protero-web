@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { mintToken, signIn } from './auth'
+import { edgeCall, isDataRequest, mintToken, signIn } from './auth'
 import { discover, mirrorWalletId, roundWithFixtures, rpcPnl } from './ids'
-import { LEAGUE_ENABLED_MARKETS } from '../../server/utils/football-masks'
+import { LEAGUE_ENABLED_MARKETS } from '../../../supabase-local/supabase/functions/_shared/football-masks'
 
 /**
  * Cross-page parity: one fact, one number, wherever it is rendered. Each of these was a real
@@ -10,6 +10,7 @@ import { LEAGUE_ENABLED_MARKETS } from '../../server/utils/football-masks'
 
 const id = discover()
 const authHeaders = () => ({ Authorization: `Bearer ${mintToken()}` })
+const readAnonKey = () => process.env.SUPABASE_ANON_KEY || 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH'
 
 /** `+€1,234.50` / `−€70.20` → number. */
 const money = (t: string) => Number(t.replace(/[^0-9.\-−+]/g, '').replace('−', '-').replace('+', ''))
@@ -128,13 +129,13 @@ test('/leagues "Enabled" equals football-masks.ts for every football league', as
 
 test('round board: each row equals the same fixture on its Market tab', async ({ request }) => {
   const { season, round } = roundWithFixtures(id.footballLeague)
-  const res = await request.get(`/api/league/${id.footballLeague}/round-board?season=${season}&round=${round}`, { headers: authHeaders() })
+  const res = await edgeCall(request, 'league-round-board', { leagueKey: id.footballLeague, season, round })
   expect(res.status()).toBe(200)
   const rows: any[] = (await res.json()).rows
   expect(rows.length).toBeGreaterThanOrEqual(5)
 
   for (const row of rows.slice(0, 5)) {
-    const m = await (await request.get(`/api/game/${row.game_id}/market`, { headers: authHeaders() })).json()
+    const m = (await (await edgeCall(request, 'game-page', { gameId: row.game_id })).json()).market.data
     const byKey = new Map<string, any>(m.rows.map((r: any) => [r.key, r]))
     const same = (cell: any, key: string) => {
       const g = byKey.get(key)
@@ -155,10 +156,24 @@ test('the Premier League Predictions tab loads in at most 6 data requests (it wa
   await signIn(page)
   await page.goto(`/league/${id.footballLeague}`, { waitUntil: 'networkidle' })
   let n = 0
-  page.on('request', (r) => { if (/\/api\/|\/rest\/v1\//.test(r.url())) n++ })
+  page.on('request', (r) => { if (isDataRequest(r.url())) n++ })
   await page.getByRole('tab', { name: /^Predictions/ }).click()
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(800)
   expect(n, 'data requests for the tab').toBeLessThanOrEqual(6)
   await expect(page.locator('.rb-data').first()).toBeVisible()
+})
+
+test.describe('Edge Functions are authenticated', () => {
+  for (const name of ['game-page', 'dashboard', 'league-round-board', 'wallet-page']) {
+    test(`${name}: signed out → 401, the public key alone → 401`, async ({ request }) => {
+      const env = { url: process.env.SUPABASE_URL || 'http://127.0.0.1:54321' }
+      const signedOut = await request.post(`${env.url}/functions/v1/${name}`, { data: {} })
+      expect(signedOut.status(), 'no credentials').toBe(401)
+      const anon = await request.post(`${env.url}/functions/v1/${name}`, {
+        headers: { Authorization: `Bearer ${readAnonKey()}`, apikey: readAnonKey() }, data: {},
+      })
+      expect(anon.status(), 'the anon key is what a signed-out caller holds').toBe(401)
+    })
+  }
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { basisLabel, mixedNote, summariseBases, type BasisRow } from '../utils/market-basis'
+import { basisLabel, mixedNote, summariseBases, type BasisRow } from '#logic/market-basis'
 
 const row = (group: string, marketSource: string | null): BasisRow => ({ group, marketSource })
 

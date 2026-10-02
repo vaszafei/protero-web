@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import { formatMoney } from '~/utils/formatters'
 import { computed } from 'vue'
-import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE, type FamilyVerdict } from '~/utils/wallet-stats'
+import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE, type FamilyVerdict } from '#logic/wallet-stats'
 
 /**
  * The compact dashboard wallet card. Every number comes from

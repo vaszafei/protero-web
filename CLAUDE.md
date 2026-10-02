@@ -9,7 +9,8 @@ Read the root `../CLAUDE.md` before any cross-cutting work.
 > inactive and out of scope (owner decision 2026-08-20, root CD #34) — `common/db.py` raises
 > `CloudParked` and both pipelines skip their sync steps. This file previously claimed the frontend
 > read "exclusively from cloud Supabase", which was wrong in both directions. Do not plan cloud
-> work, dual-write, or Edge Function deploys against the parked project.
+> work or dual-write against the parked project. Edge Functions run **locally only** (below) and
+> are never deployed to it.
 
 > **Open question — is this still a consumer product?** The Nuxt app was built to ship web + APK
 > from one codebase (root CD #17, amended 2026-10-01: web only). **Resolved 2026-08-22: this is an operator console, not a
@@ -34,6 +35,32 @@ Read the root `../CLAUDE.md` before any cross-cutting work.
 
 Capacitor, the Android/iOS projects and the APK were removed 2026-10-01 (owner; root CD #17 amended).
 The Supabase Edge Functions that served APK auth (`auth-*`) were removed with them.
+
+### Who does what (#55, owner decision 2026-10-01)
+
+| Layer | Owns |
+|---|---|
+| **Edge Functions** — `supabase-local/supabase/functions/` | The per-page **read bundles** and the compute behind them, read with the **caller's** JWT under RLS: `game-page`, `wallet-page` (sections `roster` / `page` / `history` / `ledger`), `league-round-board`, `dashboard`. Local only (`[edge_runtime]` in `config.toml`, served through Kong at `127.0.0.1:54321/functions/v1/*`); the cloud stays parked. |
+| **Nitro** — `server/api/` | **Login** (`/api/auth/*`, unchanged), **every write** (gated by `scripts/check-endpoint-auth.mjs`), and the **job runners that spawn host processes** the Deno container cannot reach: `pipeline/run`, `props/slate/run`, `fantasy/.../generate`, and `game/[id]/correlations` (the Monte-Carlo `ml.slips.slip_sim`). |
+| **Postgres** | `get_wallet_performance` as the only ROI source, the materialized views (#51), RLS. |
+
+- A function **verifies** the HS256 token Nitro issued (`verify_jwt = true` per function); it never
+  issues, refreshes or revokes one. The anon key is a signed-out caller and gets a 401
+  (`_shared/serve.ts`). It builds its Supabase client **per request** from the anon key and the
+  caller's `Authorization` header — there is no service-role key under `functions/`, and no write.
+- **One implementation of the shared logic.** Pure TypeScript with no Deno or Node API lives in
+  `supabase-local/supabase/functions/_shared/` and the frontend imports it through the **`#logic`**
+  alias (`nuxt.config.ts`, `vitest.config.ts`; Vite's `server.fs.allow` includes the repo root).
+  `_shared` holds the market board, football masks, cohort scoring (`wallet-stats`), prediction codes,
+  `sportOf`, and the page loaders (`game-page`, `wallet-page`, `dashboard`, `league-round-board`) that
+  both the functions and the browser's `useApi` call. Imports inside it carry the `.ts` extension
+  (Deno requires it). A name exported there and defined again in this repo fails the honesty gate
+  (`one-implementation`).
+- Pages call `useEdge()` (`composables/useEdge.ts`); `useGamePage(id)` shares one `game-page` request
+  between the page and the components that read a part of it. A part that failed comes back as its own
+  `error` and renders `UiErrorState` — never an empty panel.
+- **Request budget** (`tests/e2e/allowlist.ts`): the game page adds ≤ 3 data requests over the
+  baseline, the wallet page ≤ 2 (W29 also polls the props-slate runner).
 
 - Backend: local Supabase `127.0.0.1:54321`. Auth: `/api/auth/*` Nitro endpoints + httpOnly cookie (`useAuthEndpoint(action)` returns that path).
 - `useSupabaseClient()` attaches the stored JWT (from `useAuthToken()` → `localStorage['protero.access_token']`) on every Supabase call via the `accessToken` callback.
@@ -76,7 +103,7 @@ protero-frontend/
 │   └── utils/              7 — supabase, cache, auth, jwt, elo, operations, wallet-models
 │
 ├── database/migrations/    20 SQL files (schema history, not actively run)
-├── supabase/functions/     Edge Function sources live in supabase-local/ (repo root)
+├── (Edge Functions)        live in ../supabase-local/supabase/functions/ — `_shared` is imported here as `#logic`
 ├── public/data/            Team logos (basketball only), league logos, manifest
 ├── assets/css/             tailwind.css
 ├── tools/audit/            Playwright page-audit harness (crawl.mjs, check.mjs)
@@ -87,7 +114,7 @@ protero-frontend/
 
 | Path | Page | Purpose |
 |------|------|---------|
-| `/` | `index.vue` (~105L) | **Control room** — open exposure, live slate, fleet health, pipeline status, blind spots. All aggregation in `/api/dashboard`. |
+| `/` | `index.vue` (~105L) | **Control room** — open exposure, live slate, fleet health, pipeline status, blind spots. All aggregation in the `dashboard` Edge Function. |
 | `/calendar` | `calendar.vue` (~221L) | Month calendar — toolbar (sport/wallet dropdowns), wallet card, calendar/date-bar, games, predictions, bets. **This was `/` until 2026-08-22.** |
 | `/login` | `login.vue` (18L) | Login form (no layout) |
 | `/leagues` | `leagues.vue` (~235L) | **Competitions** — every competition in `games` (37, not the registry's 22), grouped Leagues / Cups / Not fitted, ranked by twin `level`. |
@@ -117,7 +144,7 @@ protero-frontend/
 | **leagues/** | 3 | `index.get`, `[slug].get`, `overview.get` — every competition + twin + role |
 | **predictions/** | 3 | `[gameId].get`, `accuracy.get`, `bulk-regenerate.post` |
 | **user-real-bets/** | 4 | `index.get/post`, `[id].patch/delete` |
-| **wallet/** | 6 | `bets.get`, `list.get`, `settle-bets.post`, `stats.get`, `status.get`, `tipsters.get` (provenance + coverage, **not** a second ROI) |
+| **wallet/** | 5 | `bets.get`, `list.get`, `stats.get`, `status.get`, `[id]/real-bet.post` (provenance + coverage moved to the `wallet-page` Edge Function — **not** a second ROI) |
 | **misc** | 4 | `parlays.get`, `player/[id]/season.get`, `seasons/[leagueKey].get`, `sports.get`, `update-match.post` |
 
 > The credit/subscription/picks/user-bets routes were removed 2026-08-22 with the
@@ -128,7 +155,7 @@ protero-frontend/
 | File | Purpose |
 |------|---------|
 | `supabase.ts` | **Primary DB layer.** `getSupabase()` singleton (service-role client). |
-| `cache.ts` | In-memory TTL cache. `getCached(key)`, `setCache(key, data, ttl)`. |
+| `cache.ts` | Legacy in-memory TTL cache (`getCached`/`setCache`), kept only for `wallet/bets`, `games/all`, `leagues/[slug]` and `fixture-search`. New reads use Nitro `defineCachedFunction` (see Key Patterns). |
 | `auth.ts` | `getOptionalUserId()` / `requireUserId()` — dual-mode (Bearer JWT + session cookie). |
 | `jwt.ts` | HS256 `signUserToken` / `verifyUserToken` (supabase-compatible, `iss:'protero'`). |
 | `elo.ts` | Elo ratings. K=30, home advantage=100. |
@@ -154,7 +181,9 @@ protero-frontend/
 
 **Supabase singleton.** `server/utils/supabase.ts` creates one client per Nitro lifecycle via `getSupabase()`. All API routes import from there.
 
-**In-memory server cache.** TTL-based cache in `server/utils/cache.ts`. Used for leagues, games lists, etc. Default 5-min expiry.
+**Cached reads (#51).** Cache the *data function*, never the handler: `defineCachedFunction(fn, { name, getKey, maxAge, swr: true })` at module level, with `requireUserId` still running in the handler on every request. Used by `game/[id]/{market,preview,analysis,post-mortem}`, `dashboard` (30 s), `wallet/tipsters`, `leagues/index`, `leagues/overview` and `predictions/accuracy`. Anything keyed per user (`leagues/[slug]`) stays on `cache.ts`.
+
+**Precomputed aggregates (#51).** `line_scores_currency()`, `line_scores_model_vs_close()` and `v_user_mirror_wallet_coverage` read from materialized views (`mv_*`) that `common.refresh_frontend_aggregates` rebuilds as the last step of the football, basketball and tipster pipelines (and after the W54 settler in `protero-settle-fast.sh`). The computation lives in the `*_live` objects; the old names are wrappers, so no consumer changed. The `mv_*` are not granted to API roles. A number that looks stale on the dashboard is a failed refresh step, not a bug in the read.
 
 **Operator-first.** The owner is the only user. No subscription gate, no credits — the operator sees everything. Optimise for information density, not onboarding.
 
@@ -193,9 +222,9 @@ wallet pages without being copied from them.
    `tests/e2e/`; overflow 0, no 4xx/NaN, request budget, parity specs) — run it before and after a
    page change; `PROTERO_E2E=1 bash scripts/gates.sh` runs it as a gate. A route that cannot meet
    the bar is listed in `tests/e2e/allowlist.ts` with the ticket that will fix it; the list is empty.
-8. **One market board.** `server/utils/market-board.ts` builds every market number, the status
-   line (`fixtureStatus`) and the single-fixture/round payloads; `GET /api/game/[id]/market` and
-   `GET /api/league/[key]/round-board` are shells on it. Never recompute a probability, margin or
+8. **One market board.** `#logic/market-board` builds every market number, the status
+   line (`fixtureStatus`) and the single-fixture/round payloads; the `game-page` and
+   `league-round-board` Edge Functions are shells on it. Never recompute a probability, margin or
    status in a component or a second endpoint — the parity spec compares the two.
 
 **Motion** uses the `--dur*` / `--ease-*` tokens and ships a `prefers-reduced-motion` kill switch,
@@ -346,7 +375,7 @@ rules that will bite a future change:
 |---|---|
 | `pages/wallet/index.vue` | The roster and the split fleet header. Rows navigate; nothing expands in place. |
 | `pages/wallet/[id].vue` | One wallet. Loads the WHOLE roster's performance on purpose — see multiplicity below. |
-| `utils/wallet-stats.ts` | `cohortOf()`, `scoreFamily()` (Bonferroni + Benjamini-Hochberg), and the verdict vocabulary. **The only definition of the cohort split** — the roster, the detail page and the fleet header all read it, or they will show one wallet two verdicts. |
+| `#logic/wallet-stats` | `cohortOf(), `scoreFamily()` (Bonferroni + Benjamini-Hochberg), and the verdict vocabulary. **The only definition of the cohort split** — the roster, the detail page and the fleet header all read it, or they will show one wallet two verdicts. |
 | `components/wallet/WalletRoster.vue` | Three cohort tables, each corrected for its own k. |
 | `components/wallet/WalletBreakdown.vue` | `get_wallet_breakdown` — competition / market / price. Settled singles only. |
 | `components/wallet/WalletProvenance.vue` | Mirrored-source coverage. Replaced `TipsterSources.vue`, which is deleted. |
@@ -354,11 +383,11 @@ rules that will bite a future change:
 - **W33–W47 are MIRRORS, not our wallets.** They replay an external tipster's published picks at a
   flat 1.00 (`ml/tipsters/project_bets.py`, 2026-08-23). They are real `bets` rows and settle
   through the real engine, but **nobody staked that money**. Every "ours" figure — the fleet
-  header here, and exposure / live slate / weekly P&L / fleet on `/api/dashboard` — filters
+  header here, and exposure / live slate / weekly P&L / fleet on the `dashboard` function — filters
   `archetype !== 'external_tipster'`. Pooling them reports a bankroll that does not exist.
 - **Multiplicity is per cohort, and it is not optional.** 15 mirrors are scored at once; at k=11
   Bonferroni needs p<0.0045, and W44's p=0.010 renders as `dies on k`, not EDGE. The RPC returns
-  the *uncorrected* p by design — the correction lives in `utils/wallet-stats.ts`. Never render
+  the *uncorrected* p by design — the correction lives in `#logic/wallet-stats`. Never render
   `performance.verdict` raw again.
 - **A mirrored ROI never travels without its coverage.** 0%–37% of a source's slips bind to a
   fixture we hold; the ROI describes those. The roster has a `Covered` column and the hero a
@@ -411,5 +440,5 @@ future change:
 
 | Item | Status | Notes |
 |---|---|---|
-| Dashboard request budget | queued | RPC `get_dashboard_bundle(...)` — today's dashboard fires several requests |
+| (none) | — | The dashboard is one `dashboard` Edge Function call since #55. Open work lives in GitHub Issues. |
 
