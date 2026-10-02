@@ -202,7 +202,7 @@
             <UiTabs :tabs="tabs" v-model="activeTab" size="sm" />
           </header>
 
-          <div class="p-3" :class="isCompleted ? 'flex-1 min-h-0 overflow-y-auto' : ''" @touchstart="onTouchStart" @touchend="onTouchEnd">
+          <div class="p-3" :class="isCompleted ? 'flex-1 min-h-0 overflow-y-auto' : ''">
             <Transition name="tab" mode="out-in">
               <div :key="activeTab">
                 <!-- Match / Game Stats (basketball) -->
@@ -422,7 +422,7 @@ watch(() => data.value?.game?.status, (status) => {
 }, { immediate: true })
 
 
-// Tab order — also the swipe order. Counts ride along as badges so the rail
+// Tab order. Counts ride along as badges so the rail
 // says how much is behind each tab before it is opened.
 // The pitch lives above the tabs, the match stats live in the side rails, and
 // the player ratings live in per-team cards under the rails — so a completed
@@ -532,12 +532,6 @@ const showNoLineup = computed(() =>
 const showPostMortem = computed(() =>
   isCompleted.value && gameSport.value === 'football')
 
-// Badge for the ratings tab: only players who actually carry a rating.
-const ratedPlayerCount = computed(() => {
-  const ls = data.value?.lineups
-  if (!ls) return 0
-  return [...(ls.home || []), ...(ls.away || [])].filter((pl) => pl?.rating != null).length
-})
 // A tab can disappear (no lineups, fantasy resolves to none). Falling back to
 // the first tab keeps the body from rendering nothing with the rail showing
 // no active pill.
@@ -546,29 +540,6 @@ watch(tabs, (list) => {
     activeTab.value = list[0].key
   }
 })
-
-// Swipe gesture handling
-let touchStartX = 0
-let touchStartY = 0
-
-function onTouchStart(e) {
-  touchStartX = e.changedTouches[0].clientX
-  touchStartY = e.changedTouches[0].clientY
-}
-
-function onTouchEnd(e) {
-  const dx = e.changedTouches[0].clientX - touchStartX
-  const dy = e.changedTouches[0].clientY - touchStartY
-  if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return
-  
-  const keys = tabs.value.map(t => t.key)
-  const idx = keys.indexOf(activeTab.value)
-  if (dx < 0 && idx < keys.length - 1) {
-    activeTab.value = keys[idx + 1]
-  } else if (dx > 0 && idx > 0) {
-    activeTab.value = keys[idx - 1]
-  }
-}
 
 // Computed properties
 const hasMatchStats = computed(() => {

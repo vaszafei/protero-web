@@ -75,32 +75,35 @@ protero-frontend/
 ├── app.config.ts           UI theme: primary=blue, gray=neutral
 ├── tailwind.config.cjs     Custom dark palette (surface, edge colors)
 │
-├── pages/                  13 routes (see Routes section)
-├── components/             67 components organized by domain
-│   ├── admin/              6 — admin panel components
-│   ├── dashboard/          12 — home page cards, calendar, stats (incl. DashboardWalletCard, DashboardToolbar)
-│   ├── game/               15 — match detail views, stats, predictions, markets (incl. MatchEvents, PossessionDonut, OddsLadder)
-│   ├── league/             18 (incl. predictions/) — league detail tabs
-│   ├── twin/               1 — entity/blind-spot layer
-│   ├── wallet/             8 — roster, hero, breakdown, provenance, bet/parlay rows
-│   ├── ui/                 shared primitives (PageShell, Tabs, ErrorState, SkeletonPanel, CountUp, Reveal, ProbBar, Tooltip, Card, EmptyState, StatCard …)
-│   └── (root)              7 — Sidebar, BottomNav, etc.
+├── pages/                  16 routes (see Routes section)
+├── components/             98 components organized by domain
+│   ├── account/            1
+│   ├── admin/              4 — FetchScheduledModal, MatchCard, MatchList, MatchStatsEditor
+│   ├── dashboard/          8 — DashboardDataProvider/Toolbar/WalletCard/GameCard, GamesCalendar, DayMatchesPanel, EmptyStateCard, PipelineRunModal
+│   ├── game/               24 — match detail views, stats, predictions, markets (MarketBoard, GamePrediction, PostMortem, GameAnalysis …)
+│   ├── league/             11 — league detail tabs (LeagueOverview, LeagueRoundBoard, AnalysisView, LeagueStandingsTable …)
+│   ├── ops/                6 — control-room panels (OpsFleet, OpsHealth, OpsLiveSlate, OpsExposureBar, OpsCalibration, OpsBlindSpots)
+│   ├── player/             6 — player page panels
+│   ├── team/ twin/         1 + 1 — team trajectory; entity/blind-spot banner
+│   ├── wallet/             14 — roster, hero, breakdown, provenance, vulnerability, ledger rows, props slate
+│   ├── ui/                 15 — shared primitives (PageShell, Tabs, ErrorState, SkeletonPanel, CountUp, Reveal, ProbBar, Tooltip, Card, EmptyState, StatCard …)
+│   └── (root)              7 — Sidebar, BottomNav, LoginForm, AppToast, SplashScreen, PickCard, PlayerPropsUpload
 
-├── composables/            14 — useApi, useAuth, useAuthEndpoint, useAuthToken,
-│                           useSupabaseClient, useSwr, useTwins,
+├── composables/            16 — useApi, useApiFetch, useEdge, useGamePage, useAuth, useAuthEndpoint, useAuthToken,
+│                           useSupabaseClient, useSwr, useTwins, usePropsSlate,
 │                           useLeagueStats, useStoiximanOcr, useStoiximanParser,
 │                           useCountUp (motion count-up)
 ├── layouts/                1 — default (sidebar + bottom nav)
 ├── middleware/             1 — auth (redirects to /login when unauthenticated)
 ├── plugins/                1 — auth.client
 ├── types/                  1 — database.ts (Supabase schema types)
-├── utils/                  10 — cache, constants, dateTime, design-tokens,
-│                           formatters, season, teamLogo, wallet-meta, bet-label,
+├── utils/                  15 — cache, constants, dateTime, error-text, formatters, season, teamLogo,
+│                           team-name, league-name, wallet-meta, wallet-pnl, bet-label, props-joint,
 │                           viz (chart palette), motion (animation tokens)
 │
 ├── server/
-│   ├── api/                37 endpoints (auth, admin, game, leagues, predictions, wallet, user-real-bets, gates)
-│   └── utils/              7 — supabase, cache, auth, jwt, elo, operations, wallet-models
+│   ├── api/                44 endpoints (auth, admin, fantasy, game, leagues, predictions, props, wallet, user-real-bets, gates …)
+│   └── utils/              10 — supabase, cache, auth, jwt, elo, wallet-models, fixture-search, pipeline, props-slate, slip-sim
 │
 ├── database/migrations/    20 SQL files (schema history, not actively run)
 ├── (Edge Functions)        live in ../supabase-local/supabase/functions/ — `_shared` is imported here as `#logic`
@@ -126,26 +129,32 @@ protero-frontend/
 | `/wallet/[id]` | `wallet/[id].vue` (~290L) | **One wallet** — hero, equity curve, P&L breakdown (competition / market / price), bets + parlays, sibling picker |
 | `/gates` | `gates.vue` (~129L) | Pipeline health + CLI-gate status (honest, no fabricated greens) |
 | `/my-real-bets` | `my-real-bets.vue` (~518L) | Operator real-money slip log (`user_real_bets`, CD #31) |
+| `/fantasy` | `fantasy/index.vue` | Fantasy slates and the official EuroLeague Fantasy Challenge squad |
+| `/fantasy/[slateId]` | `fantasy/[slateId].vue` | One slate — lineups, entries, results |
 | `/account` | `account.vue` (17L) | Profile card |
 | `/admin` | `admin.vue` (~531L) | Admin panel — operations, scraping, scoring, wallet management |
 
-## Server API (37 endpoints)
+## Server API (44 endpoints)
 
 | Group | Endpoints | Key routes |
 |-------|-----------|------------|
-| **auth/** | 5 | `login.post`, `logout.post`, `register.post`, `me.get`, `cleanup-sessions.post` |
-| **admin/** | 6 | `bets.get`, `fetch-scheduled.post`, `fetch-scores.post`, `games/[id].delete/patch`, `operation-logs.get` |
-| **analytics/** | 1 | `predictive-insights.post` |
-| **game/** | 3 | `[id].get`, `[id]/player-props.get/post` |
-| **games/** | 1 | `all.ts` |
+| **auth/** | 5 | `login.post`, `logout.post`, `register.post`, `me.get`, `cleanup-sessions.post` — login stays on Nitro (#55) |
+| **admin/** | 4 | `fetch-scheduled.post`, `fetch-scores.post`, `games/[id].delete/patch` |
+| **fantasy/** | 9 | slates, entries, `euroleague/elfc` — plus the generate / manual-pick job runners |
+| **game/** | 4 | `[id]/correlations.get` (host Python), `[id]/shots.get`, `[id]/player-props.get/post` — the page bundle is the `game-page` Edge Function |
+| **games/** `fixtures/` | 1 + 1 | `all.ts`; `search.get` (candidates for hand-entered slips) |
 | **gates** | 1 | `gates.get` — pipeline health + CLI-gate status |
-| **dashboard** | 1 | `dashboard.get` — control-room aggregate (exposure, slate, fleet, pipelines, blind spots) |
-| **h2h/** | 1 | `[homeTeam]/[awayTeam].get` |
 | **leagues/** | 3 | `index.get`, `[slug].get`, `overview.get` — every competition + twin + role |
-| **predictions/** | 3 | `[gameId].get`, `accuracy.get`, `bulk-regenerate.post` |
+| **pipeline/** `props/` | 2 + 2 | `run.post`, `runs.get`; `slate/run.post`, `slate/status.get` — the job runners that spawn host processes |
+| **predictions/** | 2 | `[gameId].get`, `accuracy.get` |
 | **user-real-bets/** | 4 | `index.get/post`, `[id].patch/delete` |
-| **wallet/** | 5 | `bets.get`, `list.get`, `stats.get`, `status.get`, `[id]/real-bet.post` (provenance + coverage moved to the `wallet-page` Edge Function — **not** a second ROI) |
-| **misc** | 4 | `parlays.get`, `player/[id]/season.get`, `seasons/[leagueKey].get`, `sports.get`, `update-match.post` |
+| **wallet/** | 2 | `bets.get`, `[id]/real-bet.post` (the wallet reads moved to the `wallet-page` Edge Function) |
+| **misc** | 4 | `parlays.get`, `player/[id]/season.get`, `seasons/[leagueKey].get`, `sports.get` |
+
+> The dashboard, game page, wallet page and league round board are Edge Functions (#55), not routes here.
+> Removed as dead on 2026-10-02 (#54, no caller anywhere in the repo): `admin/bets`, `admin/operation-logs`,
+> `predictions/bulk-regenerate`, `update-match`, `wallet/list`, `wallet/stats`, `wallet/status`, `game/[id].get`,
+> `h2h/[homeTeam]/[awayTeam]`.
 
 > The credit/subscription/picks/user-bets routes were removed 2026-08-22 with the
 > consumer scaffolding. `operation_logs` does not exist as a table — see `gates.get.ts`.
@@ -159,7 +168,6 @@ protero-frontend/
 | `auth.ts` | `getOptionalUserId()` / `requireUserId()` — dual-mode (Bearer JWT + session cookie). |
 | `jwt.ts` | HS256 `signUserToken` / `verifyUserToken` (supabase-compatible, `iss:'protero'`). |
 | `elo.ts` | Elo ratings. K=30, home advantage=100. |
-| `operations.ts` | `logOperation()` + `getRecentOperations()` — note: `operation_logs` table does not exist. |
 | `wallet-models.ts` | `WALLET_MODEL_MAP` + `pickBestPrediction()` — prediction gating. Admin passes `null` for "all models". |
 
 ## Composables
@@ -243,20 +251,23 @@ without exception:
 
 - **Never compute ROI in the client.** `get_wallet_performance(p_wallet_id)` RPC reproduces `common.wallet_significance.py` exactly (profit/turnover, parlay = one wager). `(balance − initial_balance) / initial_balance` is bankroll return — it rendered W7 as +69.7% where its ROI is +11.5%. This was the single most-bitten bug in the app.
 - `fetchWalletStats` / `fetchWalletPerformance` in `useApi.ts` are the only read paths. Render `p_luck` + `verdict` beside ROI, never ROI alone.
-- `GET /api/wallet/status` is dead (no caller); it reads the stale `wallets.roi`/`total_bets` columns. Do not use.
+- `wallets.roi` / `total_bets` / `win_rate` are stale bankroll-return columns (the `/api/wallet/status` route that read them was deleted, #54). Never select them.
 
 ## Dashboard Component Map
+
+`/` (the control room) is built from `components/ops/*` and one `dashboard` Edge Function call. The
+`components/dashboard/*` set below belongs to `/calendar`.
 
 | Component | Purpose |
 |-----------|---------|
 | `DashboardDataProvider.vue` | Data fetcher — exposes games, predictions, bets, walletStats via scoped slot |
 | `DashboardToolbar.vue` | Top bar: wallet dropdown (left), sport filter dropdown (right, only when multi-sport) |
 | `DashboardWalletCard.vue` | Compact wallet card — balance, ROI, W/L, win-rate bar, verdict + p(luck) |
-| `GamesCalendar.vue` | Desktop calendar grid |
-| `MobileDateBar.vue` | Mobile horizontal date scroller |
+| `GamesCalendar.vue` | Calendar grid |
 | `DashboardGameCard.vue` | Individual game row — O/U chips, stake badges, prediction chip |
-| `DayMatchesPanel.vue` | Desktop side panel for selected day's matches |
+| `DayMatchesPanel.vue` | Side panel for the selected day's matches |
 | `EmptyStateCard.vue` | Empty state when no leagues subscribed |
+| `PipelineRunModal.vue` | Run-pipeline modal (live telemetry, `pipeline_runs`) |
 
 ## Auth Flow
 
