@@ -3,7 +3,7 @@ import { requireUserId } from '~/server/utils/auth'
 import { fetchRawRecentFixtures, buildFormSide } from '~/server/utils/team-form'
 import { fetchTwinRatings } from '~/server/utils/twin-ratings'
 import { fetchCompetitionRules } from '~/server/utils/competition-rules'
-import { isEnabled, disabledReason, LEAGUE_ENABLED_MARKETS } from '~/server/utils/football-masks'
+import { bettingStatus } from '~/server/utils/market-board'
 import { fetchGameCorrelations } from '~/server/utils/slip-sim'
 import { parsePrediction } from '~/utils/prediction-label'
 
@@ -25,33 +25,9 @@ import { parsePrediction } from '~/utils/prediction-label'
  * holdout ROI + market ceiling, never on what this endpoint renders.
  */
 
-/** V5 Thompson prices NBA/EuroLeague ML_HOME only (CD #37) — V6 AIF bets
- * nothing in basketball (CD #19). No `football-masks.ts`-style per-market
- * table exists for basketball yet; this is deliberately the coarse version. */
-const BASKETBALL_ML_HOME_LEAGUES = ['nba', 'euroleague']
-
 const TRENDS_LOOKBACK = 200
 const TRENDS_MIN_N = 30
 const H2H_LIMIT = 20
-
-function bettingStatus(sport: string, leagueKey: string) {
-  if (sport === 'basketball') {
-    const supported = BASKETBALL_ML_HOME_LEAGUES.includes(leagueKey)
-    return {
-      enabled: supported,
-      enabled_markets: supported ? ['home_win'] : [],
-      reason: supported
-        ? null
-        : 'not bet — V5 Thompson only prices NBA/EuroLeague ML_HOME (CD #37); this league is not modelled',
-    }
-  }
-  const enabledMarkets = Object.keys(LEAGUE_ENABLED_MARKETS[leagueKey] || {})
-  return {
-    enabled: enabledMarkets.length > 0,
-    enabled_markets: enabledMarkets,
-    reason: enabledMarkets.length > 0 ? null : disabledReason(leagueKey, enabledMarkets[0] || ''),
-  }
-}
 
 export default defineEventHandler(async (event) => {
   await requireUserId(event)

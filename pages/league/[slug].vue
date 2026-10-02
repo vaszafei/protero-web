@@ -145,16 +145,15 @@
 
       <!-- Predictions — current season only; the tab is disabled otherwise -->
       <div v-show="activeTab === 'predictions'" class="tab-anim flex-1 min-h-0 overflow-y-auto">
-        <PredictionsView
-          ref="predictionsViewRef"
-          :nextRound="nextUnplayedRound"
-          :roundMatches="nextUnplayedMatches"
-          :teamStats="computedStandings"
-          :standings="liveStandings"
-          :games="data?.games || []"
-          :leagueKey="data.key"
+        <LeagueRoundBoard
+          v-if="predictionsOpened"
+          :league-key="data.key"
           :season="selectedSeason"
           :sport="data.sport"
+          :by-date="byDate"
+          :initial-round="nextUnplayedRound || selectedRound"
+          :initial-date="nextUnplayedDate"
+          :max-round="maxRound"
         />
       </div>
     </div>
@@ -170,7 +169,7 @@ import LeagueSeasonBar from '~/components/league/LeagueSeasonBar.vue'
 import LeagueOverview from '~/components/league/LeagueOverview.vue'
 import LeagueStandingsTable from '~/components/league/LeagueStandingsTable.vue'
 import AnalysisView from '~/components/league/AnalysisView.vue'
-import PredictionsView from '~/components/league/PredictionsView.vue'
+import LeagueRoundBoard from '~/components/league/LeagueRoundBoard.vue'
 import { useLeagueStats } from '~/composables/useLeagueStats'
 import { getLeagueLogoUrl } from '~/utils/teamLogo'
 import { errorText } from '~/utils/error-text'
@@ -843,7 +842,7 @@ function buildStandings(gamesArr) {
 }
 
 // Season-to-date table — all completed games. Feeds the twin table and
-// PredictionsView (basketball projection needs the full season, not a cut).
+// the twin table and the standings views.
 const liveStandings = computed(() => buildStandings(data.value?.games || []))
 
 // "As of round N" table — games up to and including the selected round, so the
@@ -892,6 +891,16 @@ const nextUnplayedRound = computed(() => {
 })
 
 // Computed: All matches closest to today's date (most recent upcoming games)
+// Mount the round board on first visit to its tab, not on every league page load.
+const predictionsOpened = ref(false)
+watch(activeTab, (t) => { if (t === 'predictions') predictionsOpened.value = true }, { immediate: true })
+
+/** The day the board opens on for day-paged competitions: the nearest upcoming fixture's date. */
+const nextUnplayedDate = computed(() => {
+  const first = nextUnplayedMatches.value[0]
+  return first?.date ? String(first.date).slice(0, 10) : null
+})
+
 const nextUnplayedMatches = computed(() => {
   if (!data.value?.games) return []
   

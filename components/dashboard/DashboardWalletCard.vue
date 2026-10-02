@@ -1,5 +1,5 @@
 <template>
-  <div class="wallet-card px-4 py-3 flex items-center gap-4">
+  <div class="wallet-card px-4 py-3 flex items-center gap-4" data-testid="calendar-wallet-card">
     <!-- Balance -->
     <div class="flex-shrink-0">
       <p class="text-[10px] text-zinc-500 uppercase tracking-wide">Balance</p>
@@ -47,6 +47,7 @@
     <!-- Verdict + p(luck) — ROI never travels alone -->
     <div v-if="perf && verdict !== 'n<10'" class="flex-shrink-0 flex items-center gap-1.5">
       <span
+        data-testid="verdict"
         class="text-[10px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap"
         :class="VERDICT_CLASS[verdict]"
         :title="`${VERDICT_TITLE[verdict]}${k > 1 ? ` Scored at k=${k}, needs p<${bar?.toFixed(4)}.` : ''}`"

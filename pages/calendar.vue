@@ -63,7 +63,7 @@
                 :error="errors.walletStats"
                 @retry="refresh"
               />
-              <DashboardWalletCard v-else-if="walletStats" :wallet-stats="walletStats" />
+              <DashboardWalletCard v-else-if="walletStats" :wallet-stats="walletStats" :data-wallet-id="selectedWalletId" />
               <UiErrorState
                 v-if="errors.parlays"
                 compact

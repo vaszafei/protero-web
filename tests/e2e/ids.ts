@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 
 const PSQL = ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-d', 'postgres', '-Atc']
 
-function q(sql: string): string {
+export function q(sql: string): string {
   return execFileSync('psql', [...PSQL, sql], {
     env: { ...process.env, PGPASSWORD: process.env.PGPASSWORD || 'postgres' },
     encoding: 'utf8',
@@ -32,4 +32,21 @@ export function discover() {
     basketballLeague: 'euroleague',
     slate: q(`select id from fantasy_slates order by id desc limit 1`) || null,
   }
+}
+
+/** A mirrored wallet (external tipster) to open the Mirrored tab on. */
+export function mirrorWalletId(): number {
+  return Number(one('mirror wallet', `select id from wallets where archetype='external_tipster' order by id limit 1`))
+}
+
+/** `get_wallet_performance(id).pnl` — the one sanctioned P&L figure. */
+export function rpcPnl(walletId: number): number {
+  return Number(one(`pnl for wallet ${walletId}`, `select pnl from get_wallet_performance(${walletId})`))
+}
+
+/** Up to `n` football rounds of a league that hold at least 5 fixtures, with a season. */
+export function roundWithFixtures(leagueKey: string): { season: string, round: number } {
+  const row = one('round with fixtures', `select season||'|'||round from games where league_key='${leagueKey}' and round is not null group by season, round having count(*) >= 8 order by season desc, round desc limit 1`)
+  const [season, round] = row.split('|')
+  return { season, round: Number(round) }
 }

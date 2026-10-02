@@ -476,53 +476,6 @@ export const useApi = () => {
   }
 
   /**
-   * GET /api/h2h/:homeTeam/:awayTeam — head to head
-   */
-  const fetchH2H = async (homeTeamName: string, awayTeamName: string, limit = 20) => {
-    // Find team IDs by name
-    const { data: teams, error: tErr } = await supabase
-      .from('teams')
-      .select('id, name')
-      .or(`name.eq.${homeTeamName},name.eq.${awayTeamName}`)
-    if (tErr) throw tErr
-
-    if (!teams || teams.length < 2) return { matches: [], summary: null }
-
-    const homeTeam = teams.find(t => t.name === homeTeamName)
-    const awayTeam = teams.find(t => t.name === awayTeamName)
-    if (!homeTeam || !awayTeam) return { matches: [], summary: null }
-
-    const { data: matches, error: mErr } = await supabase
-      .from('games')
-      .select(`
-        id, date, season, league_key, home_goals, away_goals, status,
-        home_team:teams!home_team_id(name),
-        away_team:teams!away_team_id(name)
-      `)
-      .or(`and(home_team_id.eq.${homeTeam.id},away_team_id.eq.${awayTeam.id}),and(home_team_id.eq.${awayTeam.id},away_team_id.eq.${homeTeam.id})`)
-      .not('home_goals', 'is', null)
-      .order('date', { ascending: false })
-      .limit(limit)
-    if (mErr) throw mErr
-
-    const m = matches || []
-    const homeWins = m.filter((g: any) => {
-      const isHome = g.home_team?.name === homeTeamName
-      return isHome ? g.home_goals > g.away_goals : g.away_goals > g.home_goals
-    }).length
-
-    return {
-      matches: m,
-      summary: {
-        totalMatches: m.length,
-        homeTeamWins: homeWins,
-        awayTeamWins: m.length - homeWins - m.filter((g: any) => g.home_goals === g.away_goals).length,
-        draws: m.filter((g: any) => g.home_goals === g.away_goals).length
-      }
-    }
-  }
-
-  /**
    * GET /api/player/:id/season — player season stats
    */
   const fetchPlayerSeason = async (playerId: number, leagueKey?: string) => {
@@ -904,11 +857,17 @@ export const useApi = () => {
     if (wErr) throw wErr
     if (!wallet) return { points: [], initial_balance: 0, current_balance: 0, start_balance: 0 }
 
+    // PostgREST caps a response at db-max-rows (1000). Ascending, a longer series silently ends at
+    // its 1000th wager and "All" reads a partial total (W54: 1,083 wagers, chart +1,705 against a
+    // true -434.82). Newest first keeps the end of the curve — each point is an absolute
+    // cumulative, so a recent window is still anchored — and `truncated` says the head is cut.
+    const MAX_POINTS = 1000
     let q = supabase
       .from('v_wallet_balance_history')
       .select('ts, pnl_cum')
       .eq('wallet_id', walletId)
-      .order('ts', { ascending: true })
+      .order('ts', { ascending: false })
+      .limit(MAX_POINTS)
 
     const seed = Number(wallet.initial_balance || 0)
     let startBalance = seed
@@ -931,12 +890,13 @@ export const useApi = () => {
     const { data, error } = await q
     if (error) throw error
 
-    const points = (data || []).map((row: any) => ({
+    const points = [...(data || [])].reverse().map((row: any) => ({
       ts: row.ts as string,
       balance: seed + Number(row.pnl_cum || 0),
     }))
     return {
       points,
+      truncated: (data || []).length >= MAX_POINTS,
       initial_balance: seed,
       current_balance: Number(wallet.balance || 0),
       start_balance: startBalance,
@@ -1158,7 +1118,6 @@ export const useApi = () => {
     fetchCompetitionGroups,
     fetchFantasyProjections,
     fetchPlayerPropPicks,
-    fetchH2H,
     fetchPlayerSeason,
     // Wallets / parlays / accuracy
     fetchWallets,

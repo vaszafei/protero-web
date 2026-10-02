@@ -13,6 +13,7 @@
           <span class="text-2xl sm:text-3xl font-extrabold text-white tabular-nums"><UiCountUp :value="Number(wallet.balance)" :decimals="2" :format="(n) => formatMoney(n)" /></span>
           <span
             v-if="pnl != null"
+            data-testid="pnl"
             class="text-sm font-bold tabular-nums"
             :class="pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-red-400' : 'text-zinc-500'"
             title="Profit over settled wagers, from get_wallet_performance — the same figure as the roster"
@@ -66,6 +67,7 @@
       />
       <div v-else-if="performance" class="mt-2.5 pt-2 border-t border-white/5 flex items-center gap-x-2 gap-y-1 flex-wrap">
         <span
+          data-testid="verdict"
           class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
           :class="VERDICT_CLASS[verdict]"
           :title="VERDICT_TITLE[verdict]"

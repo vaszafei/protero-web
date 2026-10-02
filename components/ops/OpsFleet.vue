@@ -40,6 +40,7 @@
         <tbody>
           <tr
             v-for="(r, i) in rows" :key="r.id"
+            :data-testid="`fleet-${r.id}`"
             class="row-hover cursor-pointer row-in"
             :style="rowDelay(i)"
             @click="$router.push(`/wallet?w=${r.id}`)"
@@ -71,6 +72,7 @@
             </td>
             <td class="px-2 py-1.5 text-right">
               <span
+                data-testid="verdict"
                 class="px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap"
                 :class="VERDICT_CLASS[r.verdict]"
                 :title="`${VERDICT_TITLE[r.verdict]}${r.k > 1 ? ` Scored at k=${r.k}, needs p<${r.bar.toFixed(4)}.` : ''}`"

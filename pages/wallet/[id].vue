@@ -95,6 +95,7 @@
           :loading="historyLoading"
           :seed="parseFloat(wallet.initial_balance || 0)"
           :start-balance="historyStart"
+          :truncated="historyTruncated"
           :error="historyError"
           @retry="loadHistory"
           @update:days="setHistoryDays"
@@ -295,6 +296,7 @@ const slate = usePropsSlate(propsLeague, slateDate)
 const historyDays = ref(0)
 const historyPoints = ref([])
 const historyStart = ref(null)
+const historyTruncated = ref(false)
 const historyLoading = ref(false)
 
 const rowPx = computed(() => ledgerTab.value === 'slips' ? SLIP_ROW_PX
@@ -434,6 +436,7 @@ async function loadHistory() {
     if (!isCurrent(id)) return
     historyPoints.value = data.points || []
     historyStart.value = data.start_balance ?? null
+    historyTruncated.value = !!data.truncated
   } catch (e) {
     if (!isCurrent(id)) return
     historyPoints.value = []
@@ -558,7 +561,7 @@ function onBetLogged() {
 function resetWalletState() {
   bets.value = []; betsTotal.value = 0
   parlays.value = []; parlaysTotal.value = 0
-  historyPoints.value = []; historyStart.value = null
+  historyPoints.value = []; historyStart.value = null; historyTruncated.value = false
   breakdown.value = null; seasonLadder.value = []
   vulnerability.value = null; marginOfLoss.value = null
   for (const e of [betsError, parlaysError, historyError, breakdownError, seasonLadderError, vulnerabilityError, marginOfLossError]) e.value = null

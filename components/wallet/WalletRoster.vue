@@ -59,6 +59,7 @@
           <tr
             v-for="(r, i) in active.rows" :key="r.id"
             :style="rowDelay(i)"
+            :data-testid="`roster-${r.id}`"
             class="row-in border-t border-edge/40 cursor-pointer transition-colors"
             :class="r.id === selectedId ? 'bg-[var(--brand-blue-tint)]' : 'hover:bg-surface-light/30'"
             @click="$emit('select', r.id)"
@@ -85,7 +86,7 @@
             <td class="px-2 py-1.5 text-right tabular-nums" :class="r.perf.n_pending > 0 ? 'text-amber-400' : 'text-zinc-600'">
               {{ r.perf.n_pending || '—' }}
             </td>
-            <td v-if="active.showCoverage" class="px-2 py-1.5 text-right tabular-nums">
+            <td v-if="active.showCoverage" data-testid="covered" class="px-2 py-1.5 text-right tabular-nums">
               <template v-if="r.coverage">
                 <span :class="coverageClass(r.coverage.coverage_pct)">{{ r.coverage.coverage_pct.toFixed(1) }}%</span>
                 <span class="text-zinc-600"> of {{ r.coverage.slips }}</span>
@@ -93,8 +94,9 @@
               <span v-else class="text-zinc-600">—</span>
             </td>
             <td class="px-2 py-1.5 text-right tabular-nums text-zinc-500">{{ money(r.perf.turnover) }}</td>
-            <td class="px-2 py-1.5 text-right tabular-nums" :class="signClass(r.perf.pnl)">{{ formatMoney(r.perf.pnl, { signed: true }) }}</td>
+            <td data-testid="pnl" class="px-2 py-1.5 text-right tabular-nums" :class="signClass(r.perf.pnl)">{{ formatMoney(r.perf.pnl, { signed: true }) }}</td>
             <td
+              data-testid="roi"
               class="px-2 py-1.5 text-right tabular-nums font-semibold"
               :class="priceBasisOf(r.id) === 'synthetic' ? 'text-neutral-500 italic font-normal' : roiInk(r.perf.roi_pct, r.verdict).class"
               :title="priceBasisOf(r.id) === 'synthetic' ? UNPRICED_TITLE
@@ -112,6 +114,7 @@
             </td>
             <td class="px-3 py-1.5">
               <span
+                data-testid="verdict"
                 class="px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap"
                 :class="VERDICT_CLASS[r.verdict]"
                 :title="VERDICT_TITLE[r.verdict]"

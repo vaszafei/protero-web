@@ -295,37 +295,12 @@ const { data: market, pending: marketPending, error: marketErr, refresh: refresh
 const marketError = computed(() => (marketErr.value ? errorText(marketErr.value) : null))
 
 // ─── Status ─────────────────────────────────────────────────
-const PIPELINE_AT: Record<string, string> = { football: '09:00', basketball: '11:00' }
-
-/** Any stored price for this fixture — without one no model can place anything. */
-const hasOdds = computed(() => {
-  const g = props.game
-  return !!(g.odds_home || g.odds_away || g.sport_stats?.odds?.moneyline || resultRows.value.length)
-})
-
+// The status line is computed once, server-side (`fixtureStatus` in server/utils/market-board.ts),
+// so the league round board and this tab cannot say different things about one fixture.
 const statusTone = computed(() => {
-  const betting = props.analysis?.betting
-  const ours = wagers.value.filter((w: any) => !isMirror(w))
-  const singles = ours.filter((w: any) => !w.slip)
-  const legs = ours.filter((w: any) => w.slip)
-  if (singles.length) {
-    const extra = legs.length ? ` and ${legs.length} parlay leg${legs.length > 1 ? 's' : ''}` : ''
-    return { tag: 'Bet', cls: 'gp-status-bet', text: `${singles.length} single${singles.length > 1 ? 's' : ''}${extra} on this fixture in our wallets.` }
-  }
-  if (legs.length) {
-    const slips = new Set(legs.map((w: any) => w.slip.parlay_id)).size
-    return { tag: 'In slips', cls: 'gp-status-on', text: `${legs.length} leg${legs.length > 1 ? 's' : ''} in ${slips} of our parlay slip${slips > 1 ? 's' : ''} — a leg is not a wager on its own; the slip is.` }
-  }
-  if (betting && !betting.enabled) {
-    return { tag: 'Not bet', cls: 'gp-status-off', text: betting.reason || 'This competition has no enabled cell.' }
-  }
-  if (props.prediction) {
-    return { tag: 'Scored', cls: 'gp-status-on', text: 'The model scored this fixture; no wager has been struck on it.' }
-  }
-  if (!marketPending.value && !hasOdds.value) {
-    return { tag: 'No price', cls: 'gp-status-off', text: 'No odds are stored for this fixture, so there is nothing for the model to price against.' }
-  }
-  return { tag: 'Not yet', cls: 'gp-status-off', text: `No prediction row yet — the ${props.sport} pipeline places at ${PIPELINE_AT[props.sport] || 'its daily run'}.` }
+  if (market.value?.fixture_status) return market.value.fixture_status
+  if (marketErr.value) return { tag: 'Unknown', cls: 'gp-status-off', text: 'The status could not be read — the market read failed.' }
+  return { tag: '…', cls: 'gp-status-off', text: 'Reading the market…' }
 })
 
 // ─── Pick ───────────────────────────────────────────────────
