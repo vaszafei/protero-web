@@ -1,33 +1,25 @@
 <template>
-  <Teleport to="body">
-    <Transition name="sheet">
-      <div v-if="open" class="modal-overlay" @click.self="$emit('close')">
-        <div class="modal-sheet" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
-          <!-- Drag handle -->
-          <div class="flex justify-center pt-2 pb-1">
-            <div class="w-10 h-1 rounded-full bg-zinc-600"></div>
-          </div>
+  <UiDrawer :open="open" :label="`${playerName} season`" @close="$emit('close')">
+    <template #header>
+      <div class="flex items-center justify-between px-5 py-3.5">
+        <div>
+          <h3 class="text-base font-bold text-zinc-100">{{ playerName }}</h3>
+          <span class="text-xs text-zinc-500">{{ leagueKey.toUpperCase() }} · Season {{ currentSeason }}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <NuxtLink
+            :to="`/player/${getPlayerId(player)}?league=${leagueKey}&name=${encodeURIComponent(playerName)}`"
+            @click="$emit('close')"
+            class="text-xs text-[#4d8fff] hover:text-[#6da3ff] font-medium whitespace-nowrap"
+          >See player page</NuxtLink>
+          <button @click="$emit('close')" class="w-8 h-8 rounded-full bg-surface-light flex items-center justify-center text-zinc-400 hover:text-zinc-200">
+            <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </template>
 
-          <!-- Header: Player name + close -->
-          <div class="flex items-center justify-between px-5 pb-3 border-b border-edge/30">
-            <div>
-              <h3 class="text-base font-bold text-zinc-100">{{ playerName }}</h3>
-              <span class="text-xs text-zinc-500">{{ leagueKey.toUpperCase() }} · Season {{ currentSeason }}</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <NuxtLink
-                :to="`/player/${getPlayerId(player)}?league=${leagueKey}&name=${encodeURIComponent(playerName)}`"
-                @click="$emit('close')"
-                class="text-xs text-[#4d8fff] hover:text-[#6da3ff] font-medium whitespace-nowrap"
-              >See player page</NuxtLink>
-              <button @click="$emit('close')" class="w-8 h-8 rounded-full bg-surface-light flex items-center justify-center text-zinc-400 hover:text-zinc-200">
-                <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <!-- Scrollable content -->
-          <div class="modal-body">
+    <div class="px-5 py-4 space-y-5">
             <!-- Loading -->
             <div v-if="seasonLoading" class="flex items-center justify-center py-12 gap-3">
               <div class="w-5 h-5 border-2 border-zinc-600 border-t-[#f82828] rounded-full animate-spin"></div>
@@ -264,11 +256,8 @@
                 </div>
               </div>
             </div>
-          </div>
         </div>
-      </div>
-    </Transition>
-  </Teleport>
+    </UiDrawer>
 </template>
 
 <script setup>
@@ -345,43 +334,11 @@ async function loadSeason() {
 }
 
 watch(() => props.open, (open) => {
-  if (open) {
-    loadSeason()
-    document.body.style.overflow = 'hidden'
-  } else {
-    document.body.style.overflow = ''
-  }
+  if (open) loadSeason()
 })
 
 async function retryLoad() {
   await loadSeason()
-}
-
-// ─── Swipe-to-dismiss ────────────────────────────────────
-
-let touchStartY = 0
-let touchDeltaY = 0
-
-function onTouchStart(e) {
-  touchStartY = e.touches[0].clientY
-  touchDeltaY = 0
-}
-
-function onTouchMove(e) {
-  touchDeltaY = e.touches[0].clientY - touchStartY
-  if (touchDeltaY > 0) {
-    e.currentTarget.style.transform = `translateY(${touchDeltaY}px)`
-  }
-}
-
-function onTouchEnd(e) {
-  const el = e.currentTarget
-  if (touchDeltaY > 120) {
-    emit('close')
-  } else {
-    el.style.transform = ''
-  }
-  touchDeltaY = 0
 }
 
 // ─── Today's game stats (for modal header) ───────────────
@@ -545,61 +502,6 @@ function formatGameDate(dateStr) {
 </script>
 
 <style scoped>
-/* ─── Modal overlay ─── */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.modal-sheet {
-  width: 100%;
-  max-width: 480px;
-  max-height: 85vh;
-  background: #1c1f27;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  border: 1px solid rgba(42, 47, 58, 0.6);
-  border-bottom: none;
-  display: flex;
-  flex-direction: column;
-  will-change: transform;
-  transition: transform 0.15s ease-out;
-}
-
-.modal-body {
-  flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 16px 20px 32px;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* ─── Transition ─── */
-.sheet-enter-active,
-.sheet-leave-active {
-  transition: opacity 0.25s ease;
-}
-.sheet-enter-active .modal-sheet {
-  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-}
-.sheet-leave-active .modal-sheet {
-  transition: transform 0.2s ease-in;
-}
-.sheet-enter-from,
-.sheet-leave-to {
-  opacity: 0;
-}
-.sheet-enter-from .modal-sheet,
-.sheet-leave-to .modal-sheet {
-  transform: translateY(100%);
-}
-
 /* ─── Cards ─── */
 .avg-card {
   @apply bg-surface-light/30 rounded-lg p-3 text-center;

@@ -31,6 +31,7 @@
             :key="player.id || player.name"
             class="border-b border-edge/50 hover:bg-surface-light/50 transition-colors cursor-pointer select-none"
             :class="isDNP(player) ? 'opacity-50' : ''"
+            tabindex="0"
             @click="openPlayerModal(player)"
           >
             <td class="py-1 pl-3 pr-1">
@@ -59,8 +60,8 @@
       </div>
     </div>
 
-    <!-- Player season modal (season stats + charts) -->
-    <GamePlayerSeasonModal
+    <!-- Player season drawer (season stats + charts) -->
+    <GamePlayerSeasonDrawer
       :open="modalOpen"
       :player="modalPlayer"
       :league-key="leagueKey"
