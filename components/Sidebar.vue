@@ -64,7 +64,7 @@
 </template>
 
 <script setup>
-import { LayoutGrid, CalendarDays, User, LogOut, Shield, ShieldCheck, Trophy, Wallet, Sparkles } from 'lucide-vue-next'
+import { LayoutGrid, CalendarDays, User, LogOut, Shield, ShieldCheck, Trophy, Wallet, Sparkles, Banknote } from 'lucide-vue-next'
 
 defineEmits(['navigate'])
 
@@ -76,6 +76,7 @@ const NAV = [
   { to: '/leagues', label: 'Leagues', icon: Trophy },
   { to: '/wallet', label: 'Wallet', icon: Wallet },
   { to: '/fantasy', label: 'Fantasy', icon: Sparkles, admin: true },
+  { to: '/my-real-bets', label: 'Real bets', icon: Banknote, admin: true },
   { to: '/gates', label: 'Gates', icon: ShieldCheck, admin: true },
 ]
 const visibleNav = computed(() => NAV.filter((i) => !i.admin || isAdmin.value))

@@ -1,42 +1,43 @@
 <template>
-  <section v-if="managers.length" class="panel">
+  <section v-if="managers.length" class="panel panel-fill">
     <header class="panel-head">
       <h3 class="panel-title">Managers</h3>
-      <span class="text-[10px] text-zinc-600 tabular-nums">{{ managers.length }}</span>
-      <span class="ml-auto text-[10px] text-zinc-600 hidden sm:inline">most league games</span>
+      <span class="panel-count">{{ managers.length }}</span>
+      <UiTooltip class="ml-auto" :width="340" placement="bottom">
+        <span class="panel-link">most league games</span>
+        <template #content>
+          <p>
+            Managers who have held a job in this competition, keyed by entity id — never by name. The formation
+            is their most-used shape across that history, a fact about the past, not a price. Context only,
+            like every twin surface.
+          </p>
+        </template>
+      </UiTooltip>
     </header>
 
     <div class="divide-y divide-edge/40">
-      <div
-        v-for="m in managers"
-        :key="m.coach_id"
-        class="px-3 py-2"
-      >
-        <div class="flex items-baseline gap-2">
-          <span class="text-[11px] text-zinc-200 truncate">{{ m.coach_name || 'Unknown' }}</span>
-          <span class="text-[10px] text-zinc-600 tabular-nums">{{ leagueGames(m) }} in league</span>
-          <span class="ml-auto text-[10px] text-zinc-600 tabular-nums">{{ m.games }} total</span>
-        </div>
-        <div class="mt-1 flex items-center gap-1 flex-wrap">
-          <span
-            v-for="f in topFormations(m, 3)"
-            :key="f[0]"
-            class="text-[10px] text-zinc-500"
-          >{{ f[0] }}<span class="text-zinc-700">·{{ f[1] }}</span></span>
-          <span v-if="!topFormations(m, 3).length" class="text-[10px] text-zinc-700">no formation record</span>
-        </div>
+      <div v-for="m in top" :key="m.coach_id" class="px-3 py-1 flex items-baseline gap-2">
+        <span class="text-[11px] text-zinc-200 truncate">{{ m.coach_name || 'Unknown' }}</span>
+        <span class="text-[10px] text-zinc-600 tabular-nums">{{ leagueGames(m) }} in league</span>
+        <span class="text-[10px] text-zinc-500">{{ topFormations(m, 1)[0]?.[0] || '' }}</span>
+        <span class="ml-auto text-[10px] text-zinc-600 tabular-nums">{{ m.games }} total</span>
+      </div>
+      <div v-if="rest.length" class="px-3 py-1">
+        <UiTooltip :width="320" placement="bottom">
+          <span class="text-[10px] text-zinc-500 hover:text-zinc-300 cursor-default">+{{ rest.length }} more managers</span>
+          <template #content>
+            <p v-for="m in rest" :key="m.coach_id" class="flex gap-2">
+              <span>{{ m.coach_name || 'Unknown' }}</span>
+              <span class="opacity-70">{{ leagueGames(m) }} in league · {{ topFormations(m, 1)[0]?.[0] || '—' }}</span>
+            </p>
+          </template>
+        </UiTooltip>
       </div>
     </div>
-
-    <p class="px-3 py-2 border-t border-edge/40 text-[10px] text-zinc-600 leading-relaxed">
-      Managers who have held a job in this competition, keyed by entity id — never by name.
-      The formation is their most-used shape across that history, a fact about the past, not a
-      price. Context only, like every twin surface.
-    </p>
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 /**
  * A competition's managerial landscape — the manager twin surfaced.
  *
@@ -46,17 +47,23 @@
  * first-pass measurement (research/managers/formation_corr.py) found formation
  * and manager identity both already priced by the close. Never render as edge.
  */
+import { computed } from 'vue'
+
 const props = defineProps({
-  managers: { type: Array, default: () => [] },
+  managers: { type: Array as () => any[], default: () => [] },
   leagueKey: { type: String, required: true },
 })
 
-function leagueGames(m) {
+const TOP_N = 5
+const top = computed(() => props.managers.slice(0, TOP_N))
+const rest = computed(() => props.managers.slice(TOP_N))
+
+function leagueGames(m: any) {
   return Number(m?.leagues_managed?.[props.leagueKey] || 0)
 }
 
 /** Most-used formations, sorted desc — a manager's tactical fingerprint. */
-function topFormations(m, n) {
+function topFormations(m: any, n: number) {
   const fm = m?.formations_used || {}
   return Object.entries(fm)
     .sort((a, b) => b[1] - a[1])

@@ -1,10 +1,11 @@
 <template>
   <div>
+    <Transition name="swap" mode="out-in">
     <div v-if="pending"><UiSkeletonPanel :rows="6" /></div>
 
     <UiErrorState v-else-if="error" title="The post-mortem failed to load." :error="error" @retry="load" />
 
-    <template v-else-if="pm && hasAnything">
+    <div v-else-if="pm && hasAnything">
       <section class="panel overflow-hidden">
         <header class="panel-head">
           <span class="panel-title">Post-mortem</span>
@@ -174,7 +175,8 @@
           </div>
         </div>
       </section>
-    </template>
+    </div>
+    </Transition>
   </div>
 </template>
 
@@ -195,28 +197,22 @@
 import { ref, computed, watch } from 'vue'
 import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import UiTooltip from '~/components/ui/Tooltip.vue'
-
-const apiFetch = useApiFetch()
+import { errorText } from '~/utils/error-text'
 
 const props = defineProps<{ gameId: number | string }>()
 
-const pm = ref<any>(null)
-const pending = ref(true)
-const error = ref<string | null>(null)
+/** Tells the page whether this panel had anything to show, so it can fall back to the market read. */
+const emit = defineEmits<{ (e: 'resolved', hasContent: boolean): void }>()
 
-async function load() {
-  pending.value = true
-  error.value = null
-  try {
-    pm.value = await apiFetch<any>(`/api/game/${props.gameId}/post-mortem`)
-  } catch (e: any) {
-    error.value = e?.data?.message || e?.message || 'Unknown error'
-    pm.value = null
-  } finally {
-    pending.value = false
-  }
-}
-watch(() => props.gameId, load, { immediate: true })
+// One part of the page's single `game-page` read (null for a fixture that is not a completed football game).
+const { data: bundle, pending, error: fetchErr, refresh: load } = useGamePage(() => props.gameId)
+const pm = computed(() => bundle.value?.postMortem?.data ?? null)
+const error = computed<string | null>(() => bundle.value?.postMortem?.error ?? (fetchErr.value ? errorText(fetchErr.value) : null))
+
+// A failed read renders its own error; only a successful empty one asks for the fallback.
+watch([pending, bundle], () => {
+  if (!pending.value && bundle.value) emit('resolved', !!error.value || hasAnything.value)
+}, { immediate: true })
 
 /** Render nothing at all rather than an empty shell with three empty states. */
 const hasAnything = computed(() =>

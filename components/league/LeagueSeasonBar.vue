@@ -3,7 +3,7 @@
        body of that card, not its own bordered box. Ring + status on the left,
        the round rail filling the remaining width on the right so the whole
        header uses the page's real width instead of a 340px sidebar column. -->
-  <div class="seasonbody mt-3.5 flex flex-col md:flex-row md:items-center gap-4">
+  <div class="seasonbody mt-1.5 flex flex-col md:flex-row md:items-center gap-4">
     <div class="flex items-center gap-3.5 flex-shrink-0">
       <!-- Radial progress ring. Two stacked circles (track + arc) via conic-gradient,
            masked to a ring so it stays crisp regardless of DPI. -->
@@ -154,8 +154,8 @@ const ringStyle = computed(() => {
 .ring {
   position: relative;
   flex-shrink: 0;
-  width: 4.6rem;
-  height: 4.6rem;
+  width: 3.4rem;
+  height: 3.4rem;
   border-radius: 999px;
   transition: background 600ms cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);

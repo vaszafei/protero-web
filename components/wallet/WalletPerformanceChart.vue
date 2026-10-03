@@ -9,7 +9,7 @@
           @click="$emit('update:days', r.days)"
           class="text-[10px] px-2 py-0.5 rounded font-medium transition-colors"
           :class="modelValue === r.days
-            ? 'bg-emerald-500/15 text-emerald-300'
+            ? 'bg-[var(--brand-blue-tint)] text-[var(--brand-blue-hi)]'
             : 'text-zinc-500 hover:text-zinc-300'"
         >{{ r.label }}</button>
       </div>
@@ -78,9 +78,9 @@
         <span>{{ formatMoney(startBalance ?? seed) }} <span class="text-zinc-700">· start</span></span>
         <span>{{ formatMoney(points[points.length - 1].balance) }} <span class="text-zinc-700">· {{ dateLabel(points[points.length - 1].ts) }}</span></span>
       </div>
-      <p class="text-center text-[10px] tabular-nums whitespace-nowrap" :class="rangePnl >= 0 ? 'text-emerald-400' : 'text-red-400'">
+      <p data-testid="chart-range-pnl" class="text-center text-[10px] tabular-nums whitespace-nowrap" :class="rangePnl >= 0 ? 'text-emerald-400' : 'text-red-400'">
         {{ formatMoney(rangePnl, { signed: true }) }}
-        <span class="text-zinc-500">({{ rangePnlPct >= 0 ? '+' : '' }}{{ rangePnlPct.toFixed(1) }}% bankroll · {{ points.length }} wagers)</span>
+        <span class="text-zinc-500">({{ rangePnlPct >= 0 ? '+' : '' }}{{ rangePnlPct.toFixed(1) }}% bankroll · {{ truncated ? `latest ${points.length}` : points.length }} wagers)</span>
       </p>
     </div>
   </div>
@@ -98,6 +98,8 @@ const props = defineProps({
   seed:      { type: Number, default: 0 },
   /** Balance just before the window opens; null = measure from the seed ("All"). */
   startBalance: { type: Number, default: null },
+  /** The series was cut at the row cap — the curve shows the newest wagers only. */
+  truncated: { type: Boolean, default: false },
   /** Why the history call failed — rendered instead of "Not enough settled bets". */
   error:     { type: String, default: null },
 })

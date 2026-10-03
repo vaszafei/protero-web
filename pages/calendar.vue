@@ -1,14 +1,12 @@
 <template>
-  <div class="p-3 sm:p-6">
+  <UiPageShell title="Calendar" subtitle="Fixtures by day, with the selected wallet's wagers on them.">
     <!-- Wait for subscriptions to load before rendering provider -->
-    <div v-if="!subsLoaded" class="flex items-center justify-center py-20">
-      <div class="flex items-center gap-3 text-zinc-500">
-        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
-        <span class="text-sm">Loading...</span>
-      </div>
+    <div v-if="!subsLoaded" class="flex gap-6">
+      <div class="flex-[11]"><UiSkeletonPanel :rows="10" /></div>
+      <div class="flex-[5]"><UiSkeletonPanel :rows="6" /></div>
     </div>
 
-    <template v-else>
+    <div v-else class="calendar-body">
     <UiErrorState
       v-if="bootError"
       compact
@@ -65,7 +63,7 @@
                 :error="errors.walletStats"
                 @retry="refresh"
               />
-              <DashboardWalletCard v-else-if="walletStats" :wallet-stats="walletStats" />
+              <DashboardWalletCard v-else-if="walletStats" :wallet-stats="walletStats" :data-wallet-id="selectedWalletId" />
               <UiErrorState
                 v-if="errors.parlays"
                 compact
@@ -84,7 +82,7 @@
                 :parlays="parlays"
                 :show-bets="bets.length > 0"
               />
-              <div v-else class="select-day-card p-8 text-center">
+              <div v-else class="panel p-6 text-center">
                 <p class="font-medium text-zinc-400">Select a day</p>
                 <p class="text-sm mt-1 text-zinc-600">Click on any day in the calendar to view matches</p>
               </div>
@@ -93,11 +91,12 @@
         </template>
       </div>
     </DashboardDataProvider>
-    </template>
-  </div>
+    </div>
+  </UiPageShell>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import DashboardDataProvider from '~/components/dashboard/DashboardDataProvider.vue'
 import GamesCalendar from '~/components/dashboard/GamesCalendar.vue'
 import EmptyStateCard from '~/components/dashboard/EmptyStateCard.vue'
@@ -114,15 +113,15 @@ definePageMeta({
 
 const { user } = useAuth()
 const api = useApi()
-const leagues = ref([])
-const selectedDay = ref(null)
+const leagues = ref<any[]>([])
+const selectedDay = ref<any>(null)
 const subsLoaded = ref(false)
 const selectedSport = ref('all')
-const wallets = ref([])
-const selectedWalletId = ref(null)
+const wallets = ref<any[]>([])
+const selectedWalletId = ref<any>(null)
 
 // Captured from slot to allow computed derivations
-const capturedGames = ref([])
+const capturedGames = ref<any[]>([])
 
 function captureGames(games) {
   if (games !== capturedGames.value) capturedGames.value = games
@@ -189,7 +188,7 @@ const autoSelectToday = (games) => {
 
 // A failed leagues / wallets / performance read is REPORTED, not turned into an empty
 // roster that reads as "no matches" or silently picks the wrong default wallet.
-const bootError = ref(null)
+const bootError = ref<string | null>(null)
 
 async function boot() {
   bootError.value = null
@@ -238,10 +237,5 @@ onMounted(boot)
 </script>
 
 <style scoped>
-.select-day-card {
-  background: rgba(28, 31, 39, 0.9);
-  border: 1px solid rgba(42, 47, 58, 0.4);
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.02);
-}
+.calendar-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 </style>

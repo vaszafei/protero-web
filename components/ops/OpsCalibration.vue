@@ -1,12 +1,31 @@
 <template>
-  <section class="panel overflow-hidden">
+  <section class="panel panel-fill">
     <header class="panel-head">
       <h2 class="panel-title">Model vs close</h2>
-      <span class="text-[10px] text-zinc-600 tabular-nums">{{ cells.length }} cells</span>
+      <span class="panel-count">{{ cells.length }} cells</span>
+      <UiTooltip class="ml-auto" :width="380" placement="bottom">
+        <span class="panel-link">how to read</span>
+        <template #content>
+          <p>
+            Brier skill against the de-vigged closing price, PAIRED on the same fixtures — positive beats
+            the close. Every cell we bet is negative, which is the standing finding, not a bad week.
+            Scored on all graded fixtures, so an early-season slate moves these numbers by nothing.
+          </p>
+          <p v-if="dcStale" class="mt-2">
+            <code>dc</code> is behind the price because <code>write_model</code> is not a pipeline step — run
+            <code>python3 -m ml.line_scores.write_model --apply</code> to close it.
+          </p>
+          <p v-if="hasGbm" class="mt-2">
+            <code>gbm</code> stopping at its test season is BY DESIGN (<code>write_gbm.py</code> writes
+            <code>TEST_SEASON</code> only, so a training-season row can never be mistaken for an out-of-sample
+            one) — its "unscored" count is not staleness.
+          </p>
+        </template>
+      </UiTooltip>
     </header>
 
     <!-- How current the model arm of the spine is. -->
-    <div v-if="modelArms.length" class="px-3 py-2 border-b border-edge/40 space-y-1">
+    <div v-if="modelArms.length" class="px-3 py-1.5 border-b border-edge/40 space-y-0.5 flex-shrink-0">
       <div
         v-for="a in modelArms" :key="a.source"
         class="flex items-baseline gap-2 text-[10px] tabular-nums"
@@ -27,8 +46,8 @@
       </div>
     </div>
 
-    <div v-if="cells.length" class="divide-y divide-edge/40">
-      <div v-for="c in cells" :key="c.league_key + c.market" class="px-3 py-1.5">
+    <div v-if="cells.length" class="panel-scroll divide-y divide-edge/40">
+      <div v-for="(c, i) in cells" :key="c.league_key + c.market" class="px-3 py-1.5 row-in" :style="rowDelay(i)">
         <div class="flex items-baseline gap-2">
           <span class="text-[11px] text-zinc-300 truncate">{{ leagueLabel(c.league_key) }}</span>
           <span class="text-[10px] text-zinc-500">{{ marketLabel(c.market) }}</span>
@@ -43,7 +62,7 @@
           </div>
           <span
             class="text-[10px] tabular-nums w-14 text-right"
-            :class="c.bss == null ? 'text-zinc-600' : c.bss > 0 ? 'text-blue-300' : 'text-red-400/80'"
+            :class="c.bss == null ? 'text-zinc-600' : c.bss > 0 ? 'text-[var(--brand-blue)]' : 'text-negative'"
             :title="`Brier ${fmt5(c.brier_ours)} vs the close's ${fmt5(c.brier_close)}, on the same ${c.n} fixtures.`"
           >
             {{ c.bss == null ? '—' : signed4(c.bss) }}
@@ -56,27 +75,10 @@
       No spine rows at all for {{ missing.join(', ') }} — the mask bets {{ missing.length }} cell<span v-if="missing.length !== 1">s</span>
       the model arm has never scored.
     </p>
-
-    <p class="text-[10px] text-zinc-600 px-3 py-2 border-t border-edge/40 leading-relaxed">
-      Brier skill against the de-vigged closing price, PAIRED on the same fixtures — positive beats
-      the close. Every cell we bet is negative, which is the standing finding, not a bad week.
-      Scored on all graded fixtures, so an early-season slate moves these numbers by nothing.
-      <span v-if="dcStale">
-        <code class="text-zinc-500">dc</code> is behind the price because
-        <code class="text-zinc-500">write_model</code> is not a pipeline step — run
-        <code class="text-zinc-500">python3 -m ml.line_scores.write_model --apply</code> to close it.
-      </span>
-      <span v-if="hasGbm">
-        <code class="text-zinc-500">gbm</code> stopping at its test season is BY DESIGN
-        (<code class="text-zinc-500">write_gbm.py</code> writes <code class="text-zinc-500">TEST_SEASON</code>
-        only, so a training-season row can never be mistaken for an out-of-sample one) — its
-        "unscored" count is not staleness.
-      </span>
-    </p>
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 /**
  * Our probability against the market's, on the cells the mask actually bets.
  *
@@ -91,6 +93,7 @@
  * unpaired gap is mostly a coverage difference wearing a skill label.
  */
 import { computed } from 'vue'
+import { rowDelay } from '~/utils/motion'
 
 const props = defineProps({
   calibration: { type: Object, default: () => ({ cells: [], missing: [], currency: [] }) },
@@ -123,7 +126,7 @@ function barStyle(bss) {
 }
 
 function sourceClass(src) {
-  return src === 'gbm' ? 'text-violet-300/80' : 'text-blue-300/80'
+  return src === 'gbm' ? 'text-zinc-400' : 'text-[var(--brand-blue)]'
 }
 
 function leagueLabel(key) {

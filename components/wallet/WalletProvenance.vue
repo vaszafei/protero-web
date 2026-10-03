@@ -1,25 +1,36 @@
 <template>
-  <div class="rounded-xl bg-surface border border-edge overflow-hidden">
-    <div class="px-3 sm:px-4 py-2.5 border-b border-edge/50">
+  <div>
+    <div class="px-3 py-2 border-b border-edge/50 flex items-baseline gap-2">
       <h3 class="text-[11px] font-semibold text-zinc-300 uppercase tracking-wider">
         Mirrored sources — what we can actually check
       </h3>
-      <p class="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">
-        Every mirrored wager is one published slip at a flat {{ unitStake.toFixed(2) }}, graded by
-        <code class="text-zinc-600">common.settlement</code> against our own results — never by the
-        source's claim about itself. What the ledger cannot say is how much of the source is in it:
-        a slip only becomes a wager when our resolver binds every leg to a fixture we hold.
-      </p>
+      <UiTooltip class="ml-auto" :width="400" placement="bottom">
+        <span class="panel-link">how to read</span>
+        <template #content>
+          <p>
+            Every mirrored wager is one published slip at a flat {{ unitStake.toFixed(2) }}, graded by
+            <code>common.settlement</code> against our own results — never by the source's claim about itself.
+            What the ledger cannot say is how much of the source is in it: a slip only becomes a wager when
+            our resolver binds every leg to a fixture we hold.
+          </p>
+          <p class="mt-2">
+            Coverage is not random. The bound subsample skews toward competitions our corpus holds, so a
+            mirrored ROI describes those picks and not the tipster. Nothing here is a track record, and no
+            mirrored wallet is public — listing one needs the standard in
+            <code>docs/plans/copy-betting-product.md</code> §5.1, which none has met.
+          </p>
+        </template>
+      </UiTooltip>
     </div>
 
     <div class="divide-y divide-edge/40">
-      <div v-for="s in sources" :key="s.key" class="p-3 sm:p-4">
+      <div v-for="s in sources" :key="s.key" class="p-3">
         <div class="flex items-baseline gap-2 flex-wrap mb-2">
           <span class="text-[12px] font-semibold text-zinc-200">{{ s.name }}</span>
-          <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" :class="stateClass(s.state)">
+          <span class="pill uppercase tracking-wider" :class="stateClass(s.state)">
             {{ STATE_LABEL[s.state] }}
           </span>
-          <span v-if="!s.robots_cleared" class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-500/15 text-red-300"
+          <span v-if="!s.robots_cleared" class="pill pill-red uppercase tracking-wider"
                 title="robots.txt has not been read for this source. Nothing may scrape it.">
             robots unread
           </span>
@@ -64,7 +75,7 @@
               <td class="py-1.5 text-right tabular-nums text-zinc-500">{{ a.legs_no_market.toLocaleString() }}</td>
               <td class="py-1.5 text-right tabular-nums">
                 <template v-if="a.verdict_comparable">
-                  <span :class="a.verdict_agree === a.verdict_comparable ? 'text-emerald-400' : 'text-amber-400'">
+                  <span :class="a.verdict_agree === a.verdict_comparable ? 'text-zinc-300' : 'text-amber-400'">
                     {{ a.verdict_agree }}/{{ a.verdict_comparable }}
                   </span>
                 </template>
@@ -76,17 +87,10 @@
         </table>
       </div>
     </div>
-
-    <p class="text-[10px] text-zinc-600 leading-relaxed px-3 sm:px-4 py-3 border-t border-edge/40">
-      Coverage is not random. The bound subsample skews toward competitions our corpus holds, so a
-      mirrored ROI describes those picks and not the tipster. Nothing here is a track record, and no
-      mirrored wallet is public — listing one needs the standard in
-      <code class="text-zinc-500">docs/plans/copy-betting-product.md</code> §5.1, which none has met.
-    </p>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 defineProps({
   sources:   { type: Array, default: () => [] },
   unitStake: { type: Number, default: 1 },
@@ -99,12 +103,12 @@ const STATE_LABEL = {
   no_adapter: 'no adapter',
 }
 
-function stateClass(state) {
+function stateClass(state: string) {
   return {
-    backfilled: 'bg-emerald-500/15 text-emerald-300',
-    built:      'bg-amber-500/15 text-amber-300',
-    no_adapter: 'bg-zinc-700/40 text-zinc-400',
-  }[state] || 'bg-zinc-700/40 text-zinc-400'
+    backfilled: 'pill-blue',
+    built:      'pill-amber',
+    no_adapter: 'pill-dim',
+  }[state] || 'pill-dim'
 }
 
 function coverageClass(pct) {

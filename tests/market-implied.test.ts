@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bookMargin, fitImpliedGoals } from '../server/utils/market-implied'
+import { bookMargin, fitImpliedGoals } from '#logic/market-implied'
 
 // Independent of the module under test: its own Poisson, summed far past the
 // module's MAX_GOALS so truncation cannot be what the fit is recovering.

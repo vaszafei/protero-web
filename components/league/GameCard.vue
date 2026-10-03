@@ -16,7 +16,7 @@
         game.home_goals !== null
           ? (isPredictionWin(game) ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400')
           : 'bg-orange-400/15 text-orange-400'
-      ]">{{ formatPred(game.prediction) }}<span v-if="game.home_goals !== null" class="ml-0.5">{{ isPredictionWin(game) ? '✓' : '✗' }}</span></span>
+      ]">{{ formatPred(game.prediction) }}<span v-if="game.home_goals !== null" class="ml-0.5">{{ isPredictionWin(game) ? 'hit' : 'miss' }}</span></span>
     </div>
 
     <!-- Logos Row: Home vs Away -->

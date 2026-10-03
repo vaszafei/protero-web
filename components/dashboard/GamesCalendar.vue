@@ -327,7 +327,7 @@ const getLeagueCounts = (games: any[]) => {
       counts.set(key, {
         count: 0,
         predictions: 0,
-        flag: league?.flag || '⚽',
+        flag: league?.flag || '',
         name: league?.name || prettyLeagueKey(key)
       })
     }

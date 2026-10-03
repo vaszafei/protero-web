@@ -1,62 +1,78 @@
 <template>
-  <section class="panel overflow-hidden">
+  <section class="panel panel-fill">
     <header class="panel-head">
       <h2 class="panel-title">Fleet</h2>
-      <span class="text-[10px] text-zinc-600 tabular-nums">{{ rows.length }}</span>
-      <NuxtLink to="/wallet" class="panel-link">All wallets →</NuxtLink>
+      <span class="panel-count">{{ rows.length }}</span>
+      <UiTooltip class="ml-auto" :width="380" placement="bottom">
+        <span class="panel-link">how to read</span>
+        <template #content>
+          <p>
+            ROI is profit over turnover. The verdict is corrected for the cohort each wallet was scored in
+            (the same one /wallet shows), and a figure under ten settled wagers is greyed — it is not a
+            result. Nothing here reaches EDGE — run <code>python3 -m common.wallet_significance</code>
+            before quoting any of it.
+          </p>
+          <p v-if="riskAsOf" class="mt-2">
+            The Sharpe / DD / green line is <code>wallet_scorecards</code> (lifetime), written {{ riskAsOf }} by
+            <code>common.scorecard_update</code> — a hand-run with no cadence, so it is as old as that. Below
+            ten settled wagers the line is absent, not zero.
+            <template v-if="anyCappedDd">100%* is the writer's DD cap — cumulative P&amp;L fell from a positive
+            peak back through zero. It means "gave the peak back", not a bankroll wipe.</template>
+            Calmar, CLV and the regime flag are withheld: under that cap Calmar is just |ROI|, CLV is NULL
+            for every wallet, and the flag is one global <code>gamma_state</code> row stamped on all 24.
+          </p>
+        </template>
+      </UiTooltip>
+      <NuxtLink to="/wallet" class="panel-link !ml-2">All wallets →</NuxtLink>
     </header>
 
-    <div class="overflow-x-auto">
+    <div class="panel-scroll">
       <table class="w-full text-xs table-fixed">
         <thead>
           <tr class="text-zinc-500 border-b border-edge/60">
-            <th class="text-left font-medium px-2 py-2">Wallet</th>
-            <th class="text-right font-medium px-2 py-2 w-14" title="Settled wagers. A parlay counts once, never its legs.">n</th>
-            <th class="text-right font-medium px-2 py-2 w-14">Open</th>
-            <th class="text-right font-medium px-2 py-2 w-16" title="Profit / turnover — not bankroll return">ROI</th>
-            <th class="text-right font-medium px-2 py-2 w-16">Verdict</th>
+            <th class="text-left font-medium px-2 py-1.5">Wallet</th>
+            <th class="text-right font-medium px-2 py-1.5 w-12" title="Settled wagers. A parlay counts once, never its legs.">n</th>
+            <th class="text-right font-medium px-2 py-1.5 w-12">Open</th>
+            <th class="text-right font-medium px-2 py-1.5 w-16" title="Profit / turnover — not bankroll return">ROI</th>
+            <th class="text-right font-medium px-2 py-1.5 w-16">Verdict</th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="r in rows" :key="r.id"
-            class="row-hover cursor-pointer"
+            v-for="(r, i) in rows" :key="r.id"
+            :data-testid="`fleet-${r.id}`"
+            class="row-hover cursor-pointer row-in"
+            :style="rowDelay(i)"
             @click="$router.push(`/wallet?w=${r.id}`)"
           >
-            <td class="px-2 py-2">
-              <span class="text-zinc-200 truncate inline-block max-w-[104px] align-bottom" :title="r.name">{{ r.name }}</span>
+            <td class="px-2 py-1.5">
+              <UiTooltip v-if="hasRisk(r)" :width="260" placement="bottom">
+                <span class="text-zinc-200 truncate inline-block max-w-[150px] align-bottom">{{ r.name }}</span>
+                <template #content>
+                  <p>Sharpe {{ r.risk.sharpe.toFixed(2) }} — mean daily P&amp;L over its standard deviation, annualised by √252. Days without a settled wager are not in the series.</p>
+                  <p v-if="r.risk.max_drawdown_pct != null" class="mt-1">DD {{ (r.risk.max_drawdown_pct * 100).toFixed(0) }}%<template v-if="r.risk.max_drawdown_pct >= 1">*</template> — {{ ddTitle(r.risk.max_drawdown_pct) }}</p>
+                  <p v-if="r.risk.pct_green_days != null" class="mt-1">{{ (r.risk.pct_green_days * 100).toFixed(0) }}% green — share of days with a settled wager that finished positive.</p>
+                </template>
+              </UiTooltip>
+              <span v-else class="text-zinc-200 truncate inline-block max-w-[150px] align-bottom" :title="r.name">{{ r.name }}</span>
               <span class="ml-1.5 text-[10px] text-zinc-600">W{{ r.id }}</span>
-              <span v-if="r.silent" class="ml-1.5 px-1 py-0.5 rounded text-[10px] bg-zinc-700/40 text-zinc-500"
+              <span v-if="r.silent" class="ml-1.5 pill pill-dim"
                     title="Trader persona with no picker wired — it cannot place a bet">NO PICKER</span>
-              <span v-if="hasRisk(r)" class="block mt-0.5 text-[10px] text-zinc-600 tabular-nums">
-                <span title="Mean daily P&amp;L over its standard deviation, annualised by √252. Days without a settled wager are not in the series.">
-                  Sharpe {{ r.risk.sharpe.toFixed(2) }}
-                </span>
-                <span
-                  v-if="r.risk.max_drawdown_pct != null"
-                  :title="ddTitle(r.risk.max_drawdown_pct)"
-                  class="ml-1.5"
-                >· DD {{ (r.risk.max_drawdown_pct * 100).toFixed(0) }}%<template v-if="r.risk.max_drawdown_pct >= 1">*</template>
-                </span>
-                <span v-if="r.risk.pct_green_days != null" class="ml-1.5"
-                      title="Share of days with a settled wager that finished positive.">
-                  · {{ (r.risk.pct_green_days * 100).toFixed(0) }}% green
-                </span>
-              </span>
             </td>
-            <td class="px-2 py-2 text-right tabular-nums text-zinc-400">{{ n(r) }}</td>
-            <td class="px-2 py-2 text-right tabular-nums" :class="open(r) ? 'text-amber-400' : 'text-zinc-600'">
+            <td class="px-2 py-1.5 text-right tabular-nums text-zinc-400">{{ n(r) }}</td>
+            <td class="px-2 py-1.5 text-right tabular-nums" :class="open(r) ? 'text-amber-400' : 'text-zinc-600'">
               {{ open(r) || '—' }}
             </td>
             <td
-              class="px-2 py-2 text-right tabular-nums font-semibold"
+              class="px-2 py-1.5 text-right tabular-nums font-semibold"
               :class="roiInk(r.perf?.roi_pct, r.verdict).class"
               :title="roiInk(r.perf?.roi_pct, r.verdict).title"
             >
               {{ r.perf?.roi_pct == null ? '—' : signed(r.perf.roi_pct) + '%' }}
             </td>
-            <td class="px-2 py-2 text-right">
+            <td class="px-2 py-1.5 text-right">
               <span
+                data-testid="verdict"
                 class="px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap"
                 :class="VERDICT_CLASS[r.verdict]"
                 :title="`${VERDICT_TITLE[r.verdict]}${r.k > 1 ? ` Scored at k=${r.k}, needs p<${r.bar.toFixed(4)}.` : ''}`"
@@ -65,34 +81,16 @@
           </tr>
         </tbody>
       </table>
+
+      <p v-if="hidden > 0" class="text-[10px] text-zinc-600 px-3 py-1.5 border-t border-edge/40">
+        {{ hidden }} more legacy wallet<span v-if="hidden !== 1">s</span> below {{ LEGACY_MIN_N }} settled wagers —
+        <NuxtLink to="/wallet" class="text-zinc-500 hover:text-zinc-300">see all</NuxtLink>.
+      </p>
     </div>
-
-    <p v-if="hidden > 0" class="text-[10px] text-zinc-600 px-3 py-1.5 border-t border-edge/40">
-      {{ hidden }} more legacy wallet<span v-if="hidden !== 1">s</span> below {{ LEGACY_MIN_N }} settled wagers —
-      <NuxtLink to="/wallet" class="text-zinc-500 hover:text-zinc-300">see all</NuxtLink>.
-    </p>
-
-    <p class="text-[10px] text-zinc-600 px-3 py-2 border-t border-edge/40 leading-relaxed">
-      ROI is profit over turnover. The verdict is corrected for the cohort each wallet was scored in
-      (the same one /wallet shows), and a figure under ten settled wagers is greyed — it is not a
-      result. Nothing here reaches EDGE — run
-      <code class="text-zinc-500">python3 -m common.wallet_significance</code> before quoting any of it.
-    </p>
-
-    <p v-if="riskAsOf" class="text-[10px] text-zinc-600 px-3 pb-2 leading-relaxed">
-      The grey line is <code class="text-zinc-500">wallet_scorecards</code> (lifetime), written
-      {{ riskAsOf }} by <code class="text-zinc-500">common.scorecard_update</code> — a hand-run with
-      no cadence, so it is as old as that. Below ten settled wagers the line is absent, not zero.
-      <span v-if="anyCappedDd">100%* is the writer's DD cap — cumulative P&amp;L fell from a positive
-      peak back through zero. It means "gave the peak back", not a bankroll wipe.</span>
-      Calmar, CLV and the regime flag are withheld: under that cap Calmar is just |ROI|, CLV is NULL
-      for every wallet, and the flag is one global <code class="text-zinc-500">gamma_state</code> row
-      stamped on all 24.
-    </p>
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 /**
  * Fleet health, sorted by what has actually been measured.
  *
@@ -109,7 +107,8 @@
  * verdict in the same row saying a different thing about the same wallet.
  */
 import { computed } from 'vue'
-import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE } from '~/utils/wallet-stats'
+import { rowDelay } from '~/utils/motion'
+import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE } from '#logic/wallet-stats'
 
 const props = defineProps({
   fleet: { type: Array, default: () => [] },

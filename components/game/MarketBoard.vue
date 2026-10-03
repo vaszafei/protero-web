@@ -1,10 +1,11 @@
 <template>
   <div>
+    <Transition name="swap" mode="out-in">
     <div v-if="pending && !board" class="mb-3"><UiSkeletonPanel :rows="8" /></div>
 
     <UiErrorState v-else-if="error" class="mb-3" title="The market board failed to load." :error="error" @retry="refresh" />
 
-    <template v-else-if="board">
+    <div v-else-if="board">
       <!-- Provenance, one line. Every number below is only as good as the
            price it came from, so the basis is stated first; the explanations
            sit behind each pill. -->
@@ -67,7 +68,8 @@
         </section>
       </div>
 
-    </template>
+    </div>
+    </Transition>
   </div>
 </template>
 
@@ -87,19 +89,14 @@ import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import UiTooltip from '~/components/ui/Tooltip.vue'
 import UiErrorState from '~/components/ui/ErrorState.vue'
 import { errorText } from '~/utils/error-text'
-import { basisLabel, mixedNote, summariseBases, type Basis } from '~/utils/market-basis'
-
-const apiFetch = useApiFetch()
+import { basisLabel, mixedNote, summariseBases, type Basis } from '#logic/market-basis'
 
 const props = defineProps<{ gameId: number | string }>()
 
-// Same key as GamePrediction, so switching tabs does not refetch.
-const { data: board, pending, error: fetchErr, refresh } = useSwr<any>(
-  computed(() => `market:${props.gameId}`),
-  () => apiFetch(`/api/game/${props.gameId}/market`),
-  { memoryTtl: 2 * 60_000 },
-)
-const error = computed(() => (fetchErr.value ? errorText(fetchErr.value) : null))
+// The board is one part of the page's single `game-page` read, shared with GamePrediction.
+const { data: bundle, pending, error: fetchErr, refresh } = useGamePage(() => props.gameId)
+const board = computed(() => bundle.value?.market?.data ?? null)
+const error = computed(() => bundle.value?.market?.error ?? (fetchErr.value ? errorText(fetchErr.value) : null))
 
 const devig = computed(() => board.value?.rows?.find((r: any) => r.devig)?.devig || null)
 

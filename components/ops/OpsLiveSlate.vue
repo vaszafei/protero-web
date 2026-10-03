@@ -1,20 +1,23 @@
 <template>
-  <section class="panel overflow-hidden">
+  <section class="panel panel-fill">
     <header class="panel-head">
       <h2 class="panel-title">Live slate</h2>
-      <span class="text-[10px] text-zinc-600 tabular-nums">{{ rows.length }}</span>
-      <span class="text-[10px] text-zinc-600">— open wagers on fixtures not yet settled</span>
+      <span class="panel-count">{{ rows.length }}</span>
+      <span class="text-[10px] text-zinc-600">open wagers on fixtures not yet settled</span>
+      <UiTooltip class="ml-auto" :width="340" placement="bottom">
+        <span class="panel-link">how to read</span>
+        <template #content>
+          <p>EV is what the model believed at placement, not a realised return. Football V6 stakes a flat 0.05 Kelly fraction capped at 5% of bankroll; parlays are not listed here — see the wallet.</p>
+        </template>
+      </UiTooltip>
     </header>
 
-    <div v-if="!rows.length" class="px-3 py-8 text-center">
-      <p class="text-sm text-zinc-500">Nothing open.</p>
-      <p class="text-[11px] text-zinc-600 mt-1">
-        The football pipeline places at 09:00, basketball at 11:00.
-      </p>
-    </div>
+    <p v-if="!rows.length" class="px-3 py-3 text-[11px] text-zinc-500">
+      Nothing open — football places at 09:00, basketball at 11:00.
+    </p>
 
-    <div v-else class="overflow-x-auto">
-      <table class="w-full text-xs min-w-[760px]">
+    <div v-else class="panel-scroll">
+      <table class="w-full text-xs">
         <thead>
           <tr class="text-zinc-500 border-b border-edge/60">
             <th class="text-left font-medium px-3 py-2 w-20">Kick-off</th>
@@ -30,7 +33,7 @@
           <tr v-for="r in rows" :key="r.id" class="row-hover">
             <td class="px-3 py-2 text-zinc-500 tabular-nums whitespace-nowrap">{{ kickoff(r.date) }}</td>
             <td class="px-3 py-2">
-              <NuxtLink :to="`/game/${r.game_id}`" class="inline-flex items-center gap-1 text-zinc-200 hover:text-blue-400">
+              <NuxtLink :to="`/game/${r.game_id}`" class="inline-flex items-center gap-1 text-zinc-200 hover:text-[var(--brand-blue)]">
                 <img
                   v-if="logoUrl(r.home_key)"
                   :src="logoUrl(r.home_key)"
@@ -70,14 +73,10 @@
       </table>
     </div>
 
-    <p class="text-[10px] text-zinc-600 px-3 py-2 border-t border-edge/40 leading-relaxed">
-      EV is what the model believed at placement, not a realised return. Football V6 stakes a flat
-      0.05 Kelly fraction capped at 5% of bankroll; parlays are not listed here — see the wallet.
-    </p>
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { formatMoney } from '~/utils/formatters'
 /**
  * What the machine currently has money on.
@@ -133,6 +132,6 @@ function pickLabel(r) {
 
 function evClass(ev) {
   if (ev == null) return 'text-zinc-600'
-  return Number(ev) > 0 ? 'text-emerald-400' : 'text-red-400'
+  return Number(ev) > 0 ? 'text-positive' : 'text-negative'
 }
 </script>

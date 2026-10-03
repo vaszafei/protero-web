@@ -2,7 +2,12 @@
   <section v-if="rows.length" class="panel overflow-hidden">
     <header class="panel-head">
       <span class="panel-title">Leaders</span>
-      <span class="panel-link">head to head</span>
+      <UiTooltip class="ml-auto" :width="280" placement="bottom">
+        <span class="panel-link">head to head</span>
+        <template #content>
+          <p>The feed's own nominated leader per side. A bold figure is the higher of the two.</p>
+        </template>
+      </UiTooltip>
     </header>
 
     <div class="gl">
@@ -22,9 +27,6 @@
       </div>
     </div>
 
-    <p class="gl-note">
-      The feed's own nominated leader per side. A bold figure is the higher of the two.
-    </p>
   </section>
 </template>
 
@@ -38,6 +40,7 @@
  */
 import { computed } from 'vue'
 import { VIZ_BRAND_HOME, VIZ_BRAND_AWAY } from '~/utils/viz'
+import UiTooltip from '~/components/ui/Tooltip.vue'
 
 const props = defineProps<{
   sportStats: any

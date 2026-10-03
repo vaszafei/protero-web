@@ -13,6 +13,9 @@
       <div class="pitch-spot pitch-spot-right" />
     </div>
 
+    <!-- empty state: what the pitch has instead of players -->
+    <div v-if="$slots.default" class="overlay"><slot /></div>
+
     <!-- home (left half, attacking right) -->
     <div class="half half-home">
       <div class="team-label">
@@ -30,9 +33,14 @@
           >
             <div class="player-dot" :style="{ borderColor: VIZ_HOME }">
               {{ p.jersey_number || '-' }}
+              <span v-if="n(p.goals) > 0" class="badge badge-goal" :title="`${n(p.goals)} goal${n(p.goals) > 1 ? 's' : ''}`">G{{ n(p.goals) > 1 ? n(p.goals) : '' }}</span>
+              <span v-else-if="n(p.assists) > 0" class="badge badge-assist" :title="`${n(p.assists)} assist${n(p.assists) > 1 ? 's' : ''}`">A{{ n(p.assists) > 1 ? n(p.assists) : '' }}</span>
+              <span v-if="n(p.red_cards) > 0" class="badge-card badge-red" title="Red card" />
+              <span v-else-if="n(p.yellow_cards) > 0" class="badge-card badge-yellow" title="Yellow card" />
             </div>
             <span class="player-name">{{ shortName(p.player_name) }}</span>
             <span v-if="rating(p)" class="player-rating">{{ rating(p) }}</span>
+            <span v-if="offAt(p)" class="player-off" :title="`Substituted off after ${offAt(p)} minutes`">off {{ offAt(p) }}'</span>
           </div>
         </div>
       </div>
@@ -55,9 +63,14 @@
           >
             <div class="player-dot" :style="{ borderColor: VIZ_AWAY }">
               {{ p.jersey_number || '-' }}
+              <span v-if="n(p.goals) > 0" class="badge badge-goal" :title="`${n(p.goals)} goal${n(p.goals) > 1 ? 's' : ''}`">G{{ n(p.goals) > 1 ? n(p.goals) : '' }}</span>
+              <span v-else-if="n(p.assists) > 0" class="badge badge-assist" :title="`${n(p.assists)} assist${n(p.assists) > 1 ? 's' : ''}`">A{{ n(p.assists) > 1 ? n(p.assists) : '' }}</span>
+              <span v-if="n(p.red_cards) > 0" class="badge-card badge-red" title="Red card" />
+              <span v-else-if="n(p.yellow_cards) > 0" class="badge-card badge-yellow" title="Yellow card" />
             </div>
             <span class="player-name">{{ shortName(p.player_name) }}</span>
             <span v-if="rating(p)" class="player-rating">{{ rating(p) }}</span>
+            <span v-if="offAt(p)" class="player-off" :title="`Substituted off after ${offAt(p)} minutes`">off {{ offAt(p) }}'</span>
           </div>
         </div>
       </div>
@@ -84,6 +97,16 @@ const isGK = (p: Record<string, any>) =>
 const isStarter = (p: Record<string, any>) =>
   typeof p.is_starting_xi === 'boolean' ? p.is_starting_xi : true
 
+const n = (v: unknown) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
+
+/** Minutes played by a starter who did not last the 90, or null: never a guess when the feed has none. */
+const offAt = (p: Record<string, any>) => {
+  const m = p.minutes_played
+  if (m == null || !isStarter(p)) return null
+  const x = Number(m)
+  return Number.isFinite(x) && x > 0 && x < 90 ? x : null
+}
+
 const rating = (p: Record<string, any>) => {
   const r = parseFloat(p.rating)
   return isNaN(r) ? null : r.toFixed(1)
@@ -98,13 +121,14 @@ const shortName = (name: string) => {
   return last.length > 12 ? last.slice(0, 12) + '…' : last
 }
 
-// "4-4-2" → [4,4,2]; fallback [4,4,2] when missing/unparseable.
-function parseFormation(f?: string | null): number[] {
+// "4-4-2" → [4,4,2]; null when missing or unparseable. The panel then says the formation was not
+// recorded and the outfield is a plain shirt-number grid, four to a line, not roles.
+function parseFormation(f?: string | null): number[] | null {
   const parts = String(f || '')
     .split('-')
     .map((n) => parseInt(n, 10))
     .filter((n) => !isNaN(n) && n > 0)
-  return parts.length ? parts : [4, 4, 2]
+  return parts.length ? parts : null
 }
 
 // Split a team's starters into pitch rows: GK row first, then the formation lines.
@@ -115,7 +139,7 @@ function buildRows(lineup: Array<Record<string, any>>, formation: string | null 
     .sort((a, b) => (a.jersey_number || 99) - (b.jersey_number || 99))
   const gk = starters.filter(isGK)
   const field = starters.filter((p) => !isGK(p))
-  const lines = parseFormation(formation)
+  const lines = parseFormation(formation) ?? Array.from({ length: Math.ceil(field.length / 4) }, () => 4)
   const rows: Array<Array<Record<string, any>>> = [gk.slice(0, 1)]
   let idx = 0
   for (const n of lines) {
@@ -123,7 +147,7 @@ function buildRows(lineup: Array<Record<string, any>>, formation: string | null 
     idx += n
   }
   if (idx < field.length) rows.push(field.slice(idx))
-  return rows
+  return rows.filter((r) => r.length)
 }
 
 const homeRows = computed(() => buildRows(props.homeLineup, props.homeFormation))
@@ -139,7 +163,7 @@ const awayDisplayRows = computed(() => [...awayRows.value].reverse())
   position: relative;
   display: flex;
   align-items: stretch;
-  min-height: 280px;
+  height: 300px;
   border-radius: 0.5rem;
   background:
     radial-gradient(ellipse at 50% 50%, rgba(46, 125, 50, 0.28), rgba(24, 60, 32, 0.22)),
@@ -295,6 +319,27 @@ const awayDisplayRows = computed(() => [...awayRows.value].reverse())
   color: rgb(161, 161, 170);
   line-height: 1;
 }
+.player-dot { position: relative; }
+.badge {
+  position: absolute; top: -6px; right: -9px;
+  min-width: 13px; padding: 0 2px;
+  border-radius: 7px;
+  font-size: 0.5rem; font-weight: 800; line-height: 13px; text-align: center;
+  color: #14161b;
+}
+.badge-goal { background: rgb(244, 244, 245); }
+.badge-assist { background: rgb(161, 161, 170); }
+.badge-card {
+  position: absolute; top: -5px; left: -5px;
+  width: 7px; height: 10px; border-radius: 1px;
+}
+.badge-yellow { background: #f0c469; }
+.badge-red { background: #f8514f; }
+.player-off {
+  font-size: 0.5rem; font-weight: 600; line-height: 1;
+  color: rgb(113, 113, 122); white-space: nowrap;
+}
+.overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .player-gk .player-dot {
   border-style: dashed;
 }

@@ -1,23 +1,23 @@
 <template>
   <div 
-    class="bg-surface rounded-lg border border-edge hover:border-blue-400 hover:shadow-sm transition-all"
+    class="bg-surface rounded-lg border border-edge hover:border-edge-lit hover:shadow-sm transition-all"
     @dragover.prevent="handleDragOver"
     @dragleave.prevent="handleDragLeave"
     @drop.prevent="handleDrop"
-    :class="{ 'border-blue-500 bg-blue-500/20': isDragging }"
+    :class="{ 'border-[var(--brand-blue)] bg-[var(--brand-blue-tint)]': isDragging }"
   >
     <!-- Single row with two columns -->
     <div class="grid grid-cols-[1fr_auto] gap-3 px-3 py-2 text-sm items-center">
       <!-- LEFT COLUMN: Match Info -->
       <div class="flex items-center gap-2">
         <!-- Round -->
-        <div class="flex-shrink-0 w-8 text-center font-bold text-gray-700">
+        <div class="flex-shrink-0 w-8 text-center font-bold text-zinc-300">
           {{ match.round }}
         </div>
 
         <!-- Home Team -->
         <div class="flex-shrink-0 min-w-[120px]">
-          <span class="font-semibold text-gray-900 truncate text-xs">{{ match.home_name }}</span>
+          <span class="font-semibold text-zinc-100 truncate text-xs">{{ match.home_name }}</span>
         </div>
 
         <!-- Home Score -->
@@ -26,14 +26,14 @@
             v-model.number="homeScore"
             type="number"
             min="0"
-            class="w-full px-1 py-0.5 text-xs text-center font-bold border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 disabled:bg-gray-50"
+            class="w-full px-1 py-0.5 text-xs text-center font-bold border border-edge bg-surface-light text-zinc-100 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 disabled:opacity-60"
             :disabled="!editing"
             placeholder="-"
           />
         </div>
 
         <!-- Separator -->
-        <div class="flex-shrink-0 text-gray-400 text-xs font-bold">-</div>
+        <div class="flex-shrink-0 text-zinc-500 text-xs font-bold">-</div>
 
         <!-- Away Score -->
         <div class="flex-shrink-0 w-10">
@@ -41,7 +41,7 @@
             v-model.number="awayScore"
             type="number"
             min="0"
-            class="w-full px-1 py-0.5 text-xs text-center font-bold border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 disabled:bg-gray-50"
+            class="w-full px-1 py-0.5 text-xs text-center font-bold border border-edge bg-surface-light text-zinc-100 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 disabled:opacity-60"
             :disabled="!editing"
             placeholder="-"
           />
@@ -49,11 +49,11 @@
 
         <!-- Away Team -->
         <div class="flex-shrink-0 min-w-[120px]">
-          <span class="font-semibold text-gray-900 truncate text-xs">{{ match.away_name }}</span>
+          <span class="font-semibold text-zinc-100 truncate text-xs">{{ match.away_name }}</span>
         </div>
 
         <!-- Date -->
-        <div class="flex-shrink-0 text-gray-500 text-[11px]">
+        <div class="flex-shrink-0 text-zinc-500 text-[11px]">
           {{ formatDate(match.date) }}
         </div>
 
@@ -62,11 +62,11 @@
           <template>
             <UBadge 
               v-if="isPlayed" 
-              color="green" 
+              color="primary" 
               size="xs" 
               variant="soft"
             >
-              ✓ Played
+              Played
             </UBadge>
             <UBadge 
               v-else 
@@ -79,7 +79,7 @@
             <UBadge v-if="hasOdds" color="amber" size="xs" variant="soft">Odds</UBadge>
             <UBadge v-if="hasStats" color="blue" size="xs" variant="soft">Game Stats</UBadge>
             <UBadge v-if="hasReferee" color="purple" size="xs" variant="soft">Referee</UBadge>
-            <UBadge v-if="hasLineups" color="emerald" size="xs" variant="soft">Lineups</UBadge>
+            <UBadge v-if="hasLineups" color="primary" size="xs" variant="soft">Lineups</UBadge>
             <UBadge v-if="hasPlayerStats" color="indigo" size="xs" variant="soft">Player Stats</UBadge>
           </template>
         </div>
@@ -132,7 +132,7 @@
             <button
               @click="saveMatch"
               :disabled="saving"
-              class="p-1 text-green-400 hover:text-green-400 hover:bg-green-500/20 rounded transition-colors disabled:opacity-50"
+              class="p-1 text-[var(--brand-blue)] hover:text-[var(--brand-blue)] hover:bg-[var(--brand-blue-tint)] rounded transition-colors disabled:opacity-50"
               title="Save"
             >
               <Check :size="13" />
@@ -271,7 +271,7 @@ const handlePaste = async (event) => {
         
         // Show success notification
         toast.add({
-          title: '✓ URL Saved',
+          title: 'URL saved',
           description: 'FlashScore URL auto-saved',
           color: 'green',
           timeout: 2000
@@ -321,7 +321,7 @@ const handleInput = async (event) => {
         
         // Show success notification
         toast.add({
-          title: '✓ URL Auto-Saved',
+          title: 'URL auto-saved',
           description: 'FlashScore URL saved',
           color: 'green',
           timeout: 2000
@@ -617,7 +617,7 @@ const handleDrop = async (event) => {
       const cleanTeam1 = cleanTeamName(urlMatch[1])
       const cleanTeam2 = cleanTeamName(urlMatch[2])
       toast.add({
-        title: '⚠️ Wrong Match URL',
+        title: 'Wrong match URL',
         description: `This URL is for "${cleanTeam1} vs ${cleanTeam2}", not for "${props.match.home_name} vs ${props.match.away_name}"`,
         color: 'red',
         timeout: 5000
@@ -628,30 +628,30 @@ const handleDrop = async (event) => {
   
   // Auto-save the URL
   try {
-    console.log(`📤 Saving URL for game ${props.match.id}: ${url}`)
+    console.log(`Saving URL for game ${props.match.id}: ${url}`)
     const response = await apiFetch(`/api/admin/games/${props.match.id}`, {
       method: 'PATCH',
       body: { flashscore_url: url }
     })
     
-    console.log('✓ API Response:', response)
+    console.log('API response:', response)
     
     // Only update local state AFTER successful save
     flashscoreUrl.value = url
     props.match.flashscore_url = url
     emit('url-changed', { gameId: props.match.id, url })
     
-    console.log('✓ URL saved successfully via drag & drop')
+    console.log('URL saved via drag and drop')
     
     // Success toast
     toast.add({
-      title: '✓ URL Saved!',
+      title: 'URL saved',
       description: `FlashScore URL saved for ${props.match.home_name} vs ${props.match.away_name}`,
       color: 'green',
       timeout: 3000
     })
   } catch (error) {
-    console.error('❌ Failed to save dropped URL:', error)
+    console.error('Failed to save dropped URL:', error)
     console.error('Error details:', {
       message: error?.message,
       status: error?.status,
@@ -663,7 +663,7 @@ const handleDrop = async (event) => {
     flashscoreUrl.value = props.match.flashscore_url || ''
     
     toast.add({
-      title: '✗ Save Failed',
+      title: 'Save failed',
       description: error?.data?.message || error?.message || 'Could not save URL to database',
       color: 'red',
       timeout: 4000

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
+import UiErrorState from '~/components/ui/ErrorState.vue'
+import { errorText } from '~/utils/error-text'
+import { rowDelay } from '~/utils/motion'
+
 const apiFetch = useApiFetch()
 /**
  * Fantasy console — two tabs:
@@ -23,7 +28,7 @@ type Tab = 'stoiximan' | 'elfc'
 const tab = ref<Tab>('stoiximan')
 const TABS: { key: Tab; label: string }[] = [
   { key: 'stoiximan', label: 'Stoiximan DFS' },
-  { key: 'elfc', label: 'EuroLeague Fantasy Challenge (official)' },
+  { key: 'elfc', label: 'EuroLeague Fantasy Challenge' },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -31,6 +36,8 @@ const TABS: { key: Tab; label: string }[] = [
 // ═══════════════════════════════════════════════════════════════════════
 const slates = ref<any[]>([])
 const slatesLoading = ref(true)
+const slatesError = ref<string | null>(null)
+const toast = useToast()
 
 const csvText = ref('')
 const tournament = ref('Greek Super League')
@@ -95,11 +102,12 @@ const joinResult = ref<{
 
 async function loadSlates() {
   slatesLoading.value = true
+  slatesError.value = null
   try {
-    const res = await apiFetch('/api/fantasy/slates')
+    const res = await apiFetch<any>('/api/fantasy/slates')
     slates.value = res.slates
   } catch (e) {
-    console.warn('slate list failed:', e)
+    slatesError.value = errorText(e)
   } finally {
     slatesLoading.value = false
   }
@@ -130,7 +138,7 @@ async function uploadSlate() {
     csvText.value = ''
     await loadSlates()
   } catch (e: any) {
-    alert(`Slate upload failed: ${e?.data?.statusMessage || e?.message || e}`)
+    toast.add({ title: 'Slate upload failed', description: e?.data?.statusMessage || e?.message || String(e), color: 'red' })
   } finally {
     uploading.value = false
   }
@@ -148,7 +156,7 @@ async function loadElfc() {
   try {
     elfc.value = await apiFetch('/api/fantasy/euroleague/elfc')
   } catch (e) {
-    elfc.value = { status: 'error', error: String(e) }
+    elfc.value = { status: 'error', error: errorText(e) }
   }
 }
 
@@ -206,35 +214,39 @@ function formatWhen(iso: string | null | undefined): string {
 </script>
 
 <template>
-  <div class="p-3 sm:p-6 max-w-[1400px] mx-auto pb-20 lg:pb-6">
-    <div class="mb-4">
-      <h1 class="text-xl sm:text-2xl font-bold text-white">Fantasy</h1>
-      <p class="text-zinc-500 text-xs sm:text-sm mt-0.5 max-w-3xl">
-        Stoiximan DFS (football + EuroLeague + NBA, one slate history) and the official
-        season-long EuroLeague Fantasy Challenge. Neither has a demonstrated edge — every
-        projection below is a mean estimate, not validated on holdout.
-      </p>
-    </div>
-
-    <!-- Tabs -->
-    <div class="flex items-center gap-1 border-b border-edge mb-4 overflow-x-auto">
-      <button
-        v-for="t in TABS" :key="t.key"
-        @click="tab = t.key"
-        class="px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors"
-        :class="tab === t.key
-          ? 'border-blue-500 text-white'
-          : 'border-transparent text-zinc-500 hover:text-zinc-300'"
-      >{{ t.label }}</button>
-    </div>
+  <UiPageShell title="Fantasy" subtitle="Stoiximan DFS and the official season-long EuroLeague Fantasy Challenge. Neither has a demonstrated edge — every projection is a mean estimate, not validated on holdout.">
+    <template #actions>
+      <UiTabs v-model="tab" :tabs="TABS" />
+    </template>
 
     <!-- ═══ Stoiximan DFS ═══ -->
-    <div v-if="tab === 'stoiximan'">
-      <div class="grid lg:grid-cols-2 gap-4">
-        <!-- Slate intake -->
-        <div class="rounded-xl border border-edge bg-surface p-4">
-          <h2 class="text-sm font-bold text-zinc-100 mb-2">Slate intake</h2>
-          <div class="mb-2">
+    <div v-if="tab === 'stoiximan'" class="grid-12 fantasy-grid">
+      <!-- Slate intake -->
+      <section class="col-4 panel panel-fill">
+        <header class="panel-head">
+          <h2 class="panel-title">Slate intake</h2>
+          <UiTooltip class="ml-auto" :width="400" placement="bottom">
+            <span class="panel-link">status</span>
+            <template #content>
+              <p>
+                <b>Football — M4 holdout failed.</b> The projection model scored −3.9% vs the last-5-match-mean
+                baseline on the full Greek 2025-26 holdout (n=10,367 player-matches). Track O's MILP degenerates to
+                the max-score lineup — the variance machinery adds nothing over the mean objective.
+              </p>
+              <p class="mt-2">
+                <b>EuroLeague/NBA — no validated edge either.</b> Scoring is DraftKings-classic (fixed 2026-09-23; the
+                official contest scores PIR, Stoiximan does not). Our projection adds nothing on points (b=+0.08); the
+                rebounds hint fails multiplicity (k=115).
+              </p>
+              <p class="mt-2">
+                The honest next step for both is the forward experiment: enter a real contest, capture
+                <code>Lineup</code> + finishing rank, score it after the fact.
+              </p>
+            </template>
+          </UiTooltip>
+        </header>
+        <div class="panel-scroll p-3 space-y-2">
+          <div>
             <label class="text-[11px] text-zinc-500 uppercase tracking-wider">League</label>
             <USelect
               v-model="leagueKey"
@@ -243,21 +255,21 @@ function formatWhen(iso: string | null | undefined): string {
               @change="onLeagueChange"
             />
           </div>
-          <div class="mb-2">
+          <div>
             <label class="text-[11px] text-zinc-500 uppercase tracking-wider">Tournament</label>
             <UInput v-model="tournament" class="mt-1" />
           </div>
-          <div class="mb-2">
+          <div>
             <label class="text-[11px] text-zinc-500 uppercase tracking-wider">Player CSV (paste)</label>
             <UTextarea
               v-model="csvText"
-              :rows="6"
+              :rows="5"
               class="mt-1 font-mono text-xs"
               placeholder="Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price&#10;1138895,113962,Ingason,Sverrir Ingi,PAO,injured,defender,8.9&#10;…"
             />
           </div>
 
-          <details class="mb-3">
+          <details>
             <summary class="text-xs text-zinc-400 cursor-pointer">Contest parameters (not in the CSV)</summary>
             <div class="grid grid-cols-2 gap-2 mt-2">
               <UInput v-model="contest.name" placeholder="contest name" size="xs" />
@@ -270,17 +282,15 @@ function formatWhen(iso: string | null | undefined): string {
             </div>
           </details>
 
-          <UButton :loading="uploading" @click="uploadSlate" block>
-            Upload slate
-          </UButton>
+          <UButton :loading="uploading" block @click="uploadSlate">Upload slate</UButton>
 
-          <div v-if="joinResult" class="mt-3 rounded-lg border border-edge bg-surface/60 p-3">
+          <div v-if="joinResult" class="rounded-lg border border-edge bg-surface/60 p-3">
             <div class="text-xs text-zinc-300 mb-1">
               {{ joinResult.matched }}/{{ joinResult.total_players }} players joined
               <span v-if="joinResult.unmatched_expected_possible.length" class="text-amber-400">
                 — {{ joinResult.unmatched_expected_possible.length }} expected/possible unmatched
               </span>
-              <span v-else class="text-emerald-400">— no expected/possible holes</span>
+              <span v-else class="text-zinc-400">— no expected/possible holes</span>
             </div>
             <ul v-if="joinResult.unmatched_expected_possible.length" class="text-[11px] text-zinc-500 space-y-0.5">
               <li v-for="u in joinResult.unmatched_expected_possible" :key="u.name + u.club">
@@ -289,118 +299,120 @@ function formatWhen(iso: string | null | undefined): string {
             </ul>
           </div>
         </div>
+      </section>
 
-        <!-- Status -->
-        <div class="rounded-xl border border-edge bg-surface p-4">
-          <h2 class="text-sm font-bold text-zinc-100 mb-2">Status</h2>
-          <ul class="text-xs text-zinc-400 space-y-2">
-            <li>
-              <span class="text-zinc-200">Football — M4 holdout failed.</span>
-              The projection model scored <span class="text-amber-400">−3.9% vs the
-              last-5-match-mean baseline</span> on the full Greek 2025-26 holdout
-              (n=10,367 player-matches). Track O's MILP degenerates to the
-              max-score lineup — the variance machinery adds nothing over the
-              mean objective.
-            </li>
-            <li>
-              <span class="text-zinc-200">EuroLeague/NBA — no validated edge either.</span>
-              Scoring is DraftKings-classic (fixed 2026-09-23; the official contest scores
-              PIR, Stoiximan does not). Our projection adds nothing on points
-              (b=+0.08); the rebounds hint fails multiplicity (k=115).
-            </li>
-            <li>
-              The honest next step for both is the forward experiment: enter a
-              real contest, capture <code class="text-zinc-300">Lineup</code> +
-              finishing rank, score it after the fact.
-            </li>
-          </ul>
+      <!-- Slates -->
+      <section class="col-8 panel panel-fill">
+        <header class="panel-head">
+          <h2 class="panel-title">Slates</h2>
+          <span class="panel-count">{{ slates.length }}</span>
+        </header>
+        <UiSkeletonPanel v-if="slatesLoading" :rows="10" :title="false" />
+        <UiErrorState v-else-if="slatesError" class="m-3" title="The slate list failed to load." :error="slatesError" @retry="loadSlates" />
+        <p v-else-if="slates.length === 0" class="px-3 py-3 text-sm text-zinc-500">No slates uploaded yet.</p>
+        <div v-else class="panel-scroll">
+          <table class="w-full text-xs">
+            <thead class="sticky top-0 z-[1] bg-surface">
+              <tr class="text-zinc-500">
+                <th class="text-left font-medium px-3 py-1.5 w-12">#</th>
+                <th class="text-left font-medium px-2 py-1.5">Slate</th>
+                <th class="text-left font-medium px-2 py-1.5 w-40">League</th>
+                <th class="text-left font-medium px-2 py-1.5 w-28">Date</th>
+                <th class="text-right font-medium px-2 py-1.5 w-20">Cap</th>
+                <th class="text-right font-medium px-3 py-1.5 w-44">Field · prize</th>
+                <th class="text-right font-medium px-3 py-1.5 w-20">Added</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(s, i) in slates"
+                :key="s.id"
+                class="row-in border-t border-edge/40 cursor-pointer hover:bg-surface-light/30"
+                :style="rowDelay(i)"
+                @click="navigateTo(`/fantasy/${s.id}`)"
+              >
+                <td class="px-3 py-1 text-zinc-600 tabular-nums">{{ s.id }}</td>
+                <td class="px-2 py-1 text-zinc-100 font-medium">
+                  {{ s.tournament }}
+                  <span v-if="s.contest_name" class="text-zinc-500 font-normal"> · {{ s.contest_name }}</span>
+                </td>
+                <td class="px-2 py-1 text-zinc-400 font-mono">{{ s.league_key || '—' }}</td>
+                <td class="px-2 py-1 text-zinc-300 tabular-nums">{{ s.target_date || '—' }}</td>
+                <td class="px-2 py-1 text-right text-zinc-400 tabular-nums">{{ s.salary_cap != null ? `${s.salary_cap}${s.salary_cap_unit || ''}` : '—' }}</td>
+                <td class="px-3 py-1 text-right text-zinc-500 tabular-nums">{{ s.field_size ? `${s.field_size} · ${s.prize_pool ?? '—'}` : '—' }}</td>
+                <td class="px-3 py-1 text-right text-zinc-600 tabular-nums">{{ formatWhen(s.created_at) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
-
-      <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider mt-6 mb-2">
-        Slates
-      </h2>
-      <div v-if="slatesLoading" class="text-sm text-zinc-600 py-8 text-center">loading…</div>
-      <div v-else-if="slates.length === 0" class="rounded-xl border border-edge bg-surface p-4 text-sm text-zinc-500">
-        No slates uploaded yet.
-      </div>
-      <div v-else class="grid sm:grid-cols-2 gap-3">
-        <NuxtLink
-          v-for="s in slates"
-          :key="s.id"
-          :to="`/fantasy/${s.id}`"
-          class="rounded-xl border border-edge bg-surface p-4 hover:border-zinc-600"
-        >
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-bold text-zinc-100">{{ s.tournament }}</span>
-            <span class="text-[10px] text-zinc-600">#{{ s.id }}</span>
-          </div>
-          <div class="text-[11px] text-zinc-500 mt-1 space-y-0.5">
-            <div v-if="s.league_key" class="text-zinc-400 font-mono">{{ s.league_key }}</div>
-            <div v-if="s.contest_name">{{ s.contest_name }}</div>
-            <div v-if="s.target_date" class="text-zinc-300">{{ s.target_date }}</div>
-            <div v-if="s.field_size">field {{ s.field_size }} · prize {{ s.prize_pool }}</div>
-            <div v-if="s.salary_cap != null">cap {{ s.salary_cap }}{{ s.salary_cap_unit || '' }}</div>
-            <div class="text-zinc-600">{{ formatWhen(s.created_at) }}</div>
-          </div>
-        </NuxtLink>
-      </div>
+      </section>
     </div>
 
     <!-- ═══ Official EuroLeague Fantasy Challenge ═══ -->
-    <div v-else class="rounded-xl border border-edge bg-surface p-4">
-      <h2 class="text-sm font-bold text-zinc-100">EuroLeague Fantasy Challenge (official)</h2>
-      <p class="text-[11px] text-zinc-500 mt-1">
-        Season-long: PIR +10% on a win, captain ×2, coach on margin bands. Needs a fresh price-list
-        CSV exported from your own logged-in fantaking.dunkest.com session — nothing here logs in
-        for you.
-      </p>
-
-      <div class="grid grid-cols-[80px_1fr] gap-2 mt-3 max-w-lg">
-        <UInput v-model.number="elfcForm.matchday" type="number" size="xs" placeholder="matchday" />
-        <UInput v-model="elfcForm.prices" size="xs" placeholder="/path/to/prices_export.csv" />
-      </div>
-      <UButton size="2xs" class="mt-2" :loading="elfcBusy" @click="recomputeElfc">Recompute</UButton>
-
-      <div v-if="elfcError" class="mt-2 text-[11px] text-red-400">{{ elfcError }}</div>
-
-      <div v-if="elfc.status === 'none'" class="mt-3 text-[11px] text-zinc-600 py-6 text-center">
-        Nothing computed yet.
-      </div>
-      <div v-else-if="elfc.status === 'error'" class="mt-3 text-[11px] text-red-400 py-3">
-        {{ elfc.error }}
-      </div>
-      <div v-else-if="elfc.status === 'ready'" class="mt-3">
-        <div class="text-[11px] text-zinc-600 mb-2">
-          computed {{ formatWhen(elfc.computed_at) }} ·
-          target p{{ elfc.result.target_percentile }} = {{ elfc.result.target_score }}
+    <section v-else class="panel panel-fill flex-1 min-h-0">
+      <header class="panel-head">
+        <h2 class="panel-title">EuroLeague Fantasy Challenge (official)</h2>
+        <UiTooltip class="ml-auto" :width="360" placement="bottom">
+          <span class="panel-link">how it works</span>
+          <template #content>
+            <p>
+              Season-long: PIR +10% on a win, captain ×2, coach on margin bands. Needs a fresh price-list CSV exported
+              from your own logged-in fantaking.dunkest.com session — nothing here logs in for you.
+            </p>
+          </template>
+        </UiTooltip>
+      </header>
+      <div class="panel-scroll p-3">
+        <div class="flex items-center gap-2 max-w-2xl">
+          <UInput v-model.number="elfcForm.matchday" type="number" size="xs" placeholder="matchday" class="w-24" />
+          <UInput v-model="elfcForm.prices" size="xs" placeholder="/path/to/prices_export.csv" class="flex-1" />
+          <UButton size="2xs" :loading="elfcBusy" @click="recomputeElfc">Recompute</UButton>
         </div>
-        <div class="grid sm:grid-cols-2 gap-2">
-          <div
-            v-for="t in elfc.result.teams"
-            :key="t.team"
-            class="rounded-lg border border-edge/60 bg-surface-light/30 p-2.5"
-          >
-            <div class="flex items-baseline justify-between">
-              <span class="text-xs font-semibold text-zinc-200">Team {{ t.team }}</span>
-              <span class="text-xs tabular-nums text-zinc-400">
-                E[round] {{ t.expected_round }} · {{ t.price_cr }} cr
-              </span>
-            </div>
-            <div class="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-              <span
-                v-for="(p, i) in t.squad"
-                :key="p.name"
-                :class="p.role === 'bench' ? 'text-zinc-600' : 'text-zinc-400'"
-              >{{ p.name }}{{ p.captain ? ' (C)' : '' }}{{ i < t.squad.length - 1 ? ' · ' : '' }}</span>
-            </div>
-            <div class="text-[11px] text-zinc-600 mt-1">
-              coach {{ t.coach.name }} ({{ t.coach.club }}) — E {{ t.coach.expected }}
+
+        <p v-if="elfcError" class="mt-2 text-[11px] text-negative">{{ elfcError }}</p>
+
+        <p v-if="elfc.status === 'none'" class="mt-3 text-[11px] text-zinc-600">Nothing computed yet.</p>
+        <UiErrorState v-else-if="elfc.status === 'error'" class="mt-3" title="The Fantasy Challenge result failed to load." :error="elfc.error" @retry="loadElfc" />
+        <div v-else-if="elfc.status === 'ready'" class="mt-3">
+          <div class="text-[11px] text-zinc-600 mb-2">
+            computed {{ formatWhen(elfc.computed_at) }} ·
+            target p{{ elfc.result.target_percentile }} = {{ elfc.result.target_score }}
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div
+              v-for="t in elfc.result.teams"
+              :key="t.team"
+              class="rounded-lg border border-edge/60 bg-surface-light/30 p-2.5"
+            >
+              <div class="flex items-baseline justify-between">
+                <span class="text-xs font-semibold text-zinc-200">Team {{ t.team }}</span>
+                <span class="text-xs tabular-nums text-zinc-400">
+                  E[round] {{ t.expected_round }} · {{ t.price_cr }} cr
+                </span>
+              </div>
+              <div class="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                <span
+                  v-for="(p, i) in t.squad"
+                  :key="p.name"
+                  :class="p.role === 'bench' ? 'text-zinc-600' : 'text-zinc-400'"
+                >{{ p.name }}{{ p.captain ? ' (C)' : '' }}{{ i < t.squad.length - 1 ? ' · ' : '' }}</span>
+              </div>
+              <div class="text-[11px] text-zinc-600 mt-1">
+                coach {{ t.coach.name }} ({{ t.coach.club }}) — E {{ t.coach.expected }}
+              </div>
             </div>
           </div>
         </div>
+        <UiSkeletonPanel v-else class="mt-3" :rows="4" :title="false" />
       </div>
-      <div v-else class="mt-3 text-[11px] text-zinc-600 py-6 text-center">loading…</div>
-    </div>
-  </div>
+    </section>
+  </UiPageShell>
 </template>
+
+<style scoped>
+.fantasy-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+</style>

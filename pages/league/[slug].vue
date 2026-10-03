@@ -1,21 +1,20 @@
 <template>
-  <div class="min-h-screen bg-surface-base">
-   <div class="max-w-[1600px] mx-auto p-3 sm:p-6">
+  <div class="h-full bg-surface-base">
+   <div class="max-w-[1760px] mx-auto px-3 sm:px-6 py-3 h-full flex flex-col gap-3 min-h-0">
     <!-- ═══ Header ════════════════════════════════════════════════════════ -->
-    <div class="mb-4">
-      <NuxtLink to="/leagues" class="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors mb-2">
-        <ChevronLeft :size="14" />
-        <span class="text-[11px] font-medium">Competitions</span>
-      </NuxtLink>
+    <div class="flex-shrink-0">
 
       <!-- One row: the hero card (identity + season status) on the left, three
            loose metric cards on the right — no wrapping card around them
            (removed 2026-08-25, owner call), Clubs/Fitted on dropped the same
            day since they describe the twin's bookkeeping, not the competition. -->
       <div class="grid lg:grid-cols-[1.3fr_1fr] gap-3 items-stretch">
-        <div class="hero rounded-xl px-4 py-3.5">
+        <div class="hero rounded-xl px-4 py-2.5">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="inline-flex items-center gap-2.5 min-w-0">
+              <NuxtLink to="/leagues" class="flex items-center text-zinc-500 hover:text-zinc-200 flex-shrink-0" title="All competitions">
+                <ChevronLeft :size="16" />
+              </NuxtLink>
               <img
                 v-if="leagueLogo"
                 :src="leagueLogo"
@@ -74,15 +73,10 @@
       :error="errorText(leagueError)"
       @retry="refreshLeague"
     />
-    <div v-else-if="loading || !data" class="flex justify-center items-center py-16">
-      <div class="flex items-center gap-3 text-zinc-500">
-        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
-        <span class="text-sm">Loading league data...</span>
-      </div>
-    </div>
+    <UiSkeletonPanel v-else-if="loading || !data" :rows="10" height="100%" class="flex-1" />
 
     <!-- Main Content -->
-    <div v-else>
+    <div v-else class="flex-1 min-h-0 flex flex-col">
       <!-- Twin context and the season picker are optional, but a FAILED read is
            reported: an empty result means "not fitted / one season", a rejected one means we do not know. -->
       <UiErrorState
@@ -101,12 +95,12 @@
         :error="seasonsError"
         @retry="refreshSeasons"
       />
-      <div class="flex justify-center mb-4">
+      <div class="flex justify-center mb-3 flex-shrink-0">
         <UiTabs v-model="activeTab" :tabs="leagueTabs" />
       </div>
 
       <!-- Overview — the twin and the fixtures it is fitted on, one pane -->
-      <div v-show="activeTab === 'overview'" class="tab-anim">
+      <div v-show="activeTab === 'overview'" class="tab-anim flex-1 min-h-0">
         <LeagueOverview
           :league-key="data.key"
           :twin="twin"
@@ -142,7 +136,7 @@
       </div>
 
       <!-- Analysis -->
-      <div v-show="activeTab === 'analysis'" class="tab-anim">
+      <div v-show="activeTab === 'analysis'" class="tab-anim flex-1 min-h-0 overflow-y-auto">
         <AnalysisView
           :leagueKey="data.key"
           :season="selectedSeason"
@@ -150,17 +144,16 @@
       </div>
 
       <!-- Predictions — current season only; the tab is disabled otherwise -->
-      <div v-show="activeTab === 'predictions'" class="tab-anim">
-        <PredictionsView
-          ref="predictionsViewRef"
-          :nextRound="nextUnplayedRound"
-          :roundMatches="nextUnplayedMatches"
-          :teamStats="computedStandings"
-          :standings="liveStandings"
-          :games="data?.games || []"
-          :leagueKey="data.key"
+      <div v-show="activeTab === 'predictions'" class="tab-anim flex-1 min-h-0 overflow-y-auto">
+        <LeagueRoundBoard
+          v-if="predictionsOpened"
+          :league-key="data.key"
           :season="selectedSeason"
           :sport="data.sport"
+          :by-date="byDate"
+          :initial-round="nextUnplayedRound || selectedRound"
+          :initial-date="nextUnplayedDate"
+          :max-round="maxRound"
         />
       </div>
     </div>
@@ -170,12 +163,13 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
 import { ChevronLeft } from 'lucide-vue-next'
 import LeagueSeasonBar from '~/components/league/LeagueSeasonBar.vue'
 import LeagueOverview from '~/components/league/LeagueOverview.vue'
 import LeagueStandingsTable from '~/components/league/LeagueStandingsTable.vue'
 import AnalysisView from '~/components/league/AnalysisView.vue'
-import PredictionsView from '~/components/league/PredictionsView.vue'
+import LeagueRoundBoard from '~/components/league/LeagueRoundBoard.vue'
 import { useLeagueStats } from '~/composables/useLeagueStats'
 import { getLeagueLogoUrl } from '~/utils/teamLogo'
 import { errorText } from '~/utils/error-text'
@@ -848,7 +842,7 @@ function buildStandings(gamesArr) {
 }
 
 // Season-to-date table — all completed games. Feeds the twin table and
-// PredictionsView (basketball projection needs the full season, not a cut).
+// the twin table and the standings views.
 const liveStandings = computed(() => buildStandings(data.value?.games || []))
 
 // "As of round N" table — games up to and including the selected round, so the
@@ -897,6 +891,16 @@ const nextUnplayedRound = computed(() => {
 })
 
 // Computed: All matches closest to today's date (most recent upcoming games)
+// Mount the round board on first visit to its tab, not on every league page load.
+const predictionsOpened = ref(false)
+watch(activeTab, (t) => { if (t === 'predictions') predictionsOpened.value = true }, { immediate: true })
+
+/** The day the board opens on for day-paged competitions: the nearest upcoming fixture's date. */
+const nextUnplayedDate = computed(() => {
+  const first = nextUnplayedMatches.value[0]
+  return first?.date ? String(first.date).slice(0, 10) : null
+})
+
 const nextUnplayedMatches = computed(() => {
   if (!data.value?.games) return []
   
