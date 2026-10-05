@@ -52,7 +52,7 @@
           <!-- Quick stats chips -->
           <span 
             v-if="getLeaguePredictionCount(league) > 0"
-            class="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-[10px] font-bold rounded-full"
+            class="pill pill-blue"
           >
             {{ getLeaguePredictionCount(league) }}
           </span>
@@ -150,7 +150,7 @@
                   :key="bet.id"
                   :class="[
                     'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold',
-                    bet.status === 'won' ? 'bg-emerald-500/15 text-emerald-400' :
+                    bet.status === 'won' ? 'bg-positive/15 text-positive' :
                     bet.status === 'lost' ? 'bg-red-500/15 text-red-400' :
                     'bg-amber-500/10 text-amber-400'
                   ]"
@@ -160,7 +160,7 @@
                   <span>{{ Number(bet.odds).toFixed(2) }}</span>
                   <span class="text-zinc-500">•</span>
                   <span>{{ formatMoney(bet.stake) }}</span>
-                  <span v-if="bet.status === 'won'" class="text-emerald-400">W</span>
+                  <span v-if="bet.status === 'won'" class="text-positive">W</span>
                   <span v-else-if="bet.status === 'lost'" class="text-red-400">L</span>
                 </div>
               </div>
@@ -170,10 +170,10 @@
                 v-else-if="getPredictionChip(game)"
                 class="px-2.5 pb-1.5 flex flex-wrap gap-1 border-t border-edge/20 pt-1"
               >
-                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--brand-blue-tint)] text-[var(--brand-blue-hi)] border border-[var(--brand-blue-edge)]">
                   <span class="font-bold">{{ getPredictionChip(game)?.label }}</span>
-                  <span v-if="getPredictionChip(game)?.ev != null" class="text-blue-400/70">•</span>
-                  <span v-if="getPredictionChip(game)?.ev != null" class="text-emerald-400">EV {{ getPredictionChip(game)?.ev }}</span>
+                  <span v-if="getPredictionChip(game)?.ev != null" class="text-zinc-500">•</span>
+                  <span v-if="getPredictionChip(game)?.ev != null" class="text-positive">EV {{ getPredictionChip(game)?.ev }}</span>
                 </div>
               </div>
             </div>
@@ -215,7 +215,7 @@
           <span 
             class="px-2 py-0.5 rounded text-[11px] font-bold"
             :class="{
-              'bg-green-500/20 text-green-400': parlay.status === 'won',
+              'bg-positive/20 text-positive': parlay.status === 'won',
               'bg-red-500/20 text-red-400': parlay.status === 'lost',
               'bg-zinc-700 text-zinc-300': parlay.status === 'pending'
             }"
@@ -244,7 +244,7 @@
             <div v-else class="text-zinc-500">Game not found</div>
             
             <!-- Bet Type Chip -->
-            <span class="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 font-semibold rounded text-[11px] whitespace-nowrap">{{ leg.bets?.bet_type }}</span>
+            <span class="px-1.5 py-0.5 bg-[var(--brand-blue-tint)] text-[var(--brand-blue)] font-semibold rounded text-[11px] whitespace-nowrap">{{ leg.bets?.bet_type }}</span>
             
             <!-- Odds Chip -->
             <span class="px-1.5 py-0.5 bg-zinc-700 text-zinc-300 font-semibold rounded text-[11px] whitespace-nowrap">{{ leg.bets?.odds }}x</span>
@@ -257,7 +257,7 @@
             <span class="text-zinc-400">{{ parlay.status === 'won' ? 'Won' : 'Lost' }}</span>
             <span 
               class="font-bold"
-              :class="parlay.status === 'won' ? 'text-green-400' : 'text-red-400'"
+              :class="parlay.status === 'won' ? 'text-positive' : 'text-negative'"
             >
               {{ formatMoney(parlay.status === 'won' ? (parlay.actual_payout || 0) - (parlay.total_stake || 0) : -(parlay.total_stake || 0), { signed: true }) }}
             </span>
@@ -384,7 +384,7 @@ function getPredOrBetStatus(game: any, direction: string): 'won' | 'lost' | 'pen
 function getOddsHighlight(game: any, direction: string): string {
   const status = getPredOrBetStatus(game, direction)
   if (!status) return 'text-zinc-400'
-  if (status === 'won')    return 'bg-emerald-500/15 text-emerald-400 ring-1 ring-inset ring-emerald-500/25'
+  if (status === 'won')    return 'bg-positive/15 text-positive ring-1 ring-inset ring-positive/25'
   if (status === 'lost')   return 'bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-500/25'
   /* pending */ return 'bg-amber-500/10 text-amber-400 ring-1 ring-inset ring-amber-500/20'
 }

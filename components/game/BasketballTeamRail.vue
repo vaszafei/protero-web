@@ -1,25 +1,23 @@
 <template>
-  <div class="space-y-3">
-    <!-- Shooting -->
-    <section v-if="totals && totals.fga > 0" class="panel overflow-hidden">
-      <header class="panel-head">
-        <span class="panel-title">Shooting</span>
-        <span class="pill" :class="side === 'home' ? 'pill-blue' : 'pill-red'">{{ teamName }}</span>
-      </header>
-      <div class="p-2.5 sm:p-3">
-        <PlayerShootingZones
-          :zones="zones"
-          ref-label="opponent"
-          :note="courtNote"
-        />
-      </div>
-    </section>
-
+  <div class="flex flex-col gap-3 min-h-0 h-full">
     <!-- Four factors -->
-    <section v-if="factors.length" class="panel overflow-hidden">
+    <section v-if="factors.length" class="panel overflow-hidden flex-shrink-0">
       <header class="panel-head">
         <span class="panel-title">Four factors</span>
-        <span class="panel-link">vs opponent</span>
+        <span class="pill" :class="side === 'home' ? 'pill-blue' : 'pill-red'">{{ teamName }}</span>
+        <UiTooltip class="ml-auto" :width="320" placement="bottom">
+          <span class="panel-link">how to read</span>
+          <template #content>
+            <p>
+              The notch is the opposing team in this game and the bar is raw magnitude, so <b>colour</b> carries
+              better-or-worse: green is the better of the two.
+            </p>
+            <p class="mt-2">
+              Four factors are the standard decomposition of a basketball result: shoot well, avoid turnovers,
+              rebound your misses, get to the line.
+            </p>
+          </template>
+        </UiTooltip>
       </header>
       <div class="ff">
         <div v-for="f in factors" :key="f.key" class="ff-row">
@@ -39,20 +37,24 @@
           <span class="ff-v" :style="{ color: f.color }">{{ f.text }}</span>
         </div>
       </div>
-      <p class="ff-note">
-        The notch is the opposing team in this game and the bar is raw magnitude, so
-        <strong>colour</strong> carries better-or-worse — green is the better of the two.
-        Four factors are the standard decomposition of a basketball result: shoot well,
-        avoid turnovers, rebound your misses, get to the line.
-      </p>
     </section>
 
+    <GameBasketballTeamStats class="flex-shrink-0" :sport-stats="sportStats" :side="side" :team-name="teamName" :score="score" />
+
+    <GameBasketballPlayerStats
+      v-if="hasPlayers"
+      class="flex-1 min-h-0"
+      :sport-stats="sportStats"
+      :side="side"
+      :team-name="teamName"
+      :league-key="leagueKey"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * One team's side rail on a completed basketball game.
+ * One team's column on a completed basketball game: four factors, its team stats, its players.
  *
  * What was here before: `TeamStatsRail`, which reads the football scalar
  * columns (`home_shots`, `home_corners`, `home_possession_pct`). Those are NULL
@@ -60,113 +62,58 @@
  * them deliberately — so both rails rendered "No stats recorded" and ate half
  * the width of the page.
  *
- * Basketball team totals are not stored as columns at all; they are derived
- * from `sport_stats.<side>.players[]`, which 20,141 of 23,703 completed
- * basketball fixtures carry. That is the same source `MatchStatistics` already
- * sums, which is why the centre of the page had numbers while the sides did not.
+ * Basketball team totals are not stored as columns at all. They come from
+ * `utils/basketball-box`, the one reader of `sport_stats` that the team stats, the player table
+ * and the court in the centre all use, so they cannot disagree (#58).
  */
 import { computed } from 'vue'
 import { VIZ_STATUS, VIZ_BRAND_HOME } from '~/utils/viz'
-import PlayerShootingZones from '~/components/player/ShootingZones.vue'
+import { boxScore, type BoxSide } from '~/utils/basketball-box'
 import UiTooltip from '~/components/ui/Tooltip.vue'
+import GameBasketballTeamStats from '~/components/game/BasketballTeamStats.vue'
+import GameBasketballPlayerStats from '~/components/game/BasketballPlayerStats.vue'
 
 const props = defineProps<{
   sportStats: any
   side: 'home' | 'away'
   teamName: string
+  leagueKey: string
+  score?: { home: unknown; away: unknown } | null
 }>()
 
-const num = (v: any) => {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
+const hasPlayers = computed(() => (props.sportStats?.[props.side]?.players?.length ?? 0) > 0)
 
-/** Sum a side's box score. Keys vary by source, so every read is a coalesce. */
-function sumSide(side: 'home' | 'away') {
-  const players = props.sportStats?.[side]?.players
-  if (!Array.isArray(players) || !players.length) return null
-  const t = {
-    pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, tov: 0,
-    fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
-  }
-  for (const p of players) {
-    t.pts += num(p.pts ?? p.points)
-    t.reb += num(p.reb ?? p.rebounds)
-    t.oreb += num(p.oreb ?? p.offensive_rebounds)
-    t.dreb += num(p.dreb ?? p.defensive_rebounds)
-    t.ast += num(p.ast ?? p.assists)
-    t.tov += num(p.tov ?? p.to ?? p.turnovers)
-    t.fg3m += num(p.fg3m ?? p.three_pointers_made)
-    t.fg3a += num(p.fg3a ?? p.three_pointers_attempted)
-    t.ftm += num(p.ftm ?? p.free_throws_made)
-    t.fta += num(p.fta ?? p.free_throws_attempted)
-    // Some sources give FGM including threes, others only twos — the sum of
-    // 2PT and 3PT is the reliable reconstruction when `fgm` is absent.
-    t.fgm += num(p.fgm ?? p.field_goals_made ?? (num(p.fg2m) + num(p.fg3m)))
-    t.fga += num(p.fga ?? p.field_goals_attempted ?? (num(p.fg2a) + num(p.fg3a)))
-  }
-  return t
-}
+const box = computed(() => boxScore(props.sportStats))
+const mine = computed(() => box.value[props.side])
+const theirs = computed(() => box.value[props.side === 'home' ? 'away' : 'home'])
 
-const totals = computed(() => sumSide(props.side))
-const oppTotals = computed(() => sumSide(props.side === 'home' ? 'away' : 'home'))
+/** The terms the four factors are built from. All of them must be in the feed, or there is no factor. */
+interface Terms { fgm: number; fga: number; fg3m: number; ftm: number; fta: number; tov: number; oreb: number; dreb: number }
 
-const pct = (made: number, att: number) => (att > 0 ? (100 * made) / att : null)
-
-function zonesOf(t: any) {
-  if (!t) return null
-  return {
-    '2PT': { made: t.fgm - t.fg3m, att: t.fga - t.fg3a },
-    '3PT': { made: t.fg3m, att: t.fg3a },
-    FT: { made: t.ftm, att: t.fta },
-  } as Record<string, { made: number; att: number }>
-}
-
-const zones = computed(() => {
-  const mine = zonesOf(totals.value)
-  const theirs = zonesOf(oppTotals.value)
-  if (!mine) return []
-  return (['2PT', '3PT', 'FT'] as const).map((z) => ({
-    zone: z,
-    made: mine[z].made,
-    att: mine[z].att,
-    pct: pct(mine[z].made, mine[z].att),
-    // The reference is the OTHER team in this game — the only comparison a
-    // single fixture honestly supports.
-    cohortMedian: theirs ? pct(theirs[z].made, theirs[z].att) : null,
-    percentile: null,
-  }))
-})
-
-// These are the BOXSCORE's zone totals, which every basketball fixture has.
-// Per-shot coordinates are a different feed and exist only where the shot
-// backfill has run (EuroLeague 2025-2026), so this panel does not depend on
-// them — where they do exist the Shot Chart tab plots them individually.
-const courtNote = computed(() =>
-  'Zone totals for this game, not a shot chart — these are makes and attempts per zone, not individual shot locations. Shading compares each zone with the opposing team in this fixture.'
-)
-
-interface Factor {
-  key: string; label: string; value: number | null; opp: number | null
-  suffix: string; note: string; higherIsBetter: boolean
+function termsOf(x: BoxSide): Terms | null {
+  const fg3m = x.fg3?.made
+  const fta = x.ft?.att
+  const ftm = x.ft?.made
+  if (x.fgm == null || x.fga == null || fg3m == null || fta == null || ftm == null || x.tov == null || x.oreb == null || x.dreb == null) return null
+  return { fgm: x.fgm, fga: x.fga, fg3m, ftm, fta, tov: x.tov, oreb: x.oreb, dreb: x.dreb }
 }
 
 const factors = computed(() => {
-  const t = totals.value
-  const o = oppTotals.value
+  const t = termsOf(mine.value)
+  const o = termsOf(theirs.value)
   if (!t || !o) return []
 
-  const efg = (x: any) => (x.fga > 0 ? (100 * (x.fgm + 0.5 * x.fg3m)) / x.fga : null)
-  const tovPct = (x: any) => {
+  const efg = (x: Terms) => (x.fga > 0 ? (100 * (x.fgm + 0.5 * x.fg3m)) / x.fga : null)
+  const tovPct = (x: Terms) => {
     const poss = x.fga + 0.44 * x.fta + x.tov
     return poss > 0 ? (100 * x.tov) / poss : null
   }
   // ORB% needs the opponent's defensive rebounds — a rebound is contested.
-  const orbPct = (x: any, y: any) => {
+  const orbPct = (x: Terms, y: Terms) => {
     const d = x.oreb + y.dreb
     return d > 0 ? (100 * x.oreb) / d : null
   }
-  const ftRate = (x: any) => (x.fga > 0 ? (100 * x.fta) / x.fga : null)
+  const ftRate = (x: Terms) => (x.fga > 0 ? (100 * x.fta) / x.fga : null)
 
   const specs: Factor[] = [
     { key: 'efg', label: 'eFG%', value: efg(t), opp: efg(o), suffix: '%', higherIsBetter: true,
@@ -232,11 +179,6 @@ const factors = computed(() => {
   font-size: 0.66rem; font-weight: 700; text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.ff-note {
-  padding: 0.5rem 0.7rem 0.7rem;
-  font-size: 0.57rem; line-height: 1.55; color: var(--ink-faint);
-}
-.ff-note strong { color: var(--ink-mute); font-weight: 600; }
 
 .tip-title { font-weight: 700; color: var(--ink-strong); margin-bottom: 0.25rem; }
 .tip-row { display: flex; justify-content: space-between; gap: 1rem; }

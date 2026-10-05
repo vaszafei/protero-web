@@ -3,7 +3,15 @@
     <header class="panel-head">
       <span class="panel-title">Scoring flow</span>
       <span class="pill pill-dim">{{ periods.length }} periods</span>
-      <span class="panel-link">running margin</span>
+      <UiTooltip class="ml-auto" :width="300" placement="bottom">
+        <span class="panel-link">how to read</span>
+        <template #content>
+          <p>
+            The band is the running margin: above the line {{ homeName }} leads, below it {{ awayName }} does.
+            A bold period score won that period.
+          </p>
+        </template>
+      </UiTooltip>
     </header>
 
     <div class="qf">
@@ -78,10 +86,6 @@
         <span class="qf-cell qf-total">{{ totalAway }}</span>
       </div>
 
-      <p class="qf-note">
-        The band is the running margin — above the line {{ homeName }} leads, below it
-        {{ awayName }} does. A bold period score won that period.
-      </p>
     </div>
   </section>
 </template>

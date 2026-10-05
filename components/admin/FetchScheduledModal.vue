@@ -24,23 +24,23 @@
             <button
               @click="selectAction('scheduled')"
               :disabled="loading"
-              class="flex flex-col items-center gap-3 p-6 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-lg border-2 border-blue-200 transition-all disabled:opacity-50"
+              class="flex flex-col items-center gap-3 p-6 bg-surface-light hover:bg-surface-hover rounded-lg border border-edge transition-colors disabled:opacity-50"
             >
-              <CalendarPlus class="w-8 h-8 text-blue-400" />
+              <CalendarPlus class="w-8 h-8 text-[var(--brand-blue)]" />
               <div class="text-center">
-                <div class="font-semibold text-blue-900">Fetch Scheduled</div>
-                <div class="text-xs text-blue-400 mt-1">Add upcoming games</div>
+                <div class="font-semibold text-zinc-100">Fetch Scheduled</div>
+                <div class="text-xs text-[var(--brand-blue)] mt-1">Add upcoming games</div>
               </div>
             </button>
             <button
               @click="selectAction('scores')"
               :disabled="loading"
-              class="flex flex-col items-center gap-3 p-6 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-lg border-2 border-green-500/30 transition-all disabled:opacity-50"
+              class="flex flex-col items-center gap-3 p-6 bg-surface-light hover:bg-surface-hover rounded-lg border border-edge transition-colors disabled:opacity-50"
             >
-              <Trophy class="w-8 h-8 text-green-400" />
+              <Trophy class="w-8 h-8 text-[var(--brand-blue)]" />
               <div class="text-center">
-                <div class="font-semibold text-green-900">Update Scores</div>
-                <div class="text-xs text-green-400 mt-1">Sync played games</div>
+                <div class="font-semibold text-zinc-100">Update Scores</div>
+                <div class="text-xs text-[var(--brand-blue)] mt-1">Sync played games</div>
               </div>
             </button>
           </div>
@@ -65,8 +65,8 @@
                 <UBadge v-if="leagueStats[league.key]" color="gray" variant="soft" size="xs">
                   {{ leagueStats[league.key].total }} games
                 </UBadge>
-                <UBadge v-if="isLeagueDisabled(league.key)" color="green" variant="soft" size="xs">
-                  ✓ Up to date
+                <UBadge v-if="isLeagueDisabled(league.key)" color="primary" variant="soft" size="xs">
+                  Up to date
                 </UBadge>
               </div>
               <ChevronRight class="w-5 h-5 text-zinc-500" />
@@ -78,11 +78,11 @@
         <div v-if="apiQuota && !preview" class="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div class="flex items-center gap-2 mb-2">
             <Activity class="w-5 h-5 text-amber-400" />
-            <h3 class="font-semibold text-amber-900">API Usage Warning</h3>
+            <h3 class="font-semibold text-amber-300">API Usage Warning</h3>
           </div>
           <div class="text-sm text-amber-400 space-y-1">
             <p>Daily Limit: <span class="font-semibold">{{ apiQuota.requests.limit_day }} requests</span></p>
-            <p class="text-xs">⚠️ {{ apiQuota.warning }}</p>
+            <p class="text-xs">Quota: {{ apiQuota.warning }}</p>
           </div>
         </div>
 
@@ -108,7 +108,7 @@
                 <div class="text-sm text-zinc-400">{{ selectedAction === 'scores' ? 'Updates' : 'New Games' }}</div>
               </div>
               <div class="text-center">
-                <div class="text-2xl font-bold text-green-400">{{ preview.rounds.length }}</div>
+                <div class="text-2xl font-bold text-[var(--brand-blue)]">{{ preview.rounds.length }}</div>
                 <div class="text-sm text-zinc-400">Rounds</div>
               </div>
               <div class="text-center">
@@ -138,7 +138,7 @@
                   <div v-if="selectedAction === 'scores'" class="flex items-center gap-2">
                     <span class="text-xs text-red-400 line-through">{{ game.oldScore }}</span>
                     <span class="text-xs text-zinc-500 font-semibold">→</span>
-                    <span class="text-xs text-green-400 font-bold">{{ game.newScore }}</span>
+                    <span class="text-xs text-[var(--brand-blue)] font-bold">{{ game.newScore }}</span>
                   </div>
                   <div v-else class="text-xs text-zinc-500 font-semibold">vs</div>
                   <div class="text-sm font-medium text-zinc-100 flex-1">{{ game.away }}</div>

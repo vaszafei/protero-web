@@ -1,11 +1,11 @@
 <template>
-  <div class="space-y-3 sm:space-y-4">
+  <div class="flex flex-col gap-3 h-full min-h-0">
     <!-- ═══ 1. The round in front of us ═══════════════════════════════════
          No outer panel — the fixture strip now sits directly on the page,
          restyled to match the hero card's language (2026-08-25). The twin's
          headline metrics moved to the page header (LeagueMetricsGrid, beside
          the hero card) the same day. -->
-    <div>
+    <div class="flex-shrink-0">
       <div class="round-head">
         <!-- Switch round — on the round cards, not the season bar. -->
         <span class="rd-step">
@@ -47,23 +47,29 @@
       </p>
     </div>
 
-    <div class="grid lg:grid-cols-3 gap-3 sm:gap-4 items-start">
+    <div class="grid lg:grid-cols-3 gap-3 flex-1 min-h-0 ov-grid">
       <!-- ═══ 3. The table, carrying the twin's own view of each club ═════ -->
-      <section v-if="twin" class="lg:col-span-2 panel overflow-hidden">
+      <section v-if="twin" class="lg:col-span-2 panel panel-fill">
         <header class="panel-head">
           <h3 class="panel-title">Standings</h3>
           <span v-if="round" class="text-[10px] text-zinc-600 tabular-nums">as of {{ round.toLowerCase() }}</span>
           <span class="text-[10px] text-zinc-600 tabular-nums">{{ rows.length }} clubs</span>
-          <span class="ml-auto text-[10px] text-zinc-600 hidden sm:inline">open a club for its twin</span>
+          <UiTooltip class="ml-auto" :width="300" placement="bottom">
+            <span class="panel-link">open a club for its twin</span>
+            <template #content>
+              <p v-if="movedCount">{{ movedCount }} club{{ movedCount === 1 ? '' : 's' }} carry a rating learned in another division — fixtures to distrust.</p>
+              <p v-else>Every club here carries a rating learned in this division.</p>
+            </template>
+          </UiTooltip>
         </header>
 
         <p v-if="!rows.length" class="px-4 py-10 text-center text-xs text-zinc-600">
           No table for this competition yet.
         </p>
 
-        <div v-else class="overflow-x-auto">
+        <div v-else class="panel-scroll">
           <table class="w-full text-xs min-w-[760px]">
-            <thead>
+            <thead class="sticky top-0 z-[1] bg-surface">
               <tr class="text-zinc-500">
                 <th class="th w-9 text-center">#</th>
                 <th class="th text-left">Club</th>
@@ -135,36 +141,40 @@
           </table>
         </div>
 
-        <p v-if="movedCount" class="px-3 py-2 border-t border-edge/40 text-[10px] text-amber-300/70 leading-relaxed">
-          {{ movedCount }} club{{ movedCount === 1 ? '' : 's' }} carry a rating learned in another
-          division — fixtures to distrust.
-        </p>
       </section>
 
       <!-- Competitions with no twin keep their own table (basketball's ORtg /
            DRtg / pace columns have no equivalent here). -->
-      <div v-else class="lg:col-span-2">
+      <div v-else class="lg:col-span-2 min-h-0 overflow-y-auto">
         <slot name="standings" />
       </div>
 
       <!-- ═══ 4. Right rail ═══════════════════════════════════════════════ -->
-      <div class="space-y-3 sm:space-y-4">
+      <div class="flex flex-col gap-3 min-h-0">
         <!-- Managers — the managerial landscape, entity-id keyed -->
-        <LeagueManagers v-if="twin" :managers="managers" :league-key="leagueKey" />
+        <LeagueManagers v-if="twin" class="flex-shrink-0" :managers="managers" :league-key="leagueKey" />
 
         <!-- Latest picks -->
-        <section class="panel">
+        <section class="panel panel-fill ov-picks">
           <header class="panel-head">
             <h3 class="panel-title">Latest picks</h3>
-            <span class="text-[10px] text-zinc-600 tabular-nums">{{ picks.length }}</span>
-            <span class="ml-auto text-[10px] text-zinc-600">this season</span>
+            <span class="panel-count">{{ picks.length }}</span>
+            <UiTooltip class="ml-auto" :width="320" placement="bottom">
+              <span class="panel-link">this season</span>
+              <template #content>
+                <p>
+                  Newest first. Rows marked LEG are parts of one parlay, not separate wagers. Wallet-level ROI and
+                  its p(luck) live on the wallet console.
+                </p>
+              </template>
+            </UiTooltip>
           </header>
 
           <p v-if="!picks.length" class="px-4 py-6 text-center text-xs text-zinc-600">
             No wager on this competition this season.
           </p>
 
-          <div v-else class="divide-y divide-edge/40">
+          <div v-else class="panel-scroll divide-y divide-edge/40">
             <NuxtLink
               v-for="p in picks"
               :key="p.id"
@@ -187,28 +197,20 @@
             </NuxtLink>
           </div>
 
-          <!-- A list of wagers is a ledger read. An ROI over them is a
-               performance claim, and this project's rule is that one never
-               appears without its p-value — so it is not computed here. -->
-          <p v-if="picks.length" class="px-3 py-2 border-t border-edge/40 text-[10px] text-zinc-600 leading-relaxed">
-            Newest first. Rows marked LEG are parts of one parlay, not separate wagers.
-            Wallet-level ROI and its p(luck) live on
-            <NuxtLink to="/wallet" class="text-zinc-400 hover:text-zinc-200 underline underline-offset-2">the wallet console</NuxtLink>.
-          </p>
         </section>
 
         <!-- In and out -->
-        <section v-if="twin" class="panel">
+        <section v-if="twin" class="panel panel-fill ov-inout">
           <header class="panel-head">
             <h3 class="panel-title">In and out</h3>
-            <span class="text-[10px] text-zinc-600 tabular-nums">{{ transitions.length }}</span>
+            <span class="panel-count">{{ transitions.length }}</span>
           </header>
 
           <p v-if="!transitions.length" class="px-4 py-6 text-center text-xs text-zinc-600">
             No recorded move into or out of this competition.
           </p>
 
-          <div v-else class="divide-y divide-edge/40 max-h-[420px] overflow-y-auto">
+          <div v-else class="panel-scroll divide-y divide-edge/40">
             <div
               v-for="(t, i) in transitions"
               :key="`${t.team_id}-${t.to_season}-${i}`"
@@ -235,7 +237,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 /**
  * A competition's Overview — the twin and the fixtures it is fitted on, in one
  * pane.
@@ -700,14 +702,17 @@ const RatingBar = defineComponent({
 .rail-fade-r { right: 0; background: linear-gradient(270deg, rgba(28, 31, 39, 0.95), rgba(28, 31, 39, 0)); }
 
 .th {
-  padding: 0.4rem 0.5rem;
+  padding: 0.3rem 0.5rem;
   font-weight: 600;
   font-size: 0.62rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   text-align: center;
 }
-.td { padding: 0.35rem 0.5rem; }
+.td { padding: 0.18rem 0.5rem; }
+.ov-grid { grid-template-rows: minmax(0, 1fr); }
+.ov-picks { flex: 1 1 0; }
+.ov-inout { flex: 1 1 0; }
 .tr {
   border-bottom: 1px solid rgba(42, 47, 58, 0.4);
   cursor: pointer;

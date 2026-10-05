@@ -48,14 +48,11 @@
             last run {{ fmtWhen(run.started_at) }}
           </span>
           <span
-            v-if="run?.active"
             class="text-[10px] tabular-nums ml-auto"
-            :class="live ? 'text-emerald-400/70' : 'text-zinc-600'"
-            :title="live
-              ? 'Subscribed to phase_runs — phases land as the runner writes them.'
-              : 'Realtime did not connect; falling back to a 2s poll.'"
+            :class="channelState === 'live' ? 'text-emerald-400/70' : 'text-zinc-500'"
+            :title="channelTitle"
           >
-            {{ live ? 'live' : 'polling' }}
+            {{ channelState }}
           </span>
         </div>
 
@@ -114,7 +111,7 @@
         </div>
 
         <p v-else-if="run && !phases.length" class="text-[11px] text-zinc-600 leading-relaxed">
-          <template v-if="run.active">Phases appear as they land — the runner persists each one to <code class="text-zinc-500">phase_runs</code> as it completes.</template>
+          <template v-if="run.active">Running — the runner writes every step to <code class="text-zinc-500">phase_runs</code> in one batch when it finishes, and they appear here the moment it does.</template>
           <template v-else>This run wrote no phase telemetry (runs before 2026-10-01 wrote only the summary row).</template>
         </p>
 
@@ -140,11 +137,13 @@
  * `/api/pipeline/runs` on every event, rather than trusting the payload: both
  * tables are admin-RLS'd, so an event is a NUDGE, not a data source.
  *
- * The poll is deliberately kept, at two cadences. A subscription can fail two
- * ways — it can never reach SUBSCRIBED (socket down), and it can reach
- * SUBSCRIBED and deliver nothing (Realtime evaluates our custom-JWT RLS policy
- * per subscriber). The first is caught by the status callback; only a heartbeat
- * catches the second, so a live channel still polls slowly.
+ * While the channel is `live` the modal does NOT poll. It polls only after an explicit
+ * `CHANNEL_ERROR` / `TIMED_OUT` / `CLOSED`, or when the channel never reaches SUBSCRIBED within
+ * `CONNECT_TIMEOUT_MS`, and says so in its pill (`polling`) — a fallback is never silent.
+ * Delivery needs the websocket joined as the signed-in user (`useRealtimeClient`): joined as `anon`,
+ * RLS drops every admin-only INSERT while the pill still says `live`. `pipeline-report.js` writes the
+ * run row and all its phase rows once, at the END of a run, so the modal updates once per run — there is
+ * no per-phase stream to show. `realtime.spec.ts` pins both the join identity and delivery.
  */
 import { ref, computed, watch, onUnmounted } from 'vue'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -162,15 +161,24 @@ const error = ref<string | null>(null)
 const run = ref<any>(null)
 const phases = ref<any[]>([])
 const expanded = ref<Set<string>>(new Set())
-const live = ref(false)
+/** `connecting` until the first status, then `live` or `polling` (the explicit fallback). */
+const channelState = ref<'connecting' | 'live' | 'polling'>('connecting')
+const channelReason = ref<string | null>(null)
+const channelTitle = computed(() =>
+  channelState.value === 'live'
+    ? 'Subscribed to pipeline_runs + phase_runs — the finished run lands here the moment it is written; no polling.'
+    : channelState.value === 'connecting'
+      ? 'Connecting to Realtime…'
+      : `Realtime is not delivering (${channelReason.value ?? 'unknown'}); re-reading every 2 s.`)
 
-/** Realtime is authoritative when it connects; the poll is the safety net. */
+/** The poll exists only as the explicit fallback after a Realtime failure. */
 const POLL_MS_FALLBACK = 2000
-const POLL_MS_HEARTBEAT = 15000
+const CONNECT_TIMEOUT_MS = 5000
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let pollMs = 0
 let coalesceTimer: ReturnType<typeof setTimeout> | null = null
+let connectTimer: ReturnType<typeof setTimeout> | null = null
 let channel: RealtimeChannel | null = null
 let disposed = false
 
@@ -222,25 +230,48 @@ function nudge() {
   }, 250)
 }
 
+function fallBackToPolling(reason: string) {
+  channelState.value = 'polling'
+  channelReason.value = reason
+  startPolling(POLL_MS_FALLBACK)
+}
+
 function subscribe() {
   if (channel) return
-  const supabase = useSupabaseClient()
+  const supabase = useRealtimeClient()
+  channelState.value = 'connecting'
+  channelReason.value = null
+  connectTimer = setTimeout(() => {
+    if (channelState.value === 'connecting') fallBackToPolling(`no connection after ${CONNECT_TIMEOUT_MS / 1000} s`)
+  }, CONNECT_TIMEOUT_MS)
   channel = supabase
     .channel('pipeline-telemetry')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'phase_runs' }, nudge)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_runs' }, nudge)
-    .subscribe((status) => {
-      live.value = status === 'SUBSCRIBED'
-      startPolling(live.value ? POLL_MS_HEARTBEAT : POLL_MS_FALLBACK)
+    .subscribe((status, err) => {
+      // `channel` is cleared before a deliberate removeChannel, so its CLOSED is not a failure.
+      if (disposed || !channel) return
+      if (status === 'SUBSCRIBED') {
+        if (connectTimer) { clearTimeout(connectTimer); connectTimer = null }
+        channelState.value = 'live'
+        channelReason.value = null
+        stopPolling()
+        // Anything written between the first read and the subscription landed unseen; one re-read closes the gap.
+        fetchRun()
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        fallBackToPolling(err?.message || status)
+      }
     })
 }
 
 function unsubscribe() {
+  if (connectTimer) { clearTimeout(connectTimer); connectTimer = null }
   if (!channel) return
   const supabase = useSupabaseClient()
-  supabase.removeChannel(channel)
+  const closing = channel
   channel = null
-  live.value = false
+  supabase.removeChannel(closing)
+  channelState.value = 'connecting'
 }
 
 function startPolling(intervalMs: number) {
@@ -268,7 +299,6 @@ watch(
   (open) => {
     if (open) {
       fetchRun()
-      startPolling(POLL_MS_FALLBACK)
       subscribe()
     } else {
       unsubscribe()

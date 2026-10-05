@@ -22,6 +22,7 @@
     </template>
 
     <!-- Loading: shape-matched, so nothing jumps when the data lands. -->
+    <Transition name="swap" mode="out-in">
     <div v-if="pending" class="grid-12">
       <div class="col-3"><UiSkeletonPanel :rows="7" /></div>
       <div class="col-5"><UiSkeletonPanel :rows="8" /></div>
@@ -113,6 +114,7 @@
         </div>
       </div>
     </template>
+    </Transition>
   </UiPageShell>
 </template>
 

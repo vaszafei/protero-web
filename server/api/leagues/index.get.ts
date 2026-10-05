@@ -1,17 +1,10 @@
 import { getSupabase } from '~/server/utils/supabase'
 import { requireUserId } from '~/server/utils/auth'
-import { getCached, setCache } from '~/server/utils/cache'
 import { currentSeason } from '~/utils/season'
 
-export default defineEventHandler(async (event) => {
-  await requireUserId(event)
+/** Cached data function; the handler stays uncached so `requireUserId` runs on every request. */
+const loadLeagues = defineCachedFunction(async (season: string) => {
   const supabase = getSupabase()
-  const query = getQuery(event)
-  const season = (query.season as string) || currentSeason()
-
-  const cacheKey = `leagues:${season}`
-  const cached = getCached<any>(cacheKey)
-  if (cached) return cached
 
   try {
     // Fetch leagues first
@@ -44,11 +37,15 @@ export default defineEventHandler(async (event) => {
       played_count: playedMap[league.key] || 0,
     }))
 
-    const result = { leagues: leaguesWithStats, season, cached_at: new Date().toISOString() }
-    setCache(cacheKey, result, 180)
-    return result
+    return { leagues: leaguesWithStats, season, cached_at: new Date().toISOString() }
 
   } catch (error: any) {
     throw createError({ statusCode: 500, message: 'Failed to fetch leagues: ' + error.message })
   }
+}, { name: 'leagues-list', getKey: (season: string) => season, maxAge: 180, swr: true })
+
+export default defineEventHandler(async (event) => {
+  await requireUserId(event)
+  const season = (getQuery(event).season as string) || currentSeason()
+  return loadLeagues(season)
 })

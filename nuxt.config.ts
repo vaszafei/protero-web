@@ -1,5 +1,18 @@
+import { fileURLToPath } from 'node:url'
+
+/**
+ * `#logic` is the ONE implementation of every pure rule the pages and the Edge Functions share
+ * (market board, masks, cohort scoring, prediction codes, the page loaders). It lives beside the
+ * functions so Deno can import it too; Vite must be allowed to read outside this repo for it.
+ */
+const LOGIC = fileURLToPath(new URL('../supabase-local/supabase/functions/_shared', import.meta.url))
+const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
+
 export default defineNuxtConfig({
   modules: ['@nuxt/ui'],
+  alias: { '#logic': LOGIC },
+  vite: { server: { fs: { allow: [REPO_ROOT] } } },
+  typescript: { tsConfig: { compilerOptions: { allowImportingTsExtensions: true } } },
   // tokens.css must load FIRST — panels.css and every component `<style>`
   // resolve their custom properties from it.
   css: ['~/assets/css/tokens.css', '~/assets/css/panels.css'],

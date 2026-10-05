@@ -1,189 +1,76 @@
 <template>
-  <div class="py-6 px-4 md:px-6">
-    <!-- Access Denied -->
-    <div v-if="!isAdmin" class="flex items-center justify-center min-h-[calc(100vh-12rem)]">
-      <Card padding="8">
-        <div class="text-center max-w-md">
-          <ShieldAlert :size="48" class="text-red-400 mx-auto mb-4" />
-          <h1 class="text-xl font-semibold text-zinc-100 mb-2">Access Denied</h1>
-          <p class="text-zinc-400 mb-6">You need admin privileges to access this page.</p>
-          <UButton color="primary" @click="$router.push('/leagues')">
-            Go to Dashboard
-          </UButton>
-        </div>
-      </Card>
+  <UiPageShell title="Admin panel" subtitle="Manage match scores and league standings.">
+    <!-- Access denied -->
+    <div v-if="!isAdmin" class="flex-1 flex items-center justify-center">
+      <div class="panel p-8 text-center max-w-md">
+        <h1 class="text-lg font-semibold text-zinc-100 mb-2">Access denied</h1>
+        <p class="text-sm text-zinc-400 mb-4">You need admin privileges to access this page.</p>
+        <UButton color="primary" @click="$router.push('/')">Go to the control room</UButton>
+      </div>
     </div>
 
-    <!-- Admin Panel -->
-    <div v-else class="space-y-6">
-      <!-- Page Header with Actions -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 md:px-6">
-        <PageHeader 
-          title="Admin Panel"
-          description="Manage match scores and league standings"
-        />
-        
-        <div class="flex flex-wrap gap-2">
-          <UButton 
-            color="white" 
-            icon="i-lucide-refresh-cw" 
-            @click="refreshData"
-            :loading="loadingMatches"
-          >
-            Refresh
-          </UButton>
-        </div>
-      </div>
+    <template v-else>
+      <UiErrorState v-if="loadError" class="flex-shrink-0 mb-3" title="The admin data failed to load." :error="loadError" @retry="refreshData" />
 
-      <!-- First Row: Dropdowns and Progress Bar -->
-      <div v-if="selectedLeague && leagueData" class="px-4 md:px-6">
-        <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
-          <!-- League Dropdown -->
+      <div v-if="selectedLeague && leagueData" class="flex-shrink-0 space-y-3 mb-3">
+        <!-- League, season, progress, refresh -->
+        <div class="flex items-end gap-3">
           <div class="flex-shrink-0">
-            <label class="block text-xs font-medium text-zinc-300 mb-1">League</label>
+            <label class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">League</label>
             <select
               v-model="selectedLeague"
-              class="px-3 py-2 rounded-lg border border-edge bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              class="px-3 py-1.5 rounded-lg border border-edge bg-surface text-sm text-zinc-100 focus:outline-none focus:border-[var(--brand-blue-edge)]"
             >
-              <option 
-                v-for="league in sortedLeagues" 
-                :key="league.key" 
-                :value="league.key"
-              >
-                {{ league.name }}
-              </option>
+              <option v-for="league in sortedLeagues" :key="league.key" :value="league.key">{{ league.name }}</option>
             </select>
           </div>
-          
-          <!-- Season Selector -->
+
           <div v-if="availableSeasons.length > 0" class="flex-shrink-0">
-            <label class="block text-xs font-medium text-zinc-300 mb-1">Season</label>
+            <label class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Season</label>
             <select
               v-model="selectedSeason"
-              class="px-3 py-2 rounded-lg border border-edge bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              class="px-3 py-1.5 rounded-lg border border-edge bg-surface text-sm text-zinc-100 focus:outline-none focus:border-[var(--brand-blue-edge)]"
             >
-              <option 
-                v-for="s in availableSeasons" 
-                :key="s.season" 
-                :value="s.season"
-              >
+              <option v-for="s in availableSeasons" :key="s.season" :value="s.season">
                 {{ s.season }} ({{ s.completedGames }}/{{ s.totalGames }})
               </option>
             </select>
           </div>
 
-          <!-- Progress Bar Card (takes remaining space) -->
-          <div class="flex-1 min-w-0 bg-surface rounded-lg border border-edge p-4">
+          <div class="flex-1 min-w-0 panel px-3 py-2">
             <div class="flex items-center justify-between mb-1">
-              <span class="text-xs font-medium text-zinc-300">
-                Season {{ selectedSeason || '' }} Progress
-              </span>
-              <span class="text-xs text-zinc-400">
-                {{ matchesWithScores }}/{{ matches.length }} ({{ scoresPercentage }}%)
-              </span>
+              <span class="text-[11px] font-medium text-zinc-300">Season {{ selectedSeason || '' }} progress</span>
+              <span class="text-[11px] text-zinc-400 tabular-nums">{{ matchesWithScores }}/{{ matches.length }} ({{ scoresPercentage }}%)</span>
             </div>
-            <div class="relative w-full h-2 bg-edge rounded-full overflow-hidden">
-              <div 
-                class="absolute top-0 left-0 h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all duration-500"
-                :style="{ width: scoresPercentage + '%' }"
+            <div class="relative w-full h-1.5 bg-edge rounded-full overflow-hidden">
+              <div
+                class="absolute top-0 left-0 h-full bg-[var(--brand-blue)] rounded-full"
+                :style="{ width: scoresPercentage + '%', transition: 'width var(--dur-slow) var(--ease-glide)' }"
               />
             </div>
           </div>
+
+          <button class="btn btn-ghost" :disabled="loadingMatches" @click="refreshData">
+            <UIcon name="i-heroicons-arrow-path" class="w-3.5 h-3.5" :class="loadingMatches ? 'animate-spin' : ''" />
+            Refresh
+          </button>
         </div>
-      </div>
 
-      <!-- Second Row: Stats Cards -->
-      <div v-if="selectedLeague && leagueData" class="px-4 md:px-6">
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-          <!-- Played -->
-          <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-2.5 border border-green-500/30/50">
-            <div class="text-center">
-              <div class="text-sm font-bold text-green-400 mb-0.5">
-                {{ matchesWithScores }}/{{ matches.length }}
-                <span class="text-xs">({{ scoresPercentage }}%)</span>
-              </div>
-              <div class="text-[11px] text-zinc-400 font-medium uppercase tracking-wide">Played</div>
-            </div>
+        <!-- Coverage -->
+        <div class="grid grid-cols-8 gap-2">
+          <div v-for="t in tiles" :key="t.label" class="panel px-3 py-1.5">
+            <p class="text-[10px] uppercase tracking-wider text-zinc-500">{{ t.label }}</p>
+            <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ t.n }}/{{ matches.length }}
+              <span class="text-[10px] font-normal text-zinc-500">{{ t.pct }}%</span></p>
           </div>
-
-          <!-- Game Stats -->
-          <div class="bg-gradient-to-br from-blue-50 to-sky-50 rounded-lg p-2.5 border border-blue-200/50">
-            <div class="text-center">
-              <div class="text-sm font-bold text-blue-400 mb-0.5">
-                {{ matchesWithStats }}/{{ matches.length }}
-                <span class="text-xs">({{ statsCoverage }}%)</span>
-              </div>
-              <div class="text-[11px] text-zinc-400 font-medium uppercase tracking-wide">Game Stats</div>
-            </div>
-          </div>
-
-          <!-- Lineups -->
-          <div class="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg p-2.5 border border-teal-200/50">
-            <div class="text-center">
-              <div class="text-sm font-bold text-teal-600 mb-0.5">
-                {{ matchesWithLineups }}/{{ matches.length }}
-                <span class="text-xs">({{ lineupsCoverage }}%)</span>
-              </div>
-              <div class="text-[11px] text-zinc-400 font-medium uppercase tracking-wide">Lineups</div>
-            </div>
-          </div>
-
-          <!-- Player Stats -->
-          <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-2.5 border border-indigo-200/50">
-            <div class="text-center">
-              <div class="text-sm font-bold text-indigo-600 mb-0.5">
-                {{ matchesWithPlayerStats }}/{{ matches.length }}
-                <span class="text-xs">({{ playerStatsCoverage }}%)</span>
-              </div>
-              <div class="text-[11px] text-zinc-400 font-medium uppercase tracking-wide">Player Stats</div>
-            </div>
-          </div>
-
-          <!-- Referees -->
-          <div class="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg p-2.5 border border-amber-200/50">
-            <div class="text-center">
-              <div class="text-sm font-bold text-amber-400 mb-0.5">
-                {{ matchesWithReferees }}/{{ matches.length }}
-                <span class="text-xs">({{ refereesCoverage }}%)</span>
-              </div>
-              <div class="text-[11px] text-zinc-400 font-medium uppercase tracking-wide">Referees</div>
-            </div>
-          </div>
-
-          <!-- Odds -->
-          <div class="bg-gradient-to-br from-purple-50 to-fuchsia-50 rounded-lg p-2.5 border border-purple-200/50">
-            <div class="text-center">
-              <div class="text-sm font-bold text-purple-600 mb-0.5">
-                {{ matchesWithOdds }}/{{ matches.length }}
-                <span class="text-xs">({{ oddsCoverage }}%)</span>
-              </div>
-              <div class="text-[11px] text-zinc-400 font-medium uppercase tracking-wide">Odds</div>
-            </div>
-          </div>
-
-          <!-- Formations -->
-          <div class="bg-gradient-to-br from-rose-50 to-pink-50 rounded-lg p-2.5 border border-rose-200/50">
-            <div class="text-center">
-              <div class="text-sm font-bold text-rose-600 mb-0.5">
-                {{ matchesWithFormations }}/{{ matches.length }}
-                <span class="text-xs">({{ formationsCoverage }}%)</span>
-              </div>
-              <div class="text-[11px] text-zinc-400 font-medium uppercase tracking-wide">Formations</div>
-            </div>
-          </div>
-
-          <!-- Latest Round -->
-          <div class="bg-gradient-to-br from-surface-light to-surface rounded-lg p-2.5 border border-edge/50">
-            <div class="text-center">
-              <div class="text-sm font-bold text-primary-400 mb-0.5">{{ currentRound }}</div>
-              <div class="text-[11px] text-zinc-400 font-medium uppercase tracking-wide">Latest Round</div>
-            </div>
+          <div class="panel px-3 py-1.5">
+            <p class="text-[10px] uppercase tracking-wider text-zinc-500">Latest round</p>
+            <p class="text-sm font-bold text-zinc-100 tabular-nums">{{ currentRound }}</p>
           </div>
         </div>
       </div>
 
-      <!-- Match List -->
-      <div class="px-4 md:px-6">
+      <div class="flex-1 min-h-0 overflow-y-auto">
         <AdminMatchList
           :matches="matches"
           :league-key="selectedLeague"
@@ -192,16 +79,13 @@
           @game-deleted="handleGameDeleted"
         />
       </div>
-    </div>
-  </div>
+    </template>
+  </UiPageShell>
 </template>
 
-<script setup>
-import { ShieldAlert } from 'lucide-vue-next'
-import PageHeader from '~/components/ui/PageHeader.vue'
-import Card from '~/components/ui/Card.vue'
-import StatCard from '~/components/ui/StatCard.vue'
-import FetchScheduledModal from '~/components/admin/FetchScheduledModal.vue'
+<script setup lang="ts">
+import UiErrorState from '~/components/ui/ErrorState.vue'
+import { errorText } from '~/utils/error-text'
 
 const apiFetch = useApiFetch()
 
@@ -210,39 +94,29 @@ definePageMeta({
 })
 
 const toast = useToast()
-const { user, isAdmin, logout } = useAuth()
-
-// Redirect non-admin users
-if (!isAdmin.value) {
-  // Will show access denied message
-}
+const { isAdmin } = useAuth()
 
 
 // Data
-const leagues = ref([])
+const leagues = ref<any[]>([])
 const selectedLeague = ref('')
-const leagueData = ref(null)
-const matches = ref([])
+const leagueData = ref<any>(null)
+const matches = ref<any[]>([])
 const loadingMatches = ref(false)
-const showFetchModal = ref(false)
-const availableSeasons = ref([])
-const selectedSeason = ref(null)
+const loadError = ref<string | null>(null)
+const availableSeasons = ref<any[]>([])
+const selectedSeason = ref<any>(null)
 
 // Load leagues on mount
 onMounted(async () => {
   await loadLeagues()
 })
 
-// Logout handler
-const handleLogout = async () => {
-  await logout()
-  navigateTo('/login')
-}
-
 // Load leagues
 const loadLeagues = async () => {
+  loadError.value = null
   try {
-    const data = await apiFetch('/api/leagues')
+    const data = await apiFetch<any>('/api/leagues')
     leagues.value = data.leagues || []
     // Auto-select Premier League as first tab
     if (leagues.value.length > 0) {
@@ -250,12 +124,7 @@ const loadLeagues = async () => {
       selectedLeague.value = premierLeague ? premierLeague.key : leagues.value[0].key
     }
   } catch (error) {
-    console.error('Error loading leagues:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to load leagues',
-      color: 'red'
-    })
+    loadError.value = errorText(error)
   }
 }
 
@@ -271,7 +140,7 @@ const sortedLeagues = computed(() => {
 })
 
 // Load matches when league selected
-watch(selectedLeague, async (newLeague, oldLeague) => {
+watch(selectedLeague, async (newLeague: string, oldLeague: string) => {
   if (!newLeague) {
     matches.value = []
     leagueData.value = null
@@ -288,7 +157,7 @@ watch(selectedLeague, async (newLeague, oldLeague) => {
   
   // Fetch available seasons for this league
   try {
-    const seasonsData = await apiFetch(`/api/seasons/${newLeague}`)
+    const seasonsData = await apiFetch<any>(`/api/seasons/${newLeague}`)
     availableSeasons.value = seasonsData.seasons || []
     
     // Default to most recent season (first in the list, sorted DESC)
@@ -303,7 +172,7 @@ watch(selectedLeague, async (newLeague, oldLeague) => {
       await loadMatches(newLeague, null)
     }
   } catch (error) {
-    console.error('Error loading seasons:', error)
+    toast.add({ title: 'Seasons failed to load', description: errorText(error), color: 'red' })
     availableSeasons.value = []
     selectedSeason.value = null
     // Fallback to loading all matches
@@ -312,7 +181,7 @@ watch(selectedLeague, async (newLeague, oldLeague) => {
 })
 
 // Load matches when season changes (only if not triggered by league change)
-watch(selectedSeason, async (newSeason, oldSeason) => {
+watch(selectedSeason, async (newSeason: any, oldSeason: any) => {
   // Only load if season changed but league didn't (manual season selection)
   if (newSeason !== oldSeason && selectedLeague.value) {
     await loadMatches(selectedLeague.value, newSeason)
@@ -320,7 +189,7 @@ watch(selectedSeason, async (newSeason, oldSeason) => {
 })
 
 // Load matches function
-const loadMatches = async (leagueKey, season) => {
+const loadMatches = async (leagueKey: string, season: string | null) => {
   loadingMatches.value = true
   try {
     // Build URL with season filter
@@ -329,7 +198,7 @@ const loadMatches = async (leagueKey, season) => {
       url += `&season=${season}`
     }
     
-    const data = await apiFetch(url, {
+    const data = await apiFetch<any>(url, {
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -338,12 +207,7 @@ const loadMatches = async (leagueKey, season) => {
     leagueData.value = data
     matches.value = data.games || []
   } catch (error) {
-    console.error('Error loading matches:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to load matches',
-      color: 'red'
-    })
+    loadError.value = errorText(error)
   } finally {
     loadingMatches.value = false
   }
@@ -351,50 +215,26 @@ const loadMatches = async (leagueKey, season) => {
 
 // Refresh data
 const refreshData = async () => {
-  if (selectedLeague.value) {
-    loadingMatches.value = true
-    try {
-      // Build URL with season filter
-      let url = `/api/leagues/${selectedLeague.value}?round=all&t=${Date.now()}`
-      if (selectedSeason.value) {
-        url += `&season=${selectedSeason.value}`
-      }
-      
-      const data = await apiFetch(url)
-      leagueData.value = data
-      matches.value = data.games || []
-      
-      console.log('Refreshed data, sample match statuses:', 
-        matches.value.slice(0, 3).map(m => ({
-          id: m.id, 
-          round: m.round,
-          home: m.home_name,
-          away: m.away_name,
-          score: `${m.home_goals ?? '?'}-${m.away_goals ?? '?'}`,
-          status: m.status
-        }))
-      )
-      
-      toast.add({
-        title: 'Refreshed',
-        description: 'Data refreshed successfully',
-        color: 'green'
-      })
-    } catch (error) {
-      console.error('Error refreshing:', error)
-    } finally {
-      loadingMatches.value = false
-    }
+  if (!selectedLeague.value) return
+  loadingMatches.value = true
+  loadError.value = null
+  try {
+    let url = `/api/leagues/${selectedLeague.value}?round=all&t=${Date.now()}`
+    if (selectedSeason.value) url += `&season=${selectedSeason.value}`
+    const data = await apiFetch<any>(url)
+    leagueData.value = data
+    matches.value = data.games || []
+    toast.add({ title: 'Refreshed', description: 'Data refreshed successfully', color: 'primary' })
+  } catch (error) {
+    loadError.value = errorText(error)
+  } finally {
+    loadingMatches.value = false
   }
 }
 
 // Handle games saved from fetch modal
-const handleGamesSaved = async () => {
-  await refreshData()
-}
-
 // Handle game deletion
-const handleGameDeleted = (gameId) => {
+const handleGameDeleted = (gameId: number) => {
   // Remove from local matches array
   const index = matches.value.findIndex(m => m.id === gameId)
   if (index !== -1) {
@@ -487,7 +327,7 @@ const currentRound = computed(() => {
     return 1
   }
   
-  const rounds = gamesWithScores.map(m => {
+  const rounds = gamesWithScores.map((m: any) => {
     const roundStr = String(m.round || '0')
     return parseInt(roundStr.replace(/\D/g, '') || '0')
   })
@@ -530,4 +370,14 @@ const oddsCoverage = computed(() => {
   if (!matches.value.length) return 0
   return Math.round((matchesWithOdds.value / matches.value.length) * 100)
 })
+
+const tiles = computed(() => [
+  { label: 'Played', n: matchesWithScores.value, pct: scoresPercentage.value },
+  { label: 'Game stats', n: matchesWithStats.value, pct: statsCoverage.value },
+  { label: 'Lineups', n: matchesWithLineups.value, pct: lineupsCoverage.value },
+  { label: 'Player stats', n: matchesWithPlayerStats.value, pct: playerStatsCoverage.value },
+  { label: 'Referees', n: matchesWithReferees.value, pct: refereesCoverage.value },
+  { label: 'Odds', n: matchesWithOdds.value, pct: oddsCoverage.value },
+  { label: 'Formations', n: matchesWithFormations.value, pct: formationsCoverage.value },
+])
 </script>

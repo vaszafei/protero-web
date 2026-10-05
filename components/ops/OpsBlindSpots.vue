@@ -1,16 +1,26 @@
 <template>
-  <section class="panel overflow-hidden">
+  <section class="panel panel-fill">
     <header class="panel-head">
       <h2 class="panel-title">Division changes</h2>
-      <span class="text-[10px] text-zinc-600 tabular-nums">{{ total }}</span>
-      <span class="text-[10px] text-zinc-600">— next 7 days</span>
+      <span class="panel-count">{{ total }}</span>
+      <span class="text-[10px] text-zinc-600">next 7 days</span>
+      <UiTooltip class="ml-auto" :width="360" placement="bottom">
+        <span class="panel-link">how to read</span>
+        <template #content>
+          <p>
+            Clubs promoted or relegated recently enough that their rating is still built mostly on the old
+            division's matches. Such ratings are measurably over-confident (Cox slope 0.44 vs 1.03), so read
+            them with less confidence — a note about our rating, not a do-not-bet flag.
+          </p>
+        </template>
+      </UiTooltip>
     </header>
 
-    <div v-if="!rows.length" class="px-3 py-6 text-center">
-      <p class="text-[11px] text-zinc-600">No fixture this week involves a club that changed division.</p>
-    </div>
+    <p v-if="!rows.length" class="px-3 py-3 text-[11px] text-zinc-600">
+      No fixture this week involves a club that changed division.
+    </p>
 
-    <div v-else class="divide-y divide-edge/40">
+    <div v-else class="panel-scroll divide-y divide-edge/40">
       <NuxtLink
         v-for="r in rows" :key="r.game_id"
         :to="`/game/${r.game_id}`"
@@ -39,8 +49,8 @@
             />
             <span :class="isBlind(r, 'away') ? 'text-amber-300' : ''">{{ r.away_team }}</span>
           </span>
-          <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0"
-                :class="r.blind_side === 'both' ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-300'">
+          <span class="pill flex-shrink-0"
+                :class="r.blind_side === 'both' ? 'pill-red' : 'pill-amber'">
             {{ r.blind_side === 'both' ? 'both clubs' : r.blind_side === 'home' ? 'home club' : 'away club' }}
           </span>
         </div>
@@ -53,16 +63,10 @@
       </NuxtLink>
     </div>
 
-    <p class="text-[10px] text-zinc-600 px-3 py-2 border-t border-edge/40 leading-relaxed">
-      Clubs promoted or relegated recently enough that their rating is still built mostly on the old
-      division's matches. Such ratings are measurably over-confident (Cox slope
-      <span class="text-zinc-500">0.44</span> vs <span class="text-zinc-500">1.03</span>), so read them with
-      less confidence — a note about our rating, not a do-not-bet flag.
-    </p>
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 /**
  * Fixtures where a club is playing outside the division its twin rating was learned in.
  *

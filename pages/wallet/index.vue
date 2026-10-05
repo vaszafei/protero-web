@@ -1,116 +1,107 @@
 <template>
-  <div class="p-3 sm:p-6 max-w-[1600px] mx-auto min-h-screen pb-20 lg:pb-6">
-    <!-- Header -->
-    <div class="mb-4 flex items-end justify-between gap-4 flex-wrap">
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-white">Wallets</h1>
-        <p class="text-zinc-500 text-xs sm:text-sm mt-0.5">
-          Every wallet in the ledger, scored the way
-          <code class="text-zinc-600">common.wallet_significance</code> scores it.
-          Open one for its own page.
+  <UiPageShell title="Wallets" subtitle="Every wallet in the ledger, scored the way common.wallet_significance scores it. Open one for its own page.">
+    <!-- Two totals, not one. Money we staked and money an external tipster staked are not
+         the same fleet, and summing them makes the console report exposure we never carried. -->
+    <template v-if="totals" #actions>
+      <div v-for="t in totals" :key="t.key" class="text-right text-xs">
+        <p class="text-[10px] uppercase tracking-wider" :class="t.key === 'ours' ? 'text-zinc-400' : 'text-zinc-600'">
+          {{ t.label }}
         </p>
-      </div>
-
-      <!-- Two totals, not one. Money we staked and money an external tipster
-           staked are not the same fleet, and summing them makes the console
-           report exposure we never carried. -->
-      <div v-if="totals" class="flex items-start gap-6 text-xs">
-        <div v-for="t in totals" :key="t.key" class="text-right">
-          <p class="text-[10px] uppercase tracking-wider" :class="t.key === 'ours' ? 'text-zinc-400' : 'text-zinc-600'">
-            {{ t.label }}
-          </p>
-          <div class="flex items-baseline gap-3 justify-end mt-0.5">
-            <span class="text-[10px] text-zinc-500">n</span>
-            <span class="text-base font-bold text-zinc-200 tabular-nums">{{ t.wagers.toLocaleString() }}</span>
-            <span v-if="t.pending" class="text-[11px] font-semibold text-amber-400 tabular-nums">{{ t.pending }} open</span>
-            <span class="text-base font-bold tabular-nums" :class="t.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'">
-              {{ t.pnl >= 0 ? '+' : '' }}{{ t.pnl.toFixed(2) }}
-            </span>
-          </div>
+        <div class="flex items-baseline gap-3 justify-end">
+          <span class="text-[10px] text-zinc-500">n</span>
+          <span class="text-base font-bold text-zinc-200 tabular-nums">{{ t.wagers.toLocaleString() }}</span>
+          <span v-if="t.pending" class="text-[11px] font-semibold text-amber-400 tabular-nums">{{ t.pending }} open</span>
+          <span class="text-base font-bold tabular-nums" :class="t.pnl >= 0 ? 'text-positive' : 'text-negative'">
+            {{ formatMoney(t.pnl, { signed: true }) }}
+          </span>
         </div>
       </div>
-    </div>
+    </template>
 
-    <div v-if="loading" class="flex justify-center py-20">
-      <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-zinc-600" />
-    </div>
+    <Transition name="swap" mode="out-in">
+      <UiSkeletonPanel v-if="loading" :rows="12" height="100%" />
 
-    <UiErrorState
-      v-else-if="walletsError"
-      title="The wallets failed to load."
-      :error="walletsError"
-      @retry="load"
-    />
-
-    <!-- Without performance every row would read `n<10` — a failure, not a result. -->
-    <UiErrorState
-      v-else-if="performanceError"
-      title="Wallet performance failed to load — no verdict or ROI to show."
-      :error="performanceError"
-      @retry="load"
-    />
-
-    <template v-else>
       <UiErrorState
-        v-if="coverageError"
-        compact
-        class="mb-3"
-        title="Coverage unavailable — mirrored wallets' ROI is withheld."
-        :error="coverageError"
+        v-else-if="walletsError"
+        title="The wallets failed to load."
+        :error="walletsError"
         @retry="load"
       />
-      <WalletRoster
-        :coverage-error="coverageError"
-        :wallets="allWallets"
-        :performance="performance"
-        :coverage="coverageRows"
-        :sources="tipsters?.sources || []"
-        @select="open"
-        class="mb-6"
+
+      <!-- Without performance every row would read `n<10` — a failure, not a result. -->
+      <UiErrorState
+        v-else-if="performanceError"
+        title="Wallet performance failed to load — no verdict or ROI to show."
+        :error="performanceError"
+        @retry="load"
       />
 
-      <!-- Provenance for the mirrored cohort. Below the roster because it
-           qualifies those rows rather than introducing them. -->
-      <WalletProvenance
-        v-if="tipsters && tipsters.sources.length"
-        :sources="tipsters.sources"
-        :unit-stake="tipsters.unit_stake"
-        @select="open"
-      />
-    </template>
-  </div>
+      <div v-else class="flex-1 min-h-0 flex flex-col gap-2">
+        <UiErrorState
+          v-if="coverageError"
+          compact
+          class="flex-shrink-0"
+          title="Coverage unavailable — mirrored wallets' ROI is withheld."
+          :error="coverageError"
+          @retry="load"
+        />
+        <WalletRoster
+          class="flex-1 min-h-0"
+          :coverage-error="coverageError"
+          :wallets="allWallets"
+          :performance="performance"
+          :coverage="coverageRows"
+          :sources="tipsters?.sources || []"
+          :selected-id="selectedId"
+          @select="open"
+        >
+          <template v-if="tipsters && tipsters.sources.length" #sources>
+            <WalletProvenance :sources="tipsters.sources" :unit-stake="tipsters.unit_stake" @select="open" />
+          </template>
+        </WalletRoster>
+      </div>
+    </Transition>
+  </UiPageShell>
 </template>
 
-<script setup>
+<script setup lang="ts">
 /**
  * Wallet roster — the index. One wallet's detail lives at /wallet/[id].
  *
  * They were one page until 2026-08-23, and it stopped working the moment the
  * mirrored tipsters were projected into the ledger: 44 roster rows above a
  * 300-row bet list is 8,500px of scroll with no addressable position in it.
- * A wallet is now a URL, so it can be linked, bookmarked and reloaded.
+ * A wallet is now a URL, so it can be linked, bookmarked and reloaded. The cohorts
+ * are tabs, so one screen holds one cohort.
  *
  * Every number comes from `get_wallet_performance`. Do not reintroduce a
  * client-side ROI: the three formulas this page used to carry all computed
  * bankroll return, which renders W7 as +69.7% where its ROI is +11.5%.
  */
 import { ref, computed, onMounted } from 'vue'
-import { cohortOf } from '~/utils/wallet-stats'
+import UiSkeletonPanel from '~/components/ui/SkeletonPanel.vue'
+import UiErrorState from '~/components/ui/ErrorState.vue'
+import { cohortOf } from '#logic/wallet-stats'
 import { errorText } from '~/utils/error-text'
-
-const apiFetch = useApiFetch()
+import { formatMoney } from '~/utils/formatters'
 
 definePageMeta({ middleware: 'auth' })
 
-const api = useApi()
+const edge = useEdge()
+const route = useRoute()
+
+const selectedId = computed(() => {
+  const w = Number(route.query.w)
+  return Number.isFinite(w) && w > 0 ? w : null
+})
 
 const loading = ref(true)
-const allWallets = ref([])
-const performance = ref([])
-const tipsters = ref(null)
-const walletsError = ref(null)
-const performanceError = ref(null)
-const coverageError = ref(null)
+const allWallets = ref<any[]>([])
+const performance = ref<any[]>([])
+const tipsters = ref<any>(null)
+const walletsError = ref<string | null>(null)
+const performanceError = ref<string | null>(null)
+const coverageError = ref<string | null>(null)
 
 const coverageRows = computed(() => tipsters.value?.authors || [])
 
@@ -138,23 +129,28 @@ const totals = computed(() => {
   ].filter(t => t.wagers || t.pending)
 })
 
-function open(id) {
+function open(id: number) {
   navigateTo(`/wallet/${id}`)
 }
 
 async function load() {
   loading.value = true
-  const [w, p, t] = await Promise.allSettled([
-    api.fetchWallets(),
-    api.fetchWalletPerformance(),
-    apiFetch('/api/wallet/tipsters'),
-  ])
-  walletsError.value = w.status === 'rejected' ? errorText(w.reason) : null
-  performanceError.value = p.status === 'rejected' ? errorText(p.reason) : null
-  coverageError.value = t.status === 'rejected' ? errorText(t.reason) : null
-  allWallets.value = w.status === 'fulfilled' ? (w.value.wallets || []) : []
-  performance.value = p.status === 'fulfilled' ? (p.value || []) : []
-  tipsters.value = t.status === 'fulfilled' ? t.value : null
+  try {
+    // One request: the roster, the RPC's performance and the mirror coverage (`wallet-page`, section
+    // `roster`). A part that failed carries its own error, so a roster failure withholds the verdict.
+    const b = await edge<any>('wallet-page', { section: 'roster' })
+    walletsError.value = b.wallets.error
+    performanceError.value = b.performance.error
+    coverageError.value = b.coverage.error
+    allWallets.value = b.wallets.data || []
+    performance.value = b.performance.data || []
+    tipsters.value = b.coverage.data
+  } catch (e) {
+    walletsError.value = performanceError.value = errorText(e)
+    allWallets.value = []
+    performance.value = []
+    tipsters.value = null
+  }
   loading.value = false
 }
 

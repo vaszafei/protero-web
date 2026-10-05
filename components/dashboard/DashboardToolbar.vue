@@ -23,7 +23,7 @@
             <div class="flex flex-col items-start gap-0.5 min-w-0">
               <span class="font-medium truncate" :class="selectedWalletId === w.id ? 'text-zinc-100' : 'text-zinc-300'">{{ w.name }}</span>
             </div>
-            <span class="ml-3 tabular-nums text-xs flex-shrink-0" :class="selectedWalletId === w.id ? 'text-emerald-400' : 'text-zinc-500'">
+            <span class="ml-3 tabular-nums text-xs flex-shrink-0" :class="selectedWalletId === w.id ? 'text-positive' : 'text-zinc-500'">
               {{ formatMoney(w.balance, { whole: true }) }}
             </span>
           </button>

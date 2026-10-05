@@ -14,9 +14,9 @@
         <span v-if="score" class="text-zinc-500 tabular-nums"> {{ score }}</span>
       </p>
       <p class="text-[10px] text-zinc-500 truncate">
-        <span class="text-emerald-400/80 font-semibold">{{ shortLabel }}</span>
+        <span class="text-[var(--brand-blue)] font-semibold">{{ shortLabel }}</span>
         <span v-if="dateLabel"> · {{ dateLabel }}</span>
-        <span v-if="bet.league_key" class="text-zinc-600"> · {{ bet.league_key }}</span>
+        <span v-if="bet.league_key" class="text-zinc-600"> · {{ prettyLeagueKey(bet.league_key) }}</span>
       </p>
 
       <!-- Provenance — only a mirrored tipster bet has one. The published

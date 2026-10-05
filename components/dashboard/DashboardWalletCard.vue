@@ -1,5 +1,5 @@
 <template>
-  <div class="wallet-card px-4 py-3 flex items-center gap-4">
+  <div class="wallet-card px-4 py-3 flex items-center gap-4" data-testid="calendar-wallet-card">
     <!-- Balance -->
     <div class="flex-shrink-0">
       <p class="text-[10px] text-zinc-500 uppercase tracking-wide">Balance</p>
@@ -24,7 +24,7 @@
     <div class="flex-shrink-0 flex items-center gap-2">
       <div class="text-center">
         <p class="text-[10px] text-zinc-500 uppercase tracking-wide">W</p>
-        <p class="text-sm font-bold text-emerald-400 leading-tight tabular-nums">{{ nWon }}</p>
+        <p class="text-sm font-bold text-positive leading-tight tabular-nums">{{ nWon }}</p>
       </div>
       <span class="text-zinc-600 text-xs">·</span>
       <div class="text-center">
@@ -37,7 +37,7 @@
     <div v-if="nWagers > 0" class="flex-1 min-w-0">
       <div class="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
         <div
-          class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+          class="h-full rounded-full bg-positive transition-all duration-500"
           :style="{ width: winRatePct + '%' }"
         />
       </div>
@@ -47,6 +47,7 @@
     <!-- Verdict + p(luck) — ROI never travels alone -->
     <div v-if="perf && verdict !== 'n<10'" class="flex-shrink-0 flex items-center gap-1.5">
       <span
+        data-testid="verdict"
         class="text-[10px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap"
         :class="VERDICT_CLASS[verdict]"
         :title="`${VERDICT_TITLE[verdict]}${k > 1 ? ` Scored at k=${k}, needs p<${bar?.toFixed(4)}.` : ''}`"
@@ -68,7 +69,7 @@
 <script setup lang="ts">
 import { formatMoney } from '~/utils/formatters'
 import { computed } from 'vue'
-import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE, type FamilyVerdict } from '~/utils/wallet-stats'
+import { roiInk, VERDICT_CLASS, VERDICT_LABEL, VERDICT_TITLE, type FamilyVerdict } from '#logic/wallet-stats'
 
 /**
  * The compact dashboard wallet card. Every number comes from

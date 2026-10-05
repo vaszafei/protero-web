@@ -40,3 +40,16 @@ export const useSupabaseClient = (): SupabaseClient => {
 
   return _client
 }
+
+/**
+ * The client for a Realtime subscription. `accessToken` above authenticates REST calls only: the websocket
+ * joins with the anon key unless `realtime.setAuth` is told otherwise, and then RLS is evaluated per event
+ * as `anon` — public tables (`bets`, `parlays`) still deliver, admin-only ones (`pipeline_runs`,
+ * `phase_runs`) silently deliver nothing while the channel reports SUBSCRIBED (#52).
+ */
+export const useRealtimeClient = (): SupabaseClient => {
+  const client = useSupabaseClient()
+  const token = useAuthToken().getToken()
+  if (token) client.realtime.setAuth(token)
+  return client
+}

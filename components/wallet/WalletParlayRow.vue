@@ -41,7 +41,7 @@ const summary = computed(() => {
     .map(n => n.split(' ').slice(-1)[0])
   if (names.length) return [...new Set(names)].join(', ')
   return [...new Set(legs.value.map(l => l.league_key).filter(Boolean))]
-    .map(k => k.replace(/_/g, ' ')).join(', ')
+    .map(k => prettyLeagueKey(k)).join(', ')
 })
 
 const dateLabel = computed(() => {

@@ -41,6 +41,25 @@
   color: rgb(212, 212, 216);
 }
 
+/* A panel that fills the height its grid cell gives it and scrolls its own body — the
+   fit-to-screen idiom. `.panel-head` stays put; wrap the rows in `.panel-scroll`. */
+.panel-fill {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.panel-count {
+  font-size: 0.625rem;
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The header's trailing action link — "All wallets →", "Gates →". */
 .panel-link {
   margin-left: auto;
@@ -358,4 +377,19 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .row-in { animation: none; }
+}
+
+
+/* ── Skeleton → content crossfade ─────────────────────────────────────────
+   `<Transition name="swap" mode="out-in">` around a loading / error / content chain. The
+   skeleton fades out, then the content fades in; the skeleton is shape-matched, so
+   nothing moves. Opacity only. */
+.swap-enter-active { transition: opacity var(--dur) var(--ease-glide); }
+.swap-leave-active { transition: opacity var(--dur-fast) var(--ease-exit); }
+.swap-enter-from,
+.swap-leave-to { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .swap-enter-active,
+  .swap-leave-active { transition: none; }
 }

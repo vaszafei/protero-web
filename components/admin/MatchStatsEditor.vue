@@ -69,41 +69,41 @@
             <!-- Statistics by Team -->
             <div class="grid grid-cols-2 gap-2 mb-3">
               <!-- Home Team Stats -->
-              <div class="bg-green-500/20 rounded p-2">
-                <p class="text-xs font-bold text-gray-800 mb-2">{{ match.home_name }}</p>
+              <div class="bg-[var(--brand-blue-tint)] rounded p-2">
+                <p class="text-xs font-bold text-zinc-200 mb-2">{{ match.home_name }}</p>
                 <div class="space-y-1.5">
                   <div>
-                    <label class="text-xs text-gray-600">Shots</label>
+                    <label class="text-xs text-zinc-400">Shots</label>
                     <UInput v-model.number="stats.home_shots" type="number" size="xs" />
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">On Target</label>
+                    <label class="text-xs text-zinc-400">On Target</label>
                     <UInput v-model.number="stats.home_shots_on_target" type="number" size="xs" />
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">Possession %</label>
+                    <label class="text-xs text-zinc-400">Possession %</label>
                     <UInput v-model.number="stats.home_possession_pct" type="number" size="xs" />
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">Corners</label>
+                    <label class="text-xs text-zinc-400">Corners</label>
                     <UInput v-model.number="stats.home_corners" type="number" size="xs" />
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">Fouls</label>
+                    <label class="text-xs text-zinc-400">Fouls</label>
                     <UInput v-model.number="stats.home_fouls" type="number" size="xs" />
                   </div>
                   <div class="grid grid-cols-2 gap-1">
                     <div>
-                      <label class="text-xs text-gray-600">Yellow</label>
+                      <label class="text-xs text-zinc-400">Yellow</label>
                       <UInput v-model.number="stats.home_yellow_cards" type="number" size="xs" />
                     </div>
                     <div>
-                      <label class="text-xs text-gray-600">Red</label>
+                      <label class="text-xs text-zinc-400">Red</label>
                       <UInput v-model.number="stats.home_red_cards" type="number" size="xs" />
                     </div>
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">Offsides</label>
+                    <label class="text-xs text-zinc-400">Offsides</label>
                     <UInput v-model.number="stats.home_offsides" type="number" size="xs" />
                   </div>
                 </div>
@@ -111,40 +111,40 @@
 
               <!-- Away Team Stats -->
               <div class="bg-orange-500/20 rounded p-2">
-                <p class="text-xs font-bold text-gray-800 mb-2">{{ match.away_name }}</p>
+                <p class="text-xs font-bold text-zinc-200 mb-2">{{ match.away_name }}</p>
                 <div class="space-y-1.5">
                   <div>
-                    <label class="text-xs text-gray-600">Shots</label>
+                    <label class="text-xs text-zinc-400">Shots</label>
                     <UInput v-model.number="stats.away_shots" type="number" size="xs" />
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">On Target</label>
+                    <label class="text-xs text-zinc-400">On Target</label>
                     <UInput v-model.number="stats.away_shots_on_target" type="number" size="xs" />
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">Possession %</label>
+                    <label class="text-xs text-zinc-400">Possession %</label>
                     <UInput v-model.number="stats.away_possession_pct" type="number" size="xs" />
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">Corners</label>
+                    <label class="text-xs text-zinc-400">Corners</label>
                     <UInput v-model.number="stats.away_corners" type="number" size="xs" />
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">Fouls</label>
+                    <label class="text-xs text-zinc-400">Fouls</label>
                     <UInput v-model.number="stats.away_fouls" type="number" size="xs" />
                   </div>
                   <div class="grid grid-cols-2 gap-1">
                     <div>
-                      <label class="text-xs text-gray-600">Yellow</label>
+                      <label class="text-xs text-zinc-400">Yellow</label>
                       <UInput v-model.number="stats.away_yellow_cards" type="number" size="xs" />
                     </div>
                     <div>
-                      <label class="text-xs text-gray-600">Red</label>
+                      <label class="text-xs text-zinc-400">Red</label>
                       <UInput v-model.number="stats.away_red_cards" type="number" size="xs" />
                     </div>
                   </div>
                   <div>
-                    <label class="text-xs text-gray-600">Offsides</label>
+                    <label class="text-xs text-zinc-400">Offsides</label>
                     <UInput v-model.number="stats.away_offsides" type="number" size="xs" />
                   </div>
                 </div>
