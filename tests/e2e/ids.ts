@@ -24,6 +24,8 @@ export function discover() {
       `select g.id from games g where sport='football' and status='completed' and exists(select 1 from lineups l where l.game_id=g.id) order by date desc limit 1`),
     completedNoLineup: one('completed football fixture without a lineup',
       `select g.id from games g where sport='football' and status='completed' and league_key='premier_league' and not exists(select 1 from lineups l where l.game_id=g.id) order by date desc limit 1`),
+    scheduledBasketball: one('scheduled basketball fixture',
+      `select id from games where sport='basketball' and status='scheduled' and date>now() and league_key in ('euroleague','nba') order by date limit 1`),
     completedBasketball: one('completed basketball fixture',
       `select id from games where sport='basketball' and status='completed' and league_key='euroleague' order by date desc limit 1`),
     team: one('team', `select id from teams where league_key='premier_league' order by id limit 1`),

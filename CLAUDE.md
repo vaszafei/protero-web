@@ -122,7 +122,7 @@ protero-frontend/
 | `/login` | `login.vue` (18L) | Login form (no layout) |
 | `/leagues` | `leagues.vue` (~235L) | **Competitions** — every competition in `games` (37, not the registry's 22), grouped Leagues / Cups / Not fitted, ranked by twin `level`. |
 | `/league/[slug]` | `league/[slug].vue` (~900L) | **Overview / Analysis / Predictions.** Overview = the twin AND the round's fixtures in one pane (merged 2026-08-23). Season rail, one-line fixture carousel, twin-merged standings, latest picks. Predictions are gated to the newest season that has fixtures. |
-| `/game/[id]` | `game/[id].vue` (~430L) | Game detail — hero + horizontal timeline band + one tabbed panel. Redesigned 2026-08-23. |
+| `/game/[id]` | `game/[id].vue` (~170L) | Game detail — routing + data only. One `GameStage` three-column skeleton for all four sport×state combinations; per-sport slot components in `components/game/stage/`; bottom panel `GameDetailTabs`; the tab matrix is `utils/game-tabs.ts`; on-demand reads in `composables/useGameExtras.ts` (#63). |
 | `/player/[id]` | `player/[id].vue` (~467L) | Player season page |
 | `/team/[id]` | `team/[id].vue` (~225L) | Digital-twin club page — ratings, season history, squad continuity |
 | `/wallet` | `wallet/index.vue` (~125L) | **Wallet roster** — three cohorts (trader / mirrored tipsters / legacy), split fleet totals, mirrored-source provenance. Split from the combined page 2026-08-23. |
