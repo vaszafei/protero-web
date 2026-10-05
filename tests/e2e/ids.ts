@@ -20,6 +20,12 @@ export function discover() {
   return {
     scheduledFootball: one('scheduled football fixture with odds',
       `select id from games where sport='football' and status='scheduled' and date>now() and odds_home is not null order by date limit 1`),
+    scheduledFootballWithXi: one('scheduled football fixture whose clubs both have a prior XI this season',
+      `select g.id from games g where g.sport='football' and g.status='scheduled' and g.date>now()
+         and exists(select 1 from lineups l join games p on p.id=l.game_id where l.team_id=g.home_team_id and l.is_starting_xi and p.status='completed' and p.season=g.season and p.date<g.date)
+         and exists(select 1 from lineups l join games p on p.id=l.game_id where l.team_id=g.away_team_id and l.is_starting_xi and p.status='completed' and p.season=g.season and p.date<g.date)
+         and not exists(select 1 from lineups l where l.game_id=g.id)
+       order by g.date limit 1`),
     completedWithLineup: one('completed football fixture with a lineup',
       `select g.id from games g where sport='football' and status='completed' and exists(select 1 from lineups l where l.game_id=g.id) order by date desc limit 1`),
     completedNoLineup: one('completed football fixture without a lineup',

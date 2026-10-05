@@ -30,6 +30,7 @@
             class="player"
             :class="isGK(p) ? 'player-gk' : ''"
             :style="{ animationDelay: `${(r * 4 + i) * 35}ms` }"
+            :title="p.hover || undefined"
           >
             <div class="player-dot" :style="{ borderColor: VIZ_HOME }">
               {{ p.jersey_number || '-' }}
@@ -40,6 +41,7 @@
             </div>
             <span class="player-name">{{ shortName(p.player_name) }}</span>
             <span v-if="rating(p)" class="player-rating">{{ rating(p) }}</span>
+            <span v-else-if="p.tag" class="player-rating">{{ p.tag }}</span>
             <span v-if="offAt(p)" class="player-off" :title="`Substituted off after ${offAt(p)} minutes`">off {{ offAt(p) }}'</span>
           </div>
         </div>
@@ -60,6 +62,7 @@
             class="player"
             :class="isGK(p) ? 'player-gk' : ''"
             :style="{ animationDelay: `${(r * 4 + i) * 35}ms` }"
+            :title="p.hover || undefined"
           >
             <div class="player-dot" :style="{ borderColor: VIZ_AWAY }">
               {{ p.jersey_number || '-' }}
@@ -70,6 +73,7 @@
             </div>
             <span class="player-name">{{ shortName(p.player_name) }}</span>
             <span v-if="rating(p)" class="player-rating">{{ rating(p) }}</span>
+            <span v-else-if="p.tag" class="player-rating">{{ p.tag }}</span>
             <span v-if="offAt(p)" class="player-off" :title="`Substituted off after ${offAt(p)} minutes`">off {{ offAt(p) }}'</span>
           </div>
         </div>
@@ -82,6 +86,7 @@
 import { computed } from 'vue'
 import { VIZ_HOME, VIZ_AWAY } from '~/utils/viz'
 
+// A player may carry `tag` (a short caption under the name when there is no rating) and `hover` (its title).
 const props = defineProps<{
   homeLineup: Array<Record<string, any>>
   awayLineup: Array<Record<string, any>>

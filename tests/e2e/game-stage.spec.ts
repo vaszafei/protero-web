@@ -11,7 +11,7 @@ import { discover } from './ids'
 const id = discover()
 
 const FIXTURES = [
-  { name: 'scheduled football', id: id.scheduledFootball, layout: 'flow' },
+  { name: 'scheduled football', id: id.scheduledFootball, layout: 'fit-fixed' },
   { name: 'scheduled basketball', id: id.scheduledBasketball, layout: 'flow' },
   { name: 'completed football', id: id.completedWithLineup, layout: 'fit-fixed' },
   { name: 'completed basketball', id: id.completedBasketball, layout: 'fit-fill' },

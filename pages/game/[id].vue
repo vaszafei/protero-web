@@ -152,6 +152,12 @@ const stageProps = computed(() => {
       ? { game, lineups: data.value!.lineups, hasTabs }
       : { game, hasTabs }
   }
+  if (gameSport.value === 'football') {
+    return {
+      game, preview: preview.value, previewError: previewError.value, moves: moves.value,
+      lineups: data.value!.lineups, expected: bundle.value?.expectedXi ?? null, hasTabs,
+    }
+  }
   return { game, preview: preview.value, previewError: previewError.value, moves: moves.value, hasTabs }
 })
 
