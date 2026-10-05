@@ -26,6 +26,14 @@ export function discover() {
          and exists(select 1 from lineups l join games p on p.id=l.game_id where l.team_id=g.away_team_id and l.is_starting_xi and p.status='completed' and p.season=g.season and p.date<g.date)
          and not exists(select 1 from lineups l where l.game_id=g.id)
        order by g.date limit 1`),
+    completedKeeperIsCaptain: one('completed football fixture where one XI has a flagged keeper and the other only a captain (C)',
+      `with x as (
+         select l.game_id, l.team_id,
+                count(*) filter (where l.position in ('G','GK','Goalkeeper')) gk, count(*) filter (where l.position='C') c
+         from lineups l where l.is_starting_xi group by 1,2 having count(*)=11)
+       select g.id from games g join x on x.game_id=g.id where g.sport='football' and g.status='completed'
+       group by g.id having count(*)=2 and count(*) filter (where x.gk=1)=1 and count(*) filter (where x.gk=0 and x.c=1)=1
+       order by max(g.date) desc limit 1`),
     completedWithLineup: one('completed football fixture with a lineup',
       `select g.id from games g where sport='football' and status='completed' and exists(select 1 from lineups l where l.game_id=g.id) order by date desc limit 1`),
     completedNoLineup: one('completed football fixture without a lineup',

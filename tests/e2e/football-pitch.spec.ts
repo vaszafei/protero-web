@@ -69,3 +69,23 @@ test('without a lineup the strip says what is missing, and the timeline says it 
   await page.getByRole('tab', { name: /^Timeline/ }).click()
   await expect(page.locator('[data-testid="timeline-band"]')).toContainText('not recorded')
 })
+
+test('a keeper who captains his side (marked C, not G) is still the keeper on the pitch', async ({ page }) => {
+  await signIn(page)
+  await page.goto(`/game/${id.completedKeeperIsCaptain}`, { waitUntil: 'networkidle' })
+  const panel = page.locator('[data-testid="football-pitch-panel"]')
+  await expect(panel.locator('.player')).not.toHaveCount(0)
+  // Exactly one keeper token per half, in the outermost line: home draws GK first (left edge), away is reversed.
+  const keepers = await panel.evaluate((el) => {
+    const half = (sel: string) => {
+      const h = el.querySelector(sel)!
+      const lines = [...h.querySelectorAll('.line')]
+      return { gk: h.querySelectorAll('.player-gk').length, first: lines[0]?.querySelectorAll('.player-gk').length ?? 0, last: lines[lines.length - 1]?.querySelectorAll('.player-gk').length ?? 0 }
+    }
+    return { home: half('.half-home'), away: half('.half-away') }
+  })
+  expect(keepers.home.gk, 'home keeper tokens').toBe(1)
+  expect(keepers.away.gk, 'away keeper tokens').toBe(1)
+  expect(keepers.home.first, 'home keeper in the first line').toBe(1)
+  expect(keepers.away.last, 'away keeper in the last line').toBe(1)
+})

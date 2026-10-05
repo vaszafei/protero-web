@@ -28,7 +28,7 @@
             v-for="(p, i) in row"
             :key="p.id || 'h'+r+'-'+i"
             class="player"
-            :class="isGK(p) ? 'player-gk' : ''"
+            :class="p === homeKeeper ? 'player-gk' : ''"
             :style="{ animationDelay: `${(r * 4 + i) * 35}ms` }"
             :title="p.hover || undefined"
           >
@@ -60,7 +60,7 @@
             v-for="(p, i) in row"
             :key="p.id || 'a'+r+'-'+i"
             class="player"
-            :class="isGK(p) ? 'player-gk' : ''"
+            :class="p === awayKeeper ? 'player-gk' : ''"
             :style="{ animationDelay: `${(r * 4 + i) * 35}ms` }"
             :title="p.hover || undefined"
           >
@@ -85,6 +85,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { VIZ_HOME, VIZ_AWAY } from '~/utils/viz'
+import { isFlaggedKeeper, keeperOf } from '~/utils/football-keeper'
 
 // A player may carry `tag` (a short caption under the name when there is no rating) and `hover` (its title).
 const props = defineProps<{
@@ -96,8 +97,6 @@ const props = defineProps<{
   awayFormation?: string | null
 }>()
 
-const isGK = (p: Record<string, any>) =>
-  ['G', 'GK', 'Goalkeeper'].includes(String(p.position || '').trim())
 
 const isStarter = (p: Record<string, any>) =>
   typeof p.is_starting_xi === 'boolean' ? p.is_starting_xi : true
@@ -142,8 +141,10 @@ function buildRows(lineup: Array<Record<string, any>>, formation: string | null 
     .filter(isStarter)
     .slice()
     .sort((a, b) => (a.jersey_number || 99) - (b.jersey_number || 99))
-  const gk = starters.filter(isGK)
-  const field = starters.filter((p) => !isGK(p))
+  const keeper = keeperOf(starters)
+  const gk = keeper ? [keeper] : []
+  // A second flagged keeper (a duplicate row) is dropped, not left to push a line out of shape.
+  const field = starters.filter((p) => p !== keeper && !isFlaggedKeeper(p))
   const lines = parseFormation(formation) ?? Array.from({ length: Math.ceil(field.length / 4) }, () => 4)
   const rows: Array<Array<Record<string, any>>> = [gk.slice(0, 1)]
   let idx = 0
@@ -154,6 +155,10 @@ function buildRows(lineup: Array<Record<string, any>>, formation: string | null 
   if (idx < field.length) rows.push(field.slice(idx))
   return rows.filter((r) => r.length)
 }
+
+/** The keeper token of each side, for the dashed outline. */
+const homeKeeper = computed(() => keeperOf((props.homeLineup || []).filter(isStarter)))
+const awayKeeper = computed(() => keeperOf((props.awayLineup || []).filter(isStarter)))
 
 const homeRows = computed(() => buildRows(props.homeLineup, props.homeFormation))
 const awayRows = computed(() => buildRows(props.awayLineup, props.awayFormation))

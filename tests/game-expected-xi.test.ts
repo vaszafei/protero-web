@@ -21,6 +21,13 @@ describe('buildExpectedSide', () => {
     expect(side.formation).toBeNull()
   })
 
+  it('skips a newer game whose starter set is inflated past eleven by legacy rows', () => {
+    const games = [game(2, '2026-09-10'), game(1, '2026-09-01')]
+    const extra = [{ game_id: 2, player_name: 'Legacy', jersey_number: null, position: '', is_starting_xi: true, rating: null }]
+    const side = buildExpectedSide(TEAM, 'A', games, [...xi(2, extra), ...xi(1)])
+    expect(side.source?.game_id).toBe(1)
+  })
+
   it('reads the newest game with a whole XI, skipping a newer partial one', () => {
     const games = [game(3, '2026-09-20'), game(2, '2026-09-10'), game(1, '2026-09-01')]
     const side = buildExpectedSide(TEAM, 'A', games, [...xi(3).slice(0, 3), ...xi(2), ...xi(1)])
