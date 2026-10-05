@@ -158,7 +158,10 @@ const stageProps = computed(() => {
       lineups: data.value!.lineups, expected: bundle.value?.expectedXi ?? null, hasTabs,
     }
   }
-  return { game, preview: preview.value, previewError: previewError.value, moves: moves.value, hasTabs }
+  return {
+    game, preview: preview.value, previewError: previewError.value, moves: moves.value,
+    expected: bundle.value?.expectedFive ?? null, hasTabs,
+  }
 })
 
 useHead({

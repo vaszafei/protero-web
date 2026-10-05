@@ -26,6 +26,20 @@ export function discover() {
          and exists(select 1 from lineups l join games p on p.id=l.game_id where l.team_id=g.away_team_id and l.is_starting_xi and p.status='completed' and p.season=g.season and p.date<g.date)
          and not exists(select 1 from lineups l where l.game_id=g.id)
        order by g.date limit 1`),
+    scheduledEuroleagueWithFive: one('scheduled EuroLeague fixture whose clubs both have a box score this season',
+      `select g.id from games g where g.sport='basketball' and g.league_key='euroleague' and g.status='scheduled' and g.date>now()
+         and exists(select 1 from games p where (p.home_team_id=g.home_team_id or p.away_team_id=g.home_team_id) and p.status='completed' and p.season=g.season and p.date<g.date and jsonb_typeof(p.sport_stats->'home'->'players')='array')
+         and exists(select 1 from games p where (p.home_team_id=g.away_team_id or p.away_team_id=g.away_team_id) and p.status='completed' and p.season=g.season and p.date<g.date and jsonb_typeof(p.sport_stats->'home'->'players')='array')
+       order by g.date limit 1`),
+    scheduledBasketballMinutesBasis: one('scheduled basketball fixture outside EuroLeague whose clubs both have a box score this season',
+      `select g.id from games g where g.sport='basketball' and g.league_key in ('acb','bcl','eurocup','lega_a','lnb') and g.status='scheduled' and g.date>now()
+         and exists(select 1 from games p where (p.home_team_id=g.home_team_id or p.away_team_id=g.home_team_id) and p.status='completed' and p.season=g.season and p.date<g.date and jsonb_typeof(p.sport_stats->'home'->'players')='array')
+         and exists(select 1 from games p where (p.home_team_id=g.away_team_id or p.away_team_id=g.away_team_id) and p.status='completed' and p.season=g.season and p.date<g.date and jsonb_typeof(p.sport_stats->'home'->'players')='array')
+       order by g.date limit 1`),
+    scheduledBasketballNoHistory: one('scheduled NBA fixture (no completed game this season)',
+      `select g.id from games g where g.sport='basketball' and g.league_key='nba' and g.status='scheduled' and g.date>now()
+         and not exists(select 1 from games p where p.league_key='nba' and p.season=g.season and p.status='completed')
+       order by g.date limit 1`),
     completedKeeperIsCaptain: one('completed football fixture where one XI has a flagged keeper and the other only a captain (C)',
       `with x as (
          select l.game_id, l.team_id,
