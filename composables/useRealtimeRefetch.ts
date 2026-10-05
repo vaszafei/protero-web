@@ -23,7 +23,7 @@ export function useRealtimeRefetch(
   onChange: () => void,
   debounceMs = 2000,
 ) {
-  const supabase = useSupabaseClient()
+  const supabase = useRealtimeClient()
   const state = ref<'connecting' | 'live' | 'offline'>('connecting')
   const reason = ref<string | null>(null)
 

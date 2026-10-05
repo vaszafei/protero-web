@@ -111,7 +111,7 @@
         </div>
 
         <p v-else-if="run && !phases.length" class="text-[11px] text-zinc-600 leading-relaxed">
-          <template v-if="run.active">Phases appear as they land — the runner persists each one to <code class="text-zinc-500">phase_runs</code> as it completes.</template>
+          <template v-if="run.active">Running — the runner writes every step to <code class="text-zinc-500">phase_runs</code> in one batch when it finishes, and they appear here the moment it does.</template>
           <template v-else>This run wrote no phase telemetry (runs before 2026-10-01 wrote only the summary row).</template>
         </p>
 
@@ -140,8 +140,10 @@
  * While the channel is `live` the modal does NOT poll. It polls only after an explicit
  * `CHANNEL_ERROR` / `TIMED_OUT` / `CLOSED`, or when the channel never reaches SUBSCRIBED within
  * `CONNECT_TIMEOUT_MS`, and says so in its pill (`polling`) — a fallback is never silent.
- * Delivery itself (Realtime evaluates our custom-JWT RLS policy per subscriber) is proven by
- * watching a real run land phase by phase, not by a background heartbeat.
+ * Delivery needs the websocket joined as the signed-in user (`useRealtimeClient`): joined as `anon`,
+ * RLS drops every admin-only INSERT while the pill still says `live`. `pipeline-report.js` writes the
+ * run row and all its phase rows once, at the END of a run, so the modal updates once per run — there is
+ * no per-phase stream to show. `realtime.spec.ts` pins both the join identity and delivery.
  */
 import { ref, computed, watch, onUnmounted } from 'vue'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -164,7 +166,7 @@ const channelState = ref<'connecting' | 'live' | 'polling'>('connecting')
 const channelReason = ref<string | null>(null)
 const channelTitle = computed(() =>
   channelState.value === 'live'
-    ? 'Subscribed to pipeline_runs + phase_runs — phases land as the runner writes them; no polling.'
+    ? 'Subscribed to pipeline_runs + phase_runs — the finished run lands here the moment it is written; no polling.'
     : channelState.value === 'connecting'
       ? 'Connecting to Realtime…'
       : `Realtime is not delivering (${channelReason.value ?? 'unknown'}); re-reading every 2 s.`)
@@ -236,7 +238,7 @@ function fallBackToPolling(reason: string) {
 
 function subscribe() {
   if (channel) return
-  const supabase = useSupabaseClient()
+  const supabase = useRealtimeClient()
   channelState.value = 'connecting'
   channelReason.value = null
   connectTimer = setTimeout(() => {
